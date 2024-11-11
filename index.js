@@ -12,7 +12,8 @@ app.use(express.json());
 
 const dbUser = process.env.DB_USER;
 const dbPass = process.env.DB_PASS;
-const mongodbUri = `mongodb+srv://${dbUser}:${dbPass}@cluster0.hdebc.mongodb.net/coltonPropertyDB?retryWrites=true&w=majority&appName=Cluster0`;
+const dbName = process.env.DB_NAME;
+const mongodbUri = `mongodb+srv://${dbUser}:${dbPass}@cluster0.wvgg4.mongodb.net/${dbName}?retryWrites=true&w=majority&appName=Cluster0`;
 
 mongoose
   .connect(mongodbUri)

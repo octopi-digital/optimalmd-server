@@ -4,7 +4,7 @@
   "author": "Octopi Digital",
   "description": "",
   "main": "index.js",
- "scripts": {
+  "scripts": {
     "dev": "set NODE_ENV=develoment && nodemon server.js",
     "prod": "set NODE_ENV=production && node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -15,6 +15,7 @@
   "keywords": [],
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
