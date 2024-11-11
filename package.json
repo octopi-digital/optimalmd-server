@@ -1,6 +1,7 @@
 {
   "name": "optimalmd-backend",
   "version": "1.0.0",
+  "author": "Octopi Digital",
   "description": "",
   "main": "index.js",
  "scripts": {
