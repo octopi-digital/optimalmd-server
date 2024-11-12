@@ -15,11 +15,13 @@
   "keywords": [],
   "license": "ISC",
   "dependencies": {
+    "authorizenet": "^1.0.9",
     "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
-    "mongoose": "^8.8.1"
+    "mongoose": "^8.8.1",
+    "node-cron": "^3.0.3"
   }
 }

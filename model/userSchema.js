@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   dob: { type: String, required: true },
   password: { type: String },
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date },
   sPhone: { type: String },
   sex: { type: String, enum: ["Male", "Female", "Other"] },
   address1: { type: String },
@@ -15,16 +17,26 @@ const userSchema = new mongoose.Schema({
   city: { type: String },
   state: { type: String },
   zip: { type: String },
+
   dependents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Dependent" }],
-  paymentOption: { type: String },
+  paymentHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Payment" }],
+  
+  status: {
+    type: String,
+    enum: ["Trial", "Canceled", "Plus", "Access", "Premiere"],
+    required: true,
+  },
+
+  planStartDate: { type: Date },
+  planEndDate: { type: Date },
+
+  // Payment details
+  paymentOption: { type: String }, // e.g., 'Credit Card', 'Bank Transfer', etc.
   cardNumber: { type: String },
   bankName: { type: String },
   accountName: { type: String },
   accountNumber: { type: String },
   routingNumber: { type: String },
-  defaultPayment: { type: String },
-  resetPasswordToken: { type: String },
-  resetPasswordExpires: { type: Date },
 });
 
 module.exports = mongoose.model("User", userSchema);

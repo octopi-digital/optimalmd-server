@@ -190,7 +190,6 @@ async function forgetPassword(req, res) {
   try {
     const { email } = req.body;
 
-    // Find user by email
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -199,12 +198,11 @@ async function forgetPassword(req, res) {
     // Generate a reset token
     const resetToken = crypto.randomBytes(32).toString("hex");
 
-    // Set reset token and expiration in user document
     user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = Date.now() + 3600000; // Token expires in 1 hour
+    user.resetPasswordExpires = Date.now() + 3600000;
     await user.save();
 
-    const frontendURL = process.env.NODE_ENV==="production" ? "http://localhost:5173/prod" : "http://localhost:5173"
+    const frontendURL = process.env.NODE_ENV==="production" ? "https://optimalmd.vercel.app" : "http://localhost:5173"
 
     // Send reset link to user's email
     const resetLink = `${frontendURL}/reset-password?token=${resetToken}`;
