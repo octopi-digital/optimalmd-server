@@ -23,6 +23,8 @@ const userSchema = new mongoose.Schema({
   accountNumber: { type: String },
   routingNumber: { type: String },
   defaultPayment: { type: String },
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date },
 });
 
 module.exports = mongoose.model("User", userSchema);

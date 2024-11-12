@@ -1,6 +1,8 @@
 const User = require("../model/userSchema");
-const bcrypt = require('bcryptjs');
-const axios = require('axios');
+const bcrypt = require("bcryptjs");
+const axios = require("axios");
+const crypto = require('crypto');
+
 
 // Get all users
 async function getAllUser(req, res) {
@@ -21,7 +23,9 @@ async function getAllUser(req, res) {
 // Get a single user by ID
 async function getSingleUser(req, res) {
   try {
-    const user = await User.findById(req.params.id).select("-password").populate("dependents");
+    const user = await User.findById(req.params.id)
+      .select("-password")
+      .populate("dependents");
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -62,10 +66,9 @@ async function register(req, res) {
         lastName: newUser.lastName,
         email: newUser.email,
         password: defaultPassword,
-        phone: newUser.phone
+        phone: newUser.phone,
       }
     );
-    
 
     // Check if email was sent successfully
     if (emailResponse.status !== 200) {
@@ -86,10 +89,41 @@ async function register(req, res) {
   }
 }
 
+// update user information
+async function updateUser(req, res) {
+  try {
+    const { userId, ...updateData } = req.body;
+
+    // Check if userId is provided
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    // Find user by ID and update only the provided fields
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    // Check if user was found and updated
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "User information updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error updating user:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}
+
 // Login a user
 async function login(req, res) {
   try {
-    
     const user = await User.findOne({ email: req.body.email });
 
     if (user) {
@@ -151,10 +185,82 @@ async function changepassword(req, res) {
   }
 }
 
+// forget Password password
+async function forgetPassword(req, res) {
+  try {
+    const { email } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Generate a reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    // Set reset token and expiration in user document
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = Date.now() + 3600000; // Token expires in 1 hour
+    await user.save();
+
+    const frontendURL = process.env.NODE_ENV==="production" ? "http://localhost:5173/prod" : "http://localhost:5173"
+
+    // Send reset link to user's email
+    const resetLink = `${frontendURL}/reset-password?token=${resetToken}`;
+    await axios.post("https://services.leadconnectorhq.com/hooks/VrTTgjMoHCZk4jeKOm9F/webhook-trigger/283a2172-a198-427a-828d-fd38ed616722", {
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone,
+      resetLink: resetLink,
+    });
+
+    res.status(200).json({ message: "Password reset email sent" });
+  } catch (error) {
+    console.error("Error in forgot password:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}
+
+// reset Password password
+async function resetPassword(req, res) {
+  try {
+    const { token, newPassword } = req.body;
+
+    // Find user by reset token and ensure it hasn't expired
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }, // Ensure token hasn't expired
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: "Invalid or expired token" });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update user's password and clear reset token fields
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ message: "Password reset successfully" });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}
+
 module.exports = {
   register,
   login,
   getAllUser,
   getSingleUser,
   changepassword,
+  updateUser,
+  resetPassword,
+  forgetPassword,
 };
