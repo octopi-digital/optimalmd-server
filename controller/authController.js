@@ -21,7 +21,7 @@ async function getAllUser(req, res) {
 // Get a single user by ID
 async function getSingleUser(req, res) {
   try {
-    const user = await User.findById(req.params.id).select("-password");
+    const user = await User.findById(req.params.id).select("-password").populate("dependents");
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }

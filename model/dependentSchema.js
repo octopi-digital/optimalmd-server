@@ -5,6 +5,7 @@ const dependentSchema = new mongoose.Schema({
   lastName: { type: String, required: true },
   email: { type: String, unique: true },
   phone: { type: String },
+  relation: { type: String },
   address1: { type: String },
   address2: { type: String },
   primaryUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

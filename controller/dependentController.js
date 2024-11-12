@@ -16,6 +16,7 @@ async function addDependent(req, res) {
       city,
       state,
       zip,
+      relation
     } = req.body;
 
     // Create new dependent
@@ -31,6 +32,7 @@ async function addDependent(req, res) {
       city,
       state,
       zip,
+      relation
     });
 
     const savedDependent = await newDependent.save();
