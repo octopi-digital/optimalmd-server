@@ -35,7 +35,6 @@ async function getSingleUser(req, res) {
 }
 
 // Register a new user
-// Register a new user and send an email with the default password
 async function register(req, res) {
   try {
     const { password, ...userData } = req.body;
@@ -90,14 +89,8 @@ async function register(req, res) {
 // Login a user
 async function login(req, res) {
   try {
-    console.log(req.body.email);
-    console.log(req.body.password);
     
     const user = await User.findOne({ email: req.body.email });
-
-    if (!user || !user.password) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
 
     if (user) {
       const isPasswordMatch = await bcrypt.compare(

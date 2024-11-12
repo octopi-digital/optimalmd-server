@@ -21,8 +21,10 @@ mongoose
   .catch((error) => console.error("MongoDB connection error:", error));
 
 const authRoutes = require("./router/authRoutes");
+const dependentRoutes = require("./router/dependentRoutes");
 
 app.use("/api/auth", authRoutes);
+app.use("/api/dependent", dependentRoutes);
 
 app.get("/", (req, res) => {
   res.send("Optimal MD network is running...");
