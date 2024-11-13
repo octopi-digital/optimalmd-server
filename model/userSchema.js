@@ -23,8 +23,7 @@ const userSchema = new mongoose.Schema({
   
   status: {
     type: String,
-    enum: ["Trial", "Canceled", "Plus", "Access", "Premiere"],
-    required: true,
+    enum: ["Trial", "Canceled", "Plus", "Access", "Premiere"]
   },
 
   planStartDate: { type: Date },
