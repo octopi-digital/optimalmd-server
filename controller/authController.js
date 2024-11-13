@@ -43,7 +43,6 @@ async function register(req, res) {
   try {
     const { password, ...userData } = req.body;
 
-    // Generate a default password if not provided
     const defaultPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
@@ -52,13 +51,10 @@ async function register(req, res) {
       password: hashedPassword,
     });
 
-    // Save the user in the database
     const newUser = await user.save();
 
-    // Remove password from the response to avoid sending it back
     const { password: _, ...userWithoutPassword } = newUser.toObject();
 
-    // Send the email with the default password via external API
     const emailResponse = await axios.post(
       "https://services.leadconnectorhq.com/hooks/VrTTgjMoHCZk4jeKOm9F/webhook-trigger/a31063ba-c921-45c7-a109-248ede8af79b",
       {
@@ -70,12 +66,10 @@ async function register(req, res) {
       }
     );
 
-    // Check if email was sent successfully
     if (emailResponse.status !== 200) {
       throw new Error("Failed to send email");
     }
 
-    // Send a success response
     res.status(201).json({
       message: "User created successfully and email sent",
       user: userWithoutPassword,
@@ -94,19 +88,16 @@ async function updateUser(req, res) {
   try {
     const { userId, ...updateData } = req.body;
 
-    // Check if userId is provided
     if (!userId) {
       return res.status(400).json({ error: "User ID is required" });
     }
 
-    // Find user by ID and update only the provided fields
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { $set: updateData },
       { new: true, runValidators: true }
     );
 
-    // Check if user was found and updated
     if (!updatedUser) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -157,22 +148,18 @@ async function changepassword(req, res) {
   try {
     const { userId, currentPassword, newPassword } = req.body;
 
-    // Find user by ID
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Check if current password matches
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(401).json({ error: "Current password is incorrect" });
     }
 
-    // Hash new password
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update password in database
     user.password = hashedNewPassword;
     await user.save();
 
@@ -195,7 +182,6 @@ async function forgetPassword(req, res) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Generate a reset token
     const resetToken = crypto.randomBytes(32).toString("hex");
 
     user.resetPasswordToken = resetToken;
@@ -204,7 +190,6 @@ async function forgetPassword(req, res) {
 
     const frontendURL = process.env.NODE_ENV==="production" ? "https://optimalmd.vercel.app" : "http://localhost:5173"
 
-    // Send reset link to user's email
     const resetLink = `${frontendURL}/reset-password?token=${resetToken}`;
     await axios.post("https://services.leadconnectorhq.com/hooks/VrTTgjMoHCZk4jeKOm9F/webhook-trigger/283a2172-a198-427a-828d-fd38ed616722", {
       email: user.email,
@@ -226,20 +211,17 @@ async function resetPassword(req, res) {
   try {
     const { token, newPassword } = req.body;
 
-    // Find user by reset token and ensure it hasn't expired
     const user = await User.findOne({
       resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() }, // Ensure token hasn't expired
+      resetPasswordExpires: { $gt: Date.now() },
     });
 
     if (!user) {
       return res.status(400).json({ error: "Invalid or expired token" });
     }
 
-    // Hash the new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update user's password and clear reset token fields
     user.password = hashedPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
