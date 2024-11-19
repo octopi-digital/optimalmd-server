@@ -1,8 +1,7 @@
 const User = require("../model/userSchema");
 const bcrypt = require("bcryptjs");
 const axios = require("axios");
-const crypto = require('crypto');
-
+const crypto = require("crypto");
 
 // Get all users
 async function getAllUser(req, res) {
@@ -188,16 +187,22 @@ async function forgetPassword(req, res) {
     user.resetPasswordExpires = Date.now() + 3600000;
     await user.save();
 
-    const frontendURL = process.env.NODE_ENV==="production" ? "https://optimalmd.vercel.app" : "http://localhost:5173"
+    const frontendURL =
+      process.env.NODE_ENV === "production"
+        ? "https://optimalmd.vercel.app"
+        : "http://localhost:5173";
 
     const resetLink = `${frontendURL}/reset-password?token=${resetToken}`;
-    await axios.post("https://services.leadconnectorhq.com/hooks/VrTTgjMoHCZk4jeKOm9F/webhook-trigger/283a2172-a198-427a-828d-fd38ed616722", {
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      phone: user.phone,
-      resetLink: resetLink,
-    });
+    await axios.post(
+      "https://services.leadconnectorhq.com/hooks/VrTTgjMoHCZk4jeKOm9F/webhook-trigger/283a2172-a198-427a-828d-fd38ed616722",
+      {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        resetLink: resetLink,
+      }
+    );
 
     res.status(200).json({ message: "Password reset email sent" });
   } catch (error) {
