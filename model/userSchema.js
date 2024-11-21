@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   dob: { type: String, required: true },
 
+  image: { type: String },
   password: { type: String },
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },

@@ -8,6 +8,7 @@ const dependentSchema = new mongoose.Schema({
   email: { type: String, required: true },
   phone: { type: String, required: true },
   dob: { type: String, required: true },
+  image: { type: String },
 
   // user
   primaryUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
