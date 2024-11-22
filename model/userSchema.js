@@ -11,14 +11,9 @@ const userSchema = new mongoose.Schema({
   password: { type: String },
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
-  
+
   sPhone: { type: String },
   sex: { type: String, enum: ["Male", "Female", "Other"] },
-  address1: { type: String },
-  address2: { type: String },
-  city: { type: String },
-  state: { type: String },
-  zip: { type: String },
 
   // shipping info:
   shipingAddress1: { type: String },
@@ -27,12 +22,19 @@ const userSchema = new mongoose.Schema({
   shipingState: { type: String },
   shipingZip: { type: String },
 
+  // secondary address:
+  secondaryAddress1: { type: String },
+  secondaryAddress2: { type: String },
+  secondaryCity: { type: String },
+  secondaryState: { type: String },
+  secondaryZip: { type: String },
+
   dependents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Dependent" }],
   paymentHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Payment" }],
-  
+
   status: {
     type: String,
-    enum: ["Trial", "Canceled"]
+    enum: ["Trial", "Canceled"],
   },
 
   // plans
@@ -41,7 +43,7 @@ const userSchema = new mongoose.Schema({
     enum: ["Trial", "Plus", "Access", "Premiere"],
     required: true,
   },
-  planPrice: {type: Number},
+  planPrice: { type: Number },
   planStartDate: { type: Date },
   planEndDate: { type: Date },
 
@@ -55,7 +57,6 @@ const userSchema = new mongoose.Schema({
 
   // rx-valet
   PrimaryMemberGUID: { type: String },
-
 });
 
 module.exports = mongoose.model("User", userSchema);
