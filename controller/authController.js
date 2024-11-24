@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const User = require("../model/userSchema");
 const Dependent = require("../model/dependentSchema");
 const moment = require("moment");
+const { log } = require("console");
 
 // Get all users
 async function getAllUser(req, res) {
@@ -112,10 +113,143 @@ async function register(req, res) {
   }
 }
 
-// update user information
-async function updateUser(req, res) {
-  console.log("hit");
+// // update user information
+// async function updateUser(req, res) {
 
+//   try {
+//     const { userId, ...userInfo } = req.body;
+
+//     if (!userId) {
+//       return res.status(400).json({ error: "User ID is required" });
+//     }
+
+//     // Find the user by ID
+//     const user = await User.findById(userId);
+
+//     const formData = new FormData();
+
+//     // get lyrics integration:
+//     const loginData = new FormData();
+//     loginData.append("email", "mtmstgopt01@mytelemedicine.com");
+//     loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+
+//     const loginResponse = await axios.post(
+//       "https://staging.getlyric.com/go/api/login",
+//       loginData
+//     );
+
+//     const authToken = loginResponse.headers["authorization"];
+//     if (!authToken) {
+//       return res.status(401).json({ error: "Authorization token missing" });
+//     }
+
+//     // rxvalet integration:
+//     let groupID = "";
+//     let CoverageType = "";
+//     let gender = "";
+//     if (user.plan === "Trial") {
+//       groupID = "OPT125";
+//       CoverageType = "EE";
+//     } else if (user.plan === "Plus") {
+//       groupID = "OPT800";
+//       CoverageType = "EF";
+//     }
+
+//     if (userInfo.gender === "Men") {
+//       gender = "M";
+//     } else {
+//       gender = "F";
+//     }
+
+//     const rxvaletUserInfo = {
+//       CompanyID: "12212",
+//       Testing: "1",
+//       GroupID: groupID, //based on plans
+//       MemberID: user?._id,
+//       PersonCode: "1",
+//       CoverageType: CoverageType,
+//       Organization: "Rx Valet LLC",
+//       ...(groupID === "OPT800" && {
+//         MemberSubID: "OPT125",
+//       }),
+//       StartDate: user.planStartDate,
+//       TermDate: user.planStartDate,
+//       FirstName: userInfo.firstName,
+//       LastName: userInfo.lastName,
+//       Gender: gender,
+//       DOB: userInfo.dob,
+//       Email: userInfo.email,
+//       Mobile: userInfo.phone,
+//       BillingAddress1: userInfo.shipingAddress1,
+//       BillingAddress2: userInfo.shipingAddress2,
+//       BillingCity: userInfo.shipingCity,
+//       BillingState: userInfo.shipingState,
+//       BillingZip: userInfo.shipingZip,
+//       BillingPhone: userInfo.phone,
+//       DeliveryAddress1: userInfo.shipingAddress1,
+//       DeliveryAddress2: userInfo.shipingAddress2,
+//       DeliveryCity: userInfo.shipingCity,
+//       DeliveryState: userInfo.shipingState,
+//       DeliveryZip: userInfo.shipingZip,
+//       DeliveryPhone: userInfo.phone,
+//     };
+
+//     Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
+//       formData.append(key, value);
+//     });
+
+//     // api calling to rxvalet
+//     // const response = await axios.post(
+//     //   "https://rxvaletapi.com/api/omdrx/enrollment.php",
+//     //   formData,
+//     //   {
+//     //     headers: {
+//     //       api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
+//     //     },
+//     //   }
+//     // );
+
+//     const response = {
+//       StatusCode: "1",
+//       Message: "Member enrollment completed successfully.",
+//       Result: {
+//         PrimaryMemberGUID: "D1C89B63-90C6-459B-BE08-F265C70A7AA9",
+//       },
+//     };
+
+//     console.log(response);
+//     if (response.StatusCode == "1") {
+//       const myDBData = {
+//         ...userInfo,
+//         PrimaryMemberGUID: response?.Result?.PrimaryMemberGUID,
+//         getLyricsAuthToken: authToken,
+//       };
+//       console.log("my db user", myDBData);
+
+//       // const updatedUser = await User.findByIdAndUpdate(
+//       //   userId,
+//       //   { $set: updateData },
+//       //   { new: true, runValidators: true }
+//       // );
+
+//       // if (!updatedUser) {
+//       //   return res.status(404).json({ error: "User not found" });
+//       // }
+
+//       res.status(200).json({
+//         message: "User information updated successfully",
+//         // user: req.body,
+//         myDBUser: myDBData,
+//         rxvaletUser: rxvaletUserInfo,
+//       });
+//     }
+//   } catch (error) {
+//     console.error("Error updating user:", error.message);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// }
+
+async function updateUser(req, res) {
   try {
     const { userId, ...userInfo } = req.body;
 
@@ -123,45 +257,83 @@ async function updateUser(req, res) {
       return res.status(400).json({ error: "User ID is required" });
     }
 
-    // Find the user by ID
+    // Find user in the database
     const user = await User.findById(userId);
-
-    const formData = new FormData();
-
-    // rxvalet integration:
-    let groupID = "";
-    let CoverageType = "";
-    let gender = "";
-    if (user.plan === "Trial") {
-      groupID = "OPT125";
-      CoverageType = "EE";
-    } else if (user.plan === "Plus") {
-      groupID = "OPT800";
-      CoverageType = "EF";
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    if (userInfo.gender === "Men") {
-      gender = "M";
-    } else {
-      gender = "F";
+    // Authenticate with Lyric to get the token
+    const loginData = new FormData();
+    loginData.append("email", "mtmstgopt01@mytelemedicine.com");
+    loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+
+    const loginResponse = await axios.post(
+      "https://staging.getlyric.com/go/api/login",
+      loginData
+    );
+
+    const authToken = loginResponse.headers["authorization"];
+    console.log(authToken);
+    
+    if (!authToken) {
+      return res.status(401).json({ error: "Authorization token missing" });
     }
 
+    // Prepare `createMember` API payload
+    const createMemberData = new FormData();
+    createMemberData.append("primaryExternalId", user?._id.toString());
+    createMemberData.append("groupCode", "MTMGroupCode01");
+    createMemberData.append("planId", user.plan === "Trial" ? "1234" : "5678");
+    createMemberData.append("planDetailsId", user.plan === "Trial" ? "1" : "3");
+    createMemberData.append("firstName", userInfo.firstName);
+    createMemberData.append("lastName", userInfo.lastName);
+    createMemberData.append("dob", userInfo.dob);
+    createMemberData.append("email", userInfo.email);
+    createMemberData.append("primaryPhone", userInfo.phone);
+    createMemberData.append("gender", userInfo.gender === "Men" ? "m" : "f");
+    createMemberData.append("heightFeet", "0");
+    createMemberData.append("heightInches", "0");
+    createMemberData.append("weight", "0");
+    createMemberData.append("address", userInfo.shipingAddress1);
+    createMemberData.append("address2", userInfo.shipingAddress2 || "");
+    createMemberData.append("city", userInfo.shipingCity);
+    createMemberData.append("stateId", "44"); // Update with actual value
+    createMemberData.append("timezoneId", "3"); // Update with actual value
+    createMemberData.append("zipCode", userInfo.shipingZip);
+
+    // Hit the `createMember` API
+    const createMemberResponse = await axios.post(
+      "https://staging.getlyric.com/go/api/census/createMember",
+      createMemberData,
+      {
+        headers: {
+          Authorization: authToken, // Use the retrieved token here
+        },
+      }
+    );
+
+    if (!createMemberResponse || createMemberResponse.status !== 200) {
+      return res
+        .status(500)
+        .json({ error: "Failed to create member in Lyric system" });
+    }
+
+    const primaryExternalId = createMemberResponse.data?.primaryExternalId;
+
+    // If successful, proceed to RxValet integration
     const rxvaletUserInfo = {
       CompanyID: "12212",
       Testing: "1",
-      GroupID: groupID, //based on plans
-      MemberID: user?._id,
+      GroupID: user.plan === "Trial" ? "OPT125" : "OPT800",
+      MemberID: primaryExternalId,
       PersonCode: "1",
-      CoverageType: CoverageType,
-      Organization: "Rx Valet LLC",
-      ...(groupID === "OPT800" && {
-        MemberSubID: "OPT125",
-      }),
+      CoverageType: user.plan === "Trial" ? "EE" : "EF",
       StartDate: user.planStartDate,
-      TermDate: user.planStartDate,
+      TermDate: user.planEndDate,
       FirstName: userInfo.firstName,
       LastName: userInfo.lastName,
-      Gender: gender,
+      Gender: userInfo.gender === "Men" ? "M" : "F",
       DOB: userInfo.dob,
       Email: userInfo.email,
       Mobile: userInfo.phone,
@@ -179,54 +351,46 @@ async function updateUser(req, res) {
       DeliveryPhone: userInfo.phone,
     };
 
+    // Prepare formData for RxValet
+    const rxvaletFormData = new FormData();
     Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
-      formData.append(key, value);
+      rxvaletFormData.append(key, value);
     });
 
-    // api calling to rxvalet
-    // const response = await axios.post(
-    //   "https://rxvaletapi.com/api/omdrx/enrollment.php",
-    //   formData,
-    //   {
-    //     headers: {
-    //       api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
-    //     },
-    //   }
-    // );
+    // Call RxValet API
+    const rxvaletResponse = await axios.post(
+      "https://rxvaletapi.com/api/omdrx/enrollment.php",
+      rxvaletFormData,
+      {
+        headers: {
+          api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
+        },
+      }
+    );
 
-    const response = {
-      StatusCode: "1",
-      Message: "Member enrollment completed successfully.",
-      Result: {
-        PrimaryMemberGUID: "D1C89B63-90C6-459B-BE08-F265C70A7AA9",
-      },
-    };
-
-    console.log(response);
-    if (response.StatusCode == "1") {
-      const myDBData = {
-        ...userInfo,
-        PrimaryMemberGUID: response?.Result?.PrimaryMemberGUID,
-      };
-      console.log("my db user", myDBData);
-
-      // const updatedUser = await User.findByIdAndUpdate(
-      //   userId,
-      //   { $set: updateData },
-      //   { new: true, runValidators: true }
-      // );
-
-      // if (!updatedUser) {
-      //   return res.status(404).json({ error: "User not found" });
-      // }
-
-      res.status(200).json({
-        message: "User information updated successfully",
-        // user: req.body,
-        myDBUser: myDBData,
-        rxvaletUser: rxvaletUserInfo,
-      });
+    if (!rxvaletResponse || rxvaletResponse.status !== 200) {
+      return res
+        .status(500)
+        .json({ error: "Failed to enroll user in RxValet system" });
     }
+
+    // Update user with data from both APIs
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          ...userInfo,
+          PrimaryMemberGUID: rxvaletResponse.data?.Result?.PrimaryMemberGUID,
+          LyricPrimaryExternalId: primaryExternalId,
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      message: "User updated successfully",
+      user: updatedUser,
+    });
   } catch (error) {
     console.error("Error updating user:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
