@@ -1,7 +1,10 @@
-const User = require("../model/userSchema");
+const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const axios = require("axios");
 const crypto = require("crypto");
+const User = require("../model/userSchema");
+const Dependent = require("../model/dependentSchema");
+const moment = require("moment");
 
 // Get all users
 async function getAllUser(req, res) {
@@ -40,20 +43,47 @@ async function getSingleUser(req, res) {
 // Register a new user
 async function register(req, res) {
   try {
-    const { password, ...userData } = req.body;
+    const { plan, ...userData } = req.body;
+    console.log(userData);
+    console.log(plan);
 
+    // Generate a default random password
     const defaultPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
+    // Determine the start and end dates based on the plan
+    const planStartDate = moment().format("MM/DD/YYYY"); // Format the start date
+    let planEndDate;
+
+    if (plan === "Trial") {
+      planEndDate = moment().add(10, "days").format("MM/DD/YYYY"); // 10 days for Trial
+    } else if (plan === "Plus") {
+      planEndDate = moment().add(3, "months").format("MM/DD/YYYY"); // 3 months for Plus
+    } else if (plan === "Access") {
+      planEndDate = moment().add(6, "months").format("MM/DD/YYYY"); // 6 months for Access
+    } else if (plan === "Premiere") {
+      planEndDate = moment().add(12, "months").format("MM/DD/YYYY"); // 1 year for Premiere
+    } else {
+      return res.status(400).json({ error: "Invalid plan type" }); // Handle invalid plans
+    }
+
+    // Create the user with calculated dates
     const user = new User({
       ...userData,
       password: hashedPassword,
+      plan,
+      planStartDate,
+      planEndDate,
     });
+    console.log(user);
 
+    // Save the user to the database
     const newUser = await user.save();
 
+    // Remove the password field from the response
     const { password: _, ...userWithoutPassword } = newUser.toObject();
 
+    // Send email notification
     const emailResponse = await axios.post(
       "https://services.leadconnectorhq.com/hooks/VrTTgjMoHCZk4jeKOm9F/webhook-trigger/a31063ba-c921-45c7-a109-248ede8af79b",
       {
@@ -84,29 +114,156 @@ async function register(req, res) {
 
 // update user information
 async function updateUser(req, res) {
+  console.log("hit");
+
   try {
-    const { userId, ...updateData } = req.body;
+    const { userId, ...userInfo } = req.body;
 
     if (!userId) {
       return res.status(400).json({ error: "User ID is required" });
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    );
+    // Find the user by ID
+    const user = await User.findById(userId);
 
-    if (!updatedUser) {
+    const formData = new FormData();
+
+    // rxvalet integration:
+    let groupID = "";
+    let CoverageType = "";
+    let gender = "";
+    if (user.plan === "Trial") {
+      groupID = "OPT125";
+      CoverageType = "EE";
+    } else if (user.plan === "Plus") {
+      groupID = "OPT800";
+      CoverageType = "EF";
+    }
+
+    if (userInfo.gender === "Men") {
+      gender = "M";
+    } else {
+      gender = "F";
+    }
+
+    const rxvaletUserInfo = {
+      CompanyID: "12212",
+      Testing: "1",
+      GroupID: groupID, //based on plans
+      MemberID: user?._id,
+      PersonCode: "1",
+      CoverageType: CoverageType,
+      Organization: "Rx Valet LLC",
+      ...(groupID === "OPT800" && {
+        MemberSubID: "OPT125",
+      }),
+      StartDate: user.planStartDate,
+      TermDate: user.planStartDate,
+      FirstName: userInfo.firstName,
+      LastName: userInfo.lastName,
+      Gender: gender,
+      DOB: userInfo.dob,
+      Email: userInfo.email,
+      Mobile: userInfo.phone,
+      BillingAddress1: userInfo.shipingAddress1,
+      BillingAddress2: userInfo.shipingAddress2,
+      BillingCity: userInfo.shipingCity,
+      BillingState: userInfo.shipingState,
+      BillingZip: userInfo.shipingZip,
+      BillingPhone: userInfo.phone,
+      DeliveryAddress1: userInfo.shipingAddress1,
+      DeliveryAddress2: userInfo.shipingAddress2,
+      DeliveryCity: userInfo.shipingCity,
+      DeliveryState: userInfo.shipingState,
+      DeliveryZip: userInfo.shipingZip,
+      DeliveryPhone: userInfo.phone,
+    };
+
+    Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+
+    // api calling to rxvalet
+    // const response = await axios.post(
+    //   "https://rxvaletapi.com/api/omdrx/enrollment.php",
+    //   formData,
+    //   {
+    //     headers: {
+    //       api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
+    //     },
+    //   }
+    // );
+
+    const response = {
+      StatusCode: "1",
+      Message: "Member enrollment completed successfully.",
+      Result: {
+        PrimaryMemberGUID: "D1C89B63-90C6-459B-BE08-F265C70A7AA9",
+      },
+    };
+
+    console.log(response);
+    if (response.StatusCode == "1") {
+      const myDBData = {
+        ...userInfo,
+        PrimaryMemberGUID: response?.Result?.PrimaryMemberGUID,
+      };
+      console.log("my db user", myDBData);
+
+      // const updatedUser = await User.findByIdAndUpdate(
+      //   userId,
+      //   { $set: updateData },
+      //   { new: true, runValidators: true }
+      // );
+
+      // if (!updatedUser) {
+      //   return res.status(404).json({ error: "User not found" });
+      // }
+
+      res.status(200).json({
+        message: "User information updated successfully",
+        // user: req.body,
+        myDBUser: myDBData,
+        rxvaletUser: rxvaletUserInfo,
+      });
+    }
+  } catch (error) {
+    console.error("Error updating user:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}
+
+// Delete user information
+async function deleteUser(req, res) {
+  try {
+    const { id } = req.params;
+    console.log(id);
+
+    // Validate the ID
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    // Find the user by ID
+    const user = await User.findById(id);
+
+    if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.status(200).json({
-      message: "User information updated successfully",
-      user: updatedUser,
-    });
+    // Delete all dependents associated with the user
+    if (user.dependents && user.dependents.length > 0) {
+      await Dependent.deleteMany({ _id: { $in: user.dependents } });
+    }
+
+    // Delete the user
+    await User.findByIdAndDelete(id);
+
+    res
+      .status(200)
+      .json({ message: "User and their dependents deleted successfully" });
   } catch (error) {
-    console.error("Error updating user:", error.message);
+    console.error("Error deleting user:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
   }
 }
@@ -248,4 +405,5 @@ module.exports = {
   updateUser,
   resetPassword,
   forgetPassword,
+  deleteUser,
 };

@@ -44,19 +44,30 @@ const userSchema = new mongoose.Schema({
     required: true,
   },
   planPrice: { type: Number },
-  planStartDate: { type: Date },
-  planEndDate: { type: Date },
+  planStartDate: { type: String },
+  planEndDate: { type: String },
 
   // Payment details
   paymentOption: { type: String },
-  cardNumber: { type: String },
+  // for bank
   bankName: { type: String },
   accountName: { type: String },
   accountNumber: { type: String },
   routingNumber: { type: String },
+  // for card
+  cardNumber: { type: String },
+  expiration: { type: String },
+  cvc: { type: String },
+
+  // coupon
+  couponCode: { type: String },
 
   // rx-valet
   PrimaryMemberGUID: { type: String },
+
+  // getlyric user id
+  getLyricUserId: {type:String}
+
 });
 
 module.exports = mongoose.model("User", userSchema);
