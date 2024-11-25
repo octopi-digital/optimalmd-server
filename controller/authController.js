@@ -180,7 +180,7 @@ async function updateUser(req, res) {
       createMemberData.append("dob", userInfo.dob);
       createMemberData.append("email", userInfo.email);
       createMemberData.append("primaryPhone", userInfo.phone);
-      createMemberData.append("gender", userInfo.sex === "Men" ? "m" : "f");
+      createMemberData.append("gender", userInfo.sex === "Male" ? "m" : "f");
       createMemberData.append("heightFeet", "0");
       createMemberData.append("heightInches", "0");
       createMemberData.append("weight", "0");
@@ -224,7 +224,7 @@ async function updateUser(req, res) {
         TermDate: user.planEndDate,
         FirstName: userInfo.firstName,
         LastName: userInfo.lastName,
-        Gender: userInfo.sex === "Men" ? "M" : "F",
+        Gender: userInfo.sex === "Male" ? "M" : "F",
         DOB: userInfo.dob,
         Email: userInfo.email,
         Mobile: userInfo.phone,
