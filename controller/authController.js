@@ -210,7 +210,6 @@ async function updateUser(req, res) {
       }
 
       const lyricsUserId = createMemberResponse.data.userid;
-      console.log("lyric id: ", lyricsUserId);
 
       // If successful, proceed to RxValet integration
       const rxvaletUserInfo = {
@@ -250,7 +249,7 @@ async function updateUser(req, res) {
 
       // Call RxValet API
       const rxvaletResponse = await axios.post(
-        "https://rxvaletapi.com/api/omdrx/enrollment.php",
+        "https://rxvaletapi.com/api/omdrx/member_enrollment.php",
         rxvaletFormData,
         {
           headers: {
@@ -265,11 +264,7 @@ async function updateUser(req, res) {
           .json({ error: "Failed to enroll user in RxValet system" });
       }
 
-      const rxvaletID = rxvaletResponse.data.Result.PatientID;
-      console.log(
-        "exvalet response to id: ",
-        rxvaletResponse.data.Result.PatientID
-      );
+      const rxvaletID = rxvaletResponse.data.Result.PrimaryMemberGUID;
 
       const updatedUser = await User.findByIdAndUpdate(
         userId,
@@ -282,11 +277,16 @@ async function updateUser(req, res) {
         },
         { new: true, runValidators: true }
       );
-      console.log("data after update", updatedUser);
-
+      const {
+        password,
+        cardNumber,
+        cvc,
+        expiration,
+        ...userWithoutSensitiveData
+      } = updatedUser.toObject();
       res.status(200).json({
         message: "User updated successfully",
-        user: updatedUser,
+        user: userWithoutSensitiveData,
       });
     } else {
       // Update user with data from both APIs
@@ -299,9 +299,16 @@ async function updateUser(req, res) {
         },
         { new: true, runValidators: true }
       );
+      const {
+        password,
+        cardNumber,
+        cvc,
+        expiration,
+        ...userWithoutSensitiveData
+      } = updatedUser.toObject();
       res.status(200).json({
         message: "User updated successfully",
-        user: updatedUser,
+        user: userWithoutSensitiveData,
       });
     }
   } catch (error) {
