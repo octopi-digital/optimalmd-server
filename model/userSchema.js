@@ -66,7 +66,9 @@ const userSchema = new mongoose.Schema({
   PrimaryMemberGUID: { type: String },
 
   // getlyric user id
-  getLyricUserId: {type:String}
+  lyricsUserId: {type:String},
+  ssoAccessToken: {type:String}
+
   // 
 
 });

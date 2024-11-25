@@ -44,9 +44,23 @@ async function getSingleUser(req, res) {
 // Register a new user
 async function register(req, res) {
   try {
-    const { plan, ...userData } = req.body;
-    console.log(userData);
-    console.log(plan);
+    const {
+      plan,
+      dob,
+      cardNumber: rawCardNumber,
+      cvc: rawCvc,
+      expiration: rawExpiration,
+      ...userData
+    } = req.body;
+
+    // Format the dob to mm/dd/yyyy
+    const formattedDob = moment(dob, moment.ISO_8601, true).isValid()
+      ? moment(dob).format("MM/DD/YYYY")
+      : null;
+
+    if (!formattedDob) {
+      return res.status(400).json({ error: "Invalid date of birth format" });
+    }
 
     // Generate a default random password
     const defaultPassword = Math.random().toString(36).slice(-8);
@@ -71,18 +85,24 @@ async function register(req, res) {
     // Create the user with calculated dates
     const user = new User({
       ...userData,
+      dob: formattedDob,
       password: hashedPassword,
       plan,
       planStartDate,
       planEndDate,
     });
-    console.log(user);
 
     // Save the user to the database
     const newUser = await user.save();
 
-    // Remove the password field from the response
-    const { password: _, ...userWithoutPassword } = newUser.toObject();
+    // Remove sensitive fields from the response
+    const {
+      password,
+      cardNumber,
+      cvc,
+      expiration,
+      ...userWithoutSensitiveData
+    } = newUser.toObject();
 
     // Send email notification
     const emailResponse = await axios.post(
@@ -102,7 +122,7 @@ async function register(req, res) {
 
     res.status(201).json({
       message: "User created successfully and email sent",
-      user: userWithoutPassword,
+      user: userWithoutSensitiveData,
     });
   } catch (error) {
     console.error("Error creating user:", error.message);
@@ -112,142 +132,6 @@ async function register(req, res) {
     });
   }
 }
-
-// // update user information
-// async function updateUser(req, res) {
-
-//   try {
-//     const { userId, ...userInfo } = req.body;
-
-//     if (!userId) {
-//       return res.status(400).json({ error: "User ID is required" });
-//     }
-
-//     // Find the user by ID
-//     const user = await User.findById(userId);
-
-//     const formData = new FormData();
-
-//     // get lyrics integration:
-//     const loginData = new FormData();
-//     loginData.append("email", "mtmstgopt01@mytelemedicine.com");
-//     loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
-
-//     const loginResponse = await axios.post(
-//       "https://staging.getlyric.com/go/api/login",
-//       loginData
-//     );
-
-//     const authToken = loginResponse.headers["authorization"];
-//     if (!authToken) {
-//       return res.status(401).json({ error: "Authorization token missing" });
-//     }
-
-//     // rxvalet integration:
-//     let groupID = "";
-//     let CoverageType = "";
-//     let gender = "";
-//     if (user.plan === "Trial") {
-//       groupID = "OPT125";
-//       CoverageType = "EE";
-//     } else if (user.plan === "Plus") {
-//       groupID = "OPT800";
-//       CoverageType = "EF";
-//     }
-
-//     if (userInfo.gender === "Men") {
-//       gender = "M";
-//     } else {
-//       gender = "F";
-//     }
-
-//     const rxvaletUserInfo = {
-//       CompanyID: "12212",
-//       Testing: "1",
-//       GroupID: groupID, //based on plans
-//       MemberID: user?._id,
-//       PersonCode: "1",
-//       CoverageType: CoverageType,
-//       Organization: "Rx Valet LLC",
-//       ...(groupID === "OPT800" && {
-//         MemberSubID: "OPT125",
-//       }),
-//       StartDate: user.planStartDate,
-//       TermDate: user.planStartDate,
-//       FirstName: userInfo.firstName,
-//       LastName: userInfo.lastName,
-//       Gender: gender,
-//       DOB: userInfo.dob,
-//       Email: userInfo.email,
-//       Mobile: userInfo.phone,
-//       BillingAddress1: userInfo.shipingAddress1,
-//       BillingAddress2: userInfo.shipingAddress2,
-//       BillingCity: userInfo.shipingCity,
-//       BillingState: userInfo.shipingState,
-//       BillingZip: userInfo.shipingZip,
-//       BillingPhone: userInfo.phone,
-//       DeliveryAddress1: userInfo.shipingAddress1,
-//       DeliveryAddress2: userInfo.shipingAddress2,
-//       DeliveryCity: userInfo.shipingCity,
-//       DeliveryState: userInfo.shipingState,
-//       DeliveryZip: userInfo.shipingZip,
-//       DeliveryPhone: userInfo.phone,
-//     };
-
-//     Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
-//       formData.append(key, value);
-//     });
-
-//     // api calling to rxvalet
-//     // const response = await axios.post(
-//     //   "https://rxvaletapi.com/api/omdrx/enrollment.php",
-//     //   formData,
-//     //   {
-//     //     headers: {
-//     //       api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
-//     //     },
-//     //   }
-//     // );
-
-//     const response = {
-//       StatusCode: "1",
-//       Message: "Member enrollment completed successfully.",
-//       Result: {
-//         PrimaryMemberGUID: "D1C89B63-90C6-459B-BE08-F265C70A7AA9",
-//       },
-//     };
-
-//     console.log(response);
-//     if (response.StatusCode == "1") {
-//       const myDBData = {
-//         ...userInfo,
-//         PrimaryMemberGUID: response?.Result?.PrimaryMemberGUID,
-//         getLyricsAuthToken: authToken,
-//       };
-//       console.log("my db user", myDBData);
-
-//       // const updatedUser = await User.findByIdAndUpdate(
-//       //   userId,
-//       //   { $set: updateData },
-//       //   { new: true, runValidators: true }
-//       // );
-
-//       // if (!updatedUser) {
-//       //   return res.status(404).json({ error: "User not found" });
-//       // }
-
-//       res.status(200).json({
-//         message: "User information updated successfully",
-//         // user: req.body,
-//         myDBUser: myDBData,
-//         rxvaletUser: rxvaletUserInfo,
-//       });
-//     }
-//   } catch (error) {
-//     console.error("Error updating user:", error.message);
-//     res.status(500).json({ error: "Internal Server Error" });
-//   }
-// }
 
 async function updateUser(req, res) {
   try {
@@ -263,134 +147,163 @@ async function updateUser(req, res) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Authenticate with Lyric to get the token
-    const loginData = new FormData();
-    loginData.append("email", "mtmstgopt01@mytelemedicine.com");
-    loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+    if (!user.lyricsUserId && !user.PrimaryMemberGUID) {
+      // Authenticate with Lyric to get the token
+      const loginData = new FormData();
+      loginData.append("email", "mtmstgopt01@mytelemedicine.com");
+      loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
 
-    const loginResponse = await axios.post(
-      "https://staging.getlyric.com/go/api/login",
-      loginData
-    );
+      const loginResponse = await axios.post(
+        "https://staging.getlyric.com/go/api/login",
+        loginData
+      );
 
-    const authToken = loginResponse.headers["authorization"];
-    console.log(authToken);
-    
-    if (!authToken) {
-      return res.status(401).json({ error: "Authorization token missing" });
-    }
+      const authToken = loginResponse.headers["authorization"];
 
-    // Prepare `createMember` API payload
-    const createMemberData = new FormData();
-    createMemberData.append("primaryExternalId", user?._id.toString());
-    createMemberData.append("groupCode", "MTMGroupCode01");
-    createMemberData.append("planId", user.plan === "Trial" ? "1234" : "5678");
-    createMemberData.append("planDetailsId", user.plan === "Trial" ? "1" : "3");
-    createMemberData.append("firstName", userInfo.firstName);
-    createMemberData.append("lastName", userInfo.lastName);
-    createMemberData.append("dob", userInfo.dob);
-    createMemberData.append("email", userInfo.email);
-    createMemberData.append("primaryPhone", userInfo.phone);
-    createMemberData.append("gender", userInfo.gender === "Men" ? "m" : "f");
-    createMemberData.append("heightFeet", "0");
-    createMemberData.append("heightInches", "0");
-    createMemberData.append("weight", "0");
-    createMemberData.append("address", userInfo.shipingAddress1);
-    createMemberData.append("address2", userInfo.shipingAddress2 || "");
-    createMemberData.append("city", userInfo.shipingCity);
-    createMemberData.append("stateId", "44"); // Update with actual value
-    createMemberData.append("timezoneId", "3"); // Update with actual value
-    createMemberData.append("zipCode", userInfo.shipingZip);
-
-    // Hit the `createMember` API
-    const createMemberResponse = await axios.post(
-      "https://staging.getlyric.com/go/api/census/createMember",
-      createMemberData,
-      {
-        headers: {
-          Authorization: authToken, // Use the retrieved token here
-        },
+      if (!authToken) {
+        return res
+          .status(401)
+          .json({ error: "Authorization token missing for getlyric" });
       }
-    );
 
-    if (!createMemberResponse || createMemberResponse.status !== 200) {
-      return res
-        .status(500)
-        .json({ error: "Failed to create member in Lyric system" });
-    }
+      // Prepare `createMember` API payload
+      const createMemberData = new FormData();
+      createMemberData.append("primaryExternalId", user?._id);
+      createMemberData.append("groupCode", "MTMSTGOPT01");
+      createMemberData.append("planId", "2322");
+      createMemberData.append(
+        "planDetailsId",
+        user.plan === "Trial" ? "1" : "3"
+      );
+      createMemberData.append("firstName", userInfo.firstName);
+      createMemberData.append("lastName", userInfo.lastName);
+      createMemberData.append("dob", userInfo.dob);
+      createMemberData.append("email", userInfo.email);
+      createMemberData.append("primaryPhone", userInfo.phone);
+      createMemberData.append("gender", userInfo.sex === "Men" ? "m" : "f");
+      createMemberData.append("heightFeet", "0");
+      createMemberData.append("heightInches", "0");
+      createMemberData.append("weight", "0");
+      createMemberData.append("address", userInfo.shipingAddress1);
+      createMemberData.append("address2", userInfo.shipingAddress2 || "");
+      createMemberData.append("city", userInfo.shipingCity);
+      createMemberData.append("stateId", "44");
+      createMemberData.append("timezoneId", "3");
+      createMemberData.append("zipCode", userInfo.shipingZip);
+      createMemberData.append("sendRegistrationNotification", "0");
 
-    const primaryExternalId = createMemberResponse.data?.primaryExternalId;
+      // Hit the `createMember` API
+      const createMemberResponse = await axios.post(
+        "https://staging.getlyric.com/go/api/census/createMember",
+        createMemberData,
+        {
+          headers: {
+            Authorization: authToken,
+          },
+        }
+      );
 
-    // If successful, proceed to RxValet integration
-    const rxvaletUserInfo = {
-      CompanyID: "12212",
-      Testing: "1",
-      GroupID: user.plan === "Trial" ? "OPT125" : "OPT800",
-      MemberID: primaryExternalId,
-      PersonCode: "1",
-      CoverageType: user.plan === "Trial" ? "EE" : "EF",
-      StartDate: user.planStartDate,
-      TermDate: user.planEndDate,
-      FirstName: userInfo.firstName,
-      LastName: userInfo.lastName,
-      Gender: userInfo.gender === "Men" ? "M" : "F",
-      DOB: userInfo.dob,
-      Email: userInfo.email,
-      Mobile: userInfo.phone,
-      BillingAddress1: userInfo.shipingAddress1,
-      BillingAddress2: userInfo.shipingAddress2,
-      BillingCity: userInfo.shipingCity,
-      BillingState: userInfo.shipingState,
-      BillingZip: userInfo.shipingZip,
-      BillingPhone: userInfo.phone,
-      DeliveryAddress1: userInfo.shipingAddress1,
-      DeliveryAddress2: userInfo.shipingAddress2,
-      DeliveryCity: userInfo.shipingCity,
-      DeliveryState: userInfo.shipingState,
-      DeliveryZip: userInfo.shipingZip,
-      DeliveryPhone: userInfo.phone,
-    };
-
-    // Prepare formData for RxValet
-    const rxvaletFormData = new FormData();
-    Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
-      rxvaletFormData.append(key, value);
-    });
-
-    // Call RxValet API
-    const rxvaletResponse = await axios.post(
-      "https://rxvaletapi.com/api/omdrx/enrollment.php",
-      rxvaletFormData,
-      {
-        headers: {
-          api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
-        },
+      if (!createMemberResponse) {
+        return res
+          .status(500)
+          .json({ error: "Failed to create member in Lyric system" });
       }
-    );
 
-    if (!rxvaletResponse || rxvaletResponse.status !== 200) {
-      return res
-        .status(500)
-        .json({ error: "Failed to enroll user in RxValet system" });
-    }
+      const lyricsUserId = createMemberResponse.data.userid;
+      console.log("lyric id: ", lyricsUserId);
 
-    // Update user with data from both APIs
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      {
-        $set: {
-          ...userInfo,
-          PrimaryMemberGUID: rxvaletResponse.data?.Result?.PrimaryMemberGUID,
-          LyricPrimaryExternalId: primaryExternalId,
+      // If successful, proceed to RxValet integration
+      const rxvaletUserInfo = {
+        CompanyID: "12212",
+        Testing: "1",
+        GroupID: user.plan === "Trial" ? "OPT125" : "OPT800",
+        MemberID: user?._id,
+        PersonCode: "1",
+        CoverageType: user.plan === "Trial" ? "EE" : "EF",
+        StartDate: user.planStartDate,
+        TermDate: user.planEndDate,
+        FirstName: userInfo.firstName,
+        LastName: userInfo.lastName,
+        Gender: userInfo.sex === "Men" ? "M" : "F",
+        DOB: userInfo.dob,
+        Email: userInfo.email,
+        Mobile: userInfo.phone,
+        BillingAddress1: userInfo.shipingAddress1,
+        BillingAddress2: userInfo.shipingAddress2,
+        BillingCity: userInfo.shipingCity,
+        BillingState: userInfo.shipingState,
+        BillingZip: userInfo.shipingZip,
+        BillingPhone: userInfo.phone,
+        DeliveryAddress1: userInfo.shipingAddress1,
+        DeliveryAddress2: userInfo.shipingAddress2,
+        DeliveryCity: userInfo.shipingCity,
+        DeliveryState: userInfo.shipingState,
+        DeliveryZip: userInfo.shipingZip,
+        DeliveryPhone: userInfo.phone,
+      };
+
+      // Prepare formData for RxValet
+      const rxvaletFormData = new FormData();
+      Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
+        rxvaletFormData.append(key, value);
+      });
+
+      // Call RxValet API
+      const rxvaletResponse = await axios.post(
+        "https://rxvaletapi.com/api/omdrx/enrollment.php",
+        rxvaletFormData,
+        {
+          headers: {
+            api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
+          },
+        }
+      );
+
+      if (!rxvaletResponse || rxvaletResponse.status !== 200) {
+        return res
+          .status(500)
+          .json({ error: "Failed to enroll user in RxValet system" });
+      }
+
+      const rxvaletID = rxvaletResponse.data.Result.PatientID;
+      console.log(
+        "exvalet response to id: ",
+        rxvaletResponse.data.Result.PatientID
+      );
+
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+          $set: {
+            ...userInfo,
+            PrimaryMemberGUID: rxvaletID,
+            lyricsUserId: lyricsUserId,
+          },
         },
-      },
-      { new: true, runValidators: true }
-    );
+        { new: true, runValidators: true }
+      );
+      console.log("data after update", updatedUser);
 
-    res.status(200).json({
-      message: "User updated successfully",
-      user: updatedUser,
-    });
+      res.status(200).json({
+        message: "User updated successfully",
+        user: updatedUser,
+      });
+    } else {
+      // Update user with data from both APIs
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+          $set: {
+            ...userInfo,
+          },
+        },
+        { new: true, runValidators: true }
+      );
+      res.status(200).json({
+        message: "User updated successfully",
+        user: updatedUser,
+      });
+    }
   } catch (error) {
     console.error("Error updating user:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
@@ -401,7 +314,6 @@ async function updateUser(req, res) {
 async function deleteUser(req, res) {
   try {
     const { id } = req.params;
-    console.log(id);
 
     // Validate the ID
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
