@@ -24,10 +24,12 @@ mongoose
 const authRoutes = require("./router/authRoutes");
 const dependentRoutes = require("./router/dependentRoutes");
 const rxvaletRoutes = require("./router/rxvaletRoutes");
+const getLyricRoutes = require("./router/getLyricRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
 app.use("/api/rxvalet", rxvaletRoutes);
+app.use("/api/getLyric", getLyricRoutes);
 
 app.get("/", (req, res) => {
   res.send("Optimal MD network is running...");
