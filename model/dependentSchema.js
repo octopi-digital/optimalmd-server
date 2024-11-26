@@ -4,7 +4,7 @@ const dependentSchema = new mongoose.Schema({
   firstName: { type: String },
   lastName: { type: String},
   sex: { type: String, enum: ["Male", "Female", "Other"] },
-  relation: { type: String, required: true },
+  relation: { type: String, enum: ["Male", "Female", "Other"], required: true },
   email: { type: String },
   phone: { type: String },
   dob: { type: String },

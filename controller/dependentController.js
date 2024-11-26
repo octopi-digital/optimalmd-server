@@ -31,7 +31,7 @@ async function addDependent(req, res) {
       primaryUser,
       { $push: { dependents: savedDependent._id } },
       { new: true }
-    );
+    ).populate('dependents');
 
     if (!updatedUser) {
       return res
