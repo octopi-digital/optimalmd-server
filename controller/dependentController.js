@@ -4,48 +4,53 @@ const User = require("../model/userSchema");
 // Add a new dependent
 async function addDependent(req, res) {
   try {
-    const {
-      primaryUser,
-      firstName,
-      lastName,
-      email,
-      phone,
-      address1,
-      address2,
-      country,
-      city,
-      state,
-      zip,
-      relation
-    } = req.body;
+    const { primaryUser, relation } = req.body;
+
+    // Validate input
+    if (!primaryUser || !relation) {
+      return res
+        .status(400)
+        .json({ error: "primaryUser and relation are required." });
+    }
+
+    // Check if primary user exists
+    const userExists = await User.findById(primaryUser);
+    if (!userExists) {
+      return res.status(404).json({ error: "Primary user not found." });
+    }
 
     // Create new dependent
     const newDependent = new Dependent({
       primaryUser,
-      firstName,
-      lastName,
-      email,
-      phone,
-      address1,
-      address2,
-      country,
-      city,
-      state,
-      zip,
-      relation
+      relation,
     });
-
     const savedDependent = await newDependent.save();
 
     // Update the user to include this dependent in their `dependents` array
-    await User.findByIdAndUpdate(
+    const updatedUser = await User.findByIdAndUpdate(
       primaryUser,
       { $push: { dependents: savedDependent._id } },
       { new: true }
     );
 
+    if (!updatedUser) {
+      return res
+        .status(500)
+        .json({ error: "Failed to update user dependents." });
+    }
+
+    // Remove sensitive fields before sending response
+    const {
+      password,
+      cardNumber,
+      cvc,
+      expiration,
+      ...userWithoutSensitiveData
+    } = updatedUser.toObject();
+
     res.status(201).json({
       message: "Dependent added successfully",
+      user: userWithoutSensitiveData,
       dependent: savedDependent,
     });
   } catch (error) {

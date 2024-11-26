@@ -1,13 +1,13 @@
 const mongoose = require('mongoose');
 
 const dependentSchema = new mongoose.Schema({
-  firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
+  firstName: { type: String },
+  lastName: { type: String},
   sex: { type: String, enum: ["Male", "Female", "Other"] },
-  relation: { type: String },
-  email: { type: String, required: true },
-  phone: { type: String, required: true },
-  dob: { type: String, required: true },
+  relation: { type: String, required: true },
+  email: { type: String },
+  phone: { type: String },
+  dob: { type: String },
   image: { type: String },
 
   // user
@@ -19,6 +19,13 @@ const dependentSchema = new mongoose.Schema({
   shipingCity: { type: String },
   shipingState: { type: String },
   shipingZip: { type: String },
+
+  // shipping info:
+  secondaryAddress1: { type: String },
+  secondaryAddress2: { type: String },
+  secondaryCity: { type: String },
+  secondaryState: { type: String },
+  secondaryZip: { type: String },
 });
 
 module.exports = mongoose.model('Dependent', dependentSchema);
