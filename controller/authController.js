@@ -317,6 +317,42 @@ async function updateUser(req, res) {
   }
 }
 
+// update user image
+async function updateUserImage(req, res) {
+  try {
+    const { image, id } = req.body;
+
+    // Find the user by ID
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          ...user,
+          image: image,
+        },
+      },
+      { new: true, runValidators: true }
+    );
+    const {
+      password,
+      cardNumber,
+      cvc,
+      expiration,
+      ...userWithoutSensitiveData
+    } = updatedUser.toObject();
+
+    res.status(200).json({ message: "User image updated successfully", user: userWithoutSensitiveData, });
+  } catch (error) {
+    console.error("Error deleting user:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}
 // Delete user information
 async function deleteUser(req, res) {
   try {
@@ -489,4 +525,5 @@ module.exports = {
   resetPassword,
   forgetPassword,
   deleteUser,
+  updateUserImage,
 };
