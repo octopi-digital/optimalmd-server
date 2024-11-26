@@ -276,7 +276,7 @@ async function updateUser(req, res) {
           },
         },
         { new: true, runValidators: true }
-      );
+      ).populate('dependents');
       const {
         password,
         cardNumber,
@@ -298,7 +298,7 @@ async function updateUser(req, res) {
           },
         },
         { new: true, runValidators: true }
-      );
+      ).populate('dependents');
       const {
         password,
         cardNumber,
@@ -338,7 +338,8 @@ async function updateUserImage(req, res) {
         },
       },
       { new: true, runValidators: true }
-    );
+    ).populate('dependents');
+
     const {
       password,
       cardNumber,
