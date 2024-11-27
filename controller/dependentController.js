@@ -181,4 +181,5 @@ module.exports = {
   updateDependent,
   deleteDependent,
   getDependentsByUserId,
+  updateDependentImage
 };
