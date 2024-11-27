@@ -12,10 +12,10 @@ const {
 router.post("/add", addDependent);
 
 // Route to update a dependent by ID
-router.put("/update/:id", updateDependent);
+router.put("/upload/image", updateDependentImage);
 
 // Route to update a dependent by ID
-router.put("/update/image", updateDependentImage);
+router.put("/update/:id", updateDependent);
 
 // Route to delete a dependent by ID
 router.delete("/delete/:id", deleteDependent);
