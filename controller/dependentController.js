@@ -31,7 +31,7 @@ async function addDependent(req, res) {
       primaryUser,
       { $push: { dependents: savedDependent._id } },
       { new: true }
-    ).populate('dependents');
+    ).populate("dependents");
 
     if (!updatedUser) {
       return res
@@ -129,6 +129,49 @@ async function getDependentsByUserId(req, res) {
     res.status(200).json(dependents);
   } catch (error) {
     console.error("Error fetching dependents by user ID:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}
+
+// update dependent image
+async function updateDependentImage(req, res) {
+  try {
+    const { image, id } = req.body;
+
+    // Update the dependent's image
+    const updatedDependent = await Dependent.findByIdAndUpdate(
+      id,
+      { image: image },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedDependent) {
+      return res.status(404).json({ error: "Dependent not found" });
+    }
+
+    // Find the user and populate the dependents
+    const user = await User.findById(updatedDependent.primaryUser).populate(
+      "dependents"
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const {
+      password,
+      cardNumber,
+      cvc,
+      expiration,
+      ...userWithoutSensitiveData
+    } = user.toObject();
+
+    res.status(200).json({
+      message: "Dependent image updated successfully",
+      user: userWithoutSensitiveData,
+    });
+  } catch (error) {
+    console.error("Error updating dependent image:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
   }
 }

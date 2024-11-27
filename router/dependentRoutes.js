@@ -5,6 +5,7 @@ const {
   updateDependent,
   deleteDependent,
   getDependentsByUserId,
+  updateDependentImage
 } = require("../controller/dependentController");
 
 // Route to add a new dependent
@@ -12,6 +13,9 @@ router.post("/add", addDependent);
 
 // Route to update a dependent by ID
 router.put("/update/:id", updateDependent);
+
+// Route to update a dependent by ID
+router.put("/update/image", updateDependentImage);
 
 // Route to delete a dependent by ID
 router.delete("/delete/:id", deleteDependent);
