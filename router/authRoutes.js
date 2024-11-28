@@ -15,7 +15,7 @@ router.post("/register", register);
 router.patch("/update", updateUser);
 
 //update user information
-router.patch("/update/image", updateUserImage);
+router.patch("/upload/image", updateUserImage);
 
 //delete user information
 router.delete("/delete/:id", deleteUser);

@@ -368,36 +368,41 @@ async function updateUserImage(req, res) {
   try {
     const { image, id } = req.body;
 
+    console.log("Request data:", req.body);
+
     // Find the user by ID
     const user = await User.findById(id);
-
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Update image
     const updatedUser = await User.findByIdAndUpdate(
       id,
       { image: image },
       { new: true, runValidators: true }
     ).populate("dependents");
 
-    const {
-      password,
-      cardNumber,
-      cvc,
-      expiration,
-      ...userWithoutSensitiveData
-    } = updatedUser.toObject();
+    if (!updatedUser) {
+      return res.status(400).json({ error: "User update failed" });
+    }
+
+    console.log("Updated user:", updatedUser);
+
+    const { password, cardNumber, cvc, expiration, ...userWithoutSensitiveData } =
+      updatedUser.toObject();
 
     res.status(200).json({
       message: "User image updated successfully",
       user: userWithoutSensitiveData,
     });
   } catch (error) {
-    console.error("Error deleting user:", error.message);
+    console.error("Error updating user image:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 }
+
+
 // Delete user information
 async function deleteUser(req, res) {
   try {
