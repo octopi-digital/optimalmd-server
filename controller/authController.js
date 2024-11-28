@@ -67,20 +67,55 @@ async function register(req, res) {
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
     // Determine the start and end dates based on the plan
-    const planStartDate = moment().format("MM/DD/YYYY"); // Format the start date
+    const planStartDate = moment().format("MM/DD/YYYY");
     let planEndDate;
 
+    let amount = 0;
     if (plan === "Trial") {
-      planEndDate = moment().add(10, "days").format("MM/DD/YYYY"); // 10 days for Trial
+      planEndDate = moment().add(10, "days").format("MM/DD/YYYY");
+      amount = 10;
     } else if (plan === "Plus") {
-      planEndDate = moment().add(3, "months").format("MM/DD/YYYY"); // 3 months for Plus
+      planEndDate = moment().add(1, "months").format("MM/DD/YYYY");
+      amount = 97;
     } else if (plan === "Access") {
-      planEndDate = moment().add(6, "months").format("MM/DD/YYYY"); // 6 months for Access
+      planEndDate = moment().add(3, "months").format("MM/DD/YYYY");
+      amount = 97;
     } else if (plan === "Premiere") {
-      planEndDate = moment().add(12, "months").format("MM/DD/YYYY"); // 1 year for Premiere
+      planEndDate = moment().add(6, "months").format("MM/DD/YYYY");
+      amount = 97;
     } else {
-      return res.status(400).json({ error: "Invalid plan type" }); // Handle invalid plans
+      return res.status(400).json({ error: "Invalid plan type" });
     }
+
+    const response = await axios.post(
+      "https://apitest.authorize.net/xml/v1/request.api",
+      {
+        createTransactionRequest: {
+          merchantAuthentication: {
+            name: API_LOGIN_ID,
+            transactionKey: TRANSACTION_KEY,
+          },
+          transactionRequest: {
+            transactionType: "authCaptureTransaction",
+            amount: amount,
+            payment: {
+              creditCard: {
+                cardNumber: rawCardNumber,
+                expirationDate: rawExpiration,
+                cardCode: rawCvc,
+              },
+            },
+          },
+        },
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const result = response.data;
 
     // Create the user with calculated dates
     const user = new User({
@@ -276,7 +311,7 @@ async function updateUser(req, res) {
           },
         },
         { new: true, runValidators: true }
-      ).populate('dependents');
+      ).populate("dependents");
       const {
         password,
         cardNumber,
@@ -298,7 +333,7 @@ async function updateUser(req, res) {
           },
         },
         { new: true, runValidators: true }
-      ).populate('dependents');
+      ).populate("dependents");
       const {
         password,
         cardNumber,
@@ -338,7 +373,7 @@ async function updateUserImage(req, res) {
         },
       },
       { new: true, runValidators: true }
-    ).populate('dependents');
+    ).populate("dependents");
 
     const {
       password,
@@ -348,7 +383,12 @@ async function updateUserImage(req, res) {
       ...userWithoutSensitiveData
     } = updatedUser.toObject();
 
-    res.status(200).json({ message: "User image updated successfully", user: userWithoutSensitiveData, });
+    res
+      .status(200)
+      .json({
+        message: "User image updated successfully",
+        user: userWithoutSensitiveData,
+      });
   } catch (error) {
     console.error("Error deleting user:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
@@ -391,7 +431,9 @@ async function deleteUser(req, res) {
 // Login a user
 async function login(req, res) {
   try {
-    const user = await User.findOne({ email: req.body.email }).populate('dependents');
+    const user = await User.findOne({ email: req.body.email }).populate(
+      "dependents"
+    );
 
     if (user) {
       const isPasswordMatch = await bcrypt.compare(
