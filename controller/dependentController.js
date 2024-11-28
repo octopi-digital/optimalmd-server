@@ -133,7 +133,19 @@ async function updateDependent(req, res) {
         Other: "3",
         Parents: "4",
       };
-      const relationShipId = relationMap[userInfo.relation];
+      let relationShipId="";
+      if(userInfo.relation==="Spouse"){
+        relationShipId="1"
+      }
+      else if(userInfo.relation==="Children"){
+        relationShipId="2"
+      }
+      else if(userInfo.relation==="Other"){
+        relationShipId="3"
+      }
+      else if(userInfo.relation==="Parents"){
+        relationShipId="4"
+      }
 
       const createDependentData = new FormData();
       createDependentData.append("primaryExternalId", primaryUserId);
@@ -152,6 +164,7 @@ async function updateDependent(req, res) {
       createDependentData.append("stateId", userInfo.shipingStateId || "44");
       createDependentData.append("zipCode", userInfo.shipingZip);
       createDependentData.append("relationShipId", relationShipId);
+      createDependentData.append("timezoneId", "");
       createDependentData.append("sendRegistrationNotification", "0");
 
       const createDependentResponse = await axios.post(
