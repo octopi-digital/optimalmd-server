@@ -149,7 +149,7 @@ async function updateDependent(req, res) {
       createDependentData.append("address", userInfo.shipingAddress1);
       createDependentData.append("address2", userInfo.shipingAddress2 || "");
       createDependentData.append("city", userInfo.shipingCity);
-      createDependentData.append("stateId", userInfo.shipingStateId);
+      createDependentData.append("stateId", userInfo.shipingStateId || "44");
       createDependentData.append("zipCode", userInfo.shipingZip);
       createDependentData.append("relationShipId", relationShipId);
       createDependentData.append("sendRegistrationNotification", "0");
@@ -182,7 +182,7 @@ async function updateDependent(req, res) {
         PhoneNumber: userInfo.phone,
         Address: userInfo.shipingAddress1,
         City: userInfo.shipingCity,
-        StateID: userInfo.shipingStateId,
+        StateID: userInfo.shipingStateId || "44",
         ZipCode: userInfo.shipingZip,
       };
 
