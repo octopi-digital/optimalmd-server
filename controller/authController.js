@@ -6,6 +6,7 @@ const User = require("../model/userSchema");
 const Dependent = require("../model/dependentSchema");
 const Payment = require("../model/paymentSchema");
 const moment = require("moment");
+const { log } = require("console");
 
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
@@ -177,7 +178,7 @@ async function register(req, res) {
   }
 }
 
-// update user
+// update user info
 async function updateUser(req, res) {
   try {
     const { userId, ...userInfo } = req.body;
@@ -232,8 +233,8 @@ async function updateUser(req, res) {
       createMemberData.append("address", userInfo.shipingAddress1);
       createMemberData.append("address2", userInfo.shipingAddress2 || "");
       createMemberData.append("city", userInfo.shipingCity);
-      createMemberData.append("stateId", "44");
-      createMemberData.append("timezoneId", "3");
+      createMemberData.append("stateId", userInfo.shipingStateId);
+      createMemberData.append("timezoneId", "");
       createMemberData.append("zipCode", userInfo.shipingZip);
       createMemberData.append("sendRegistrationNotification", "0");
 
@@ -376,12 +377,7 @@ async function updateUserImage(req, res) {
 
     const updatedUser = await User.findByIdAndUpdate(
       id,
-      {
-        $set: {
-          ...user,
-          image: image,
-        },
-      },
+      { image: image },
       { new: true, runValidators: true }
     ).populate("dependents");
 

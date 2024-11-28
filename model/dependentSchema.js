@@ -26,6 +26,12 @@ const dependentSchema = new mongoose.Schema({
   secondaryCity: { type: String, default: "" },
   secondaryState: { type: String, default: "" },
   secondaryZip: { type: String, default: "" },
+
+  // lyric id:
+  lyricDependentId: { type: String, default: "" },
+
+  // rxvalet
+  rxvaletDependentId: { type: String, default: "" },
 });
 
 module.exports = mongoose.model('Dependent', dependentSchema);
