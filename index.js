@@ -32,6 +32,7 @@ app.use("/api/rxvalet", rxvaletRoutes);
 app.use("/api/getLyric", getLyricRoutes);
 app.use("/api/payment", paymentRoutes);
 
+
 app.get("/", (req, res) => {
   res.send("Optimal MD network is running...");
 });

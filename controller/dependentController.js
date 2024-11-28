@@ -93,6 +93,8 @@ async function updateDependent(req, res) {
     const dependentId = req.params.id;
     const updateData = req.body;
 
+    updateData.status = "Active";
+
     const updatedDependent = await Dependent.findByIdAndUpdate(
       dependentId,
       updateData,
@@ -181,5 +183,5 @@ module.exports = {
   updateDependent,
   deleteDependent,
   getDependentsByUserId,
-  updateDependentImage
+  updateDependentImage,
 };

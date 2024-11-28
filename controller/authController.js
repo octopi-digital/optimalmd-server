@@ -177,7 +177,7 @@ async function register(req, res) {
   }
 }
 
-
+// update user
 async function updateUser(req, res) {
   try {
     const { userId, ...userInfo } = req.body;

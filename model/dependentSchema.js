@@ -11,6 +11,7 @@ const dependentSchema = new mongoose.Schema({
   image: { type: String, default: "" },
 
   primaryUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  status: { type: String, enum: ["Active", "Pending"], default: "Pending" },
 
   // Shipping info:
   shipingAddress1: { type: String, default: "" },
