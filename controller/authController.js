@@ -368,8 +368,6 @@ async function updateUserImage(req, res) {
   try {
     const { image, id } = req.body;
 
-    console.log("Request data:", req.body);
-
     // Find the user by ID
     const user = await User.findById(id);
     if (!user) {
@@ -386,8 +384,6 @@ async function updateUserImage(req, res) {
     if (!updatedUser) {
       return res.status(400).json({ error: "User update failed" });
     }
-
-    console.log("Updated user:", updatedUser);
 
     const { password, cardNumber, cvc, expiration, ...userWithoutSensitiveData } =
       updatedUser.toObject();
