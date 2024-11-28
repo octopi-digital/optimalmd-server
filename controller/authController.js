@@ -4,8 +4,11 @@ const axios = require("axios");
 const crypto = require("crypto");
 const User = require("../model/userSchema");
 const Dependent = require("../model/dependentSchema");
+const Payment = require("../model/paymentSchema");
 const moment = require("moment");
-const { log } = require("console");
+
+const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
+const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 
 // Get all users
 async function getAllUser(req, res) {
@@ -130,6 +133,9 @@ async function register(req, res) {
       plan,
       planStartDate,
       planEndDate,
+      cardNumber: rawCardNumber,
+      cvc: rawCvc,
+      expiration: rawExpiration,
     });
     const newUser = await user.save();
 
@@ -140,7 +146,11 @@ async function register(req, res) {
       plan,
       transactionId,
     });
-    await paymentRecord.save();
+    const savedPaymentRecord = await paymentRecord.save();
+
+    // Add Payment Record to User's paymentHistory
+    newUser.paymentHistory.push(savedPaymentRecord._id);
+    await newUser.save();
 
     // Send Email Notification
     const emailResponse = await axios.post(
@@ -156,11 +166,9 @@ async function register(req, res) {
 
     if (emailResponse.status !== 200) throw new Error("Failed to send email");
 
-    res
-      .status(201)
-      .json({
-        message: "User created successfully, payment recorded, and email sent",
-      });
+    res.status(201).json({
+      message: "User created successfully, payment recorded, and email sent",
+    });
   } catch (error) {
     console.error("Error creating user:", error.message);
     res
@@ -168,6 +176,7 @@ async function register(req, res) {
       .json({ detail: "Internal Server Error", error: error.message });
   }
 }
+
 
 async function updateUser(req, res) {
   try {
