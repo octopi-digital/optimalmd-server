@@ -53,7 +53,7 @@ async function register(req, res) {
       ...userData
     } = req.body;
 
-    // Format the dob to mm/dd/yyyy
+    // Format DOB
     const formattedDob = moment(dob, moment.ISO_8601, true).isValid()
       ? moment(dob).format("MM/DD/YYYY")
       : null;
@@ -62,32 +62,37 @@ async function register(req, res) {
       return res.status(400).json({ error: "Invalid date of birth format" });
     }
 
-    // Generate a default random password
+    // Generate random password and hash it
     const defaultPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
-    // Determine the start and end dates based on the plan
+    // Plan and amount setup
     const planStartDate = moment().format("MM/DD/YYYY");
-    let planEndDate;
+    let planEndDate, amount;
 
-    let amount = 0;
-    if (plan === "Trial") {
-      planEndDate = moment().add(10, "days").format("MM/DD/YYYY");
-      amount = 10;
-    } else if (plan === "Plus") {
-      planEndDate = moment().add(1, "months").format("MM/DD/YYYY");
-      amount = 97;
-    } else if (plan === "Access") {
-      planEndDate = moment().add(3, "months").format("MM/DD/YYYY");
-      amount = 97;
-    } else if (plan === "Premiere") {
-      planEndDate = moment().add(6, "months").format("MM/DD/YYYY");
-      amount = 97;
-    } else {
-      return res.status(400).json({ error: "Invalid plan type" });
+    switch (plan) {
+      case "Trial":
+        planEndDate = moment().add(10, "days").format("MM/DD/YYYY");
+        amount = 10;
+        break;
+      case "Plus":
+        planEndDate = moment().add(1, "months").format("MM/DD/YYYY");
+        amount = 97;
+        break;
+      case "Access":
+        planEndDate = moment().add(3, "months").format("MM/DD/YYYY");
+        amount = 97;
+        break;
+      case "Premiere":
+        planEndDate = moment().add(6, "months").format("MM/DD/YYYY");
+        amount = 97;
+        break;
+      default:
+        return res.status(400).json({ error: "Invalid plan type" });
     }
 
-    const response = await axios.post(
+    // Process Payment
+    const paymentResponse = await axios.post(
       "https://apitest.authorize.net/xml/v1/request.api",
       {
         createTransactionRequest: {
@@ -108,16 +113,16 @@ async function register(req, res) {
           },
         },
       },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
+      { headers: { "Content-Type": "application/json" } }
     );
 
-    const result = response.data;
+    const transactionId = paymentResponse?.data?.transactionResponse?.transId;
 
-    // Create the user with calculated dates
+    if (!transactionId) {
+      return res.status(400).json({ error: "Payment failed" });
+    }
+
+    // Create User
     const user = new User({
       ...userData,
       dob: formattedDob,
@@ -126,20 +131,18 @@ async function register(req, res) {
       planStartDate,
       planEndDate,
     });
-
-    // Save the user to the database
     const newUser = await user.save();
 
-    // Remove sensitive fields from the response
-    const {
-      password,
-      cardNumber,
-      cvc,
-      expiration,
-      ...userWithoutSensitiveData
-    } = newUser.toObject();
+    // Save Payment Record
+    const paymentRecord = new Payment({
+      userId: newUser._id,
+      amount,
+      plan,
+      transactionId,
+    });
+    await paymentRecord.save();
 
-    // Send email notification
+    // Send Email Notification
     const emailResponse = await axios.post(
       "https://services.leadconnectorhq.com/hooks/VrTTgjMoHCZk4jeKOm9F/webhook-trigger/a31063ba-c921-45c7-a109-248ede8af79b",
       {
@@ -151,20 +154,18 @@ async function register(req, res) {
       }
     );
 
-    if (emailResponse.status !== 200) {
-      throw new Error("Failed to send email");
-    }
+    if (emailResponse.status !== 200) throw new Error("Failed to send email");
 
-    res.status(201).json({
-      message: "User created successfully and email sent",
-      user: userWithoutSensitiveData,
-    });
+    res
+      .status(201)
+      .json({
+        message: "User created successfully, payment recorded, and email sent",
+      });
   } catch (error) {
     console.error("Error creating user:", error.message);
-    res.status(500).json({
-      detail: "Internal Server Error",
-      error: error.message,
-    });
+    res
+      .status(500)
+      .json({ detail: "Internal Server Error", error: error.message });
   }
 }
 
@@ -383,12 +384,10 @@ async function updateUserImage(req, res) {
       ...userWithoutSensitiveData
     } = updatedUser.toObject();
 
-    res
-      .status(200)
-      .json({
-        message: "User image updated successfully",
-        user: userWithoutSensitiveData,
-      });
+    res.status(200).json({
+      message: "User image updated successfully",
+      user: userWithoutSensitiveData,
+    });
   } catch (error) {
     console.error("Error deleting user:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
