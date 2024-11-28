@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const dependentSchema = new mongoose.Schema({
   firstName: { type: String, default: "" },
   lastName: { type: String, default: "" },
-  sex: { type: String },
+  sex: { type: String, default: "" },
   relation: { type: String, enum: ["Parents", "Children", "Spouse", "Other"], required: true },
   email: { type: String, default: "" },
   phone: { type: String, default: "" },
