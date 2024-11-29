@@ -436,9 +436,7 @@ async function deleteUser(req, res) {
 // Login a user
 async function login(req, res) {
   try {
-    const user = await User.findOne({ email: req.body.email }).populate(
-      "dependents"
-    );
+    const user = await User.findOne({ email: req.body.email }).populate(["dependents","paymentHistory"]);
 
     if (user) {
       const isPasswordMatch = await bcrypt.compare(
