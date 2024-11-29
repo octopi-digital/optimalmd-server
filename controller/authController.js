@@ -322,7 +322,7 @@ async function updateUser(req, res) {
           },
         },
         { new: true, runValidators: true }
-      ).populate(["dependents","paymentHistory"]);
+      ).populate(["dependents", "paymentHistory"]);
       const {
         password,
         cardNumber,
@@ -344,7 +344,7 @@ async function updateUser(req, res) {
           },
         },
         { new: true, runValidators: true }
-      ).populate(["dependents","paymentHistory"]);
+      ).populate(["dependents", "paymentHistory"]);
       const {
         password,
         cardNumber,
@@ -379,14 +379,19 @@ async function updateUserImage(req, res) {
       id,
       { image: image },
       { new: true, runValidators: true }
-    ).populate(["dependents","paymentHistory"]);
+    ).populate(["dependents", "paymentHistory"]);
 
     if (!updatedUser) {
       return res.status(400).json({ error: "User update failed" });
     }
 
-    const { password, cardNumber, cvc, expiration, ...userWithoutSensitiveData } =
-      updatedUser.toObject();
+    const {
+      password,
+      cardNumber,
+      cvc,
+      expiration,
+      ...userWithoutSensitiveData
+    } = updatedUser.toObject();
 
     res.status(200).json({
       message: "User image updated successfully",
@@ -397,7 +402,6 @@ async function updateUserImage(req, res) {
     res.status(500).json({ error: "Internal Server Error" });
   }
 }
-
 
 // Delete user information
 async function deleteUser(req, res) {
@@ -436,7 +440,10 @@ async function deleteUser(req, res) {
 // Login a user
 async function login(req, res) {
   try {
-    const user = await User.findOne({ email: req.body.email }).populate(["dependents","paymentHistory"]);
+    const user = await User.findOne({ email: req.body.email }).populate([
+      "dependents",
+      "paymentHistory",
+    ]);
 
     if (user) {
       const isPasswordMatch = await bcrypt.compare(
@@ -445,10 +452,16 @@ async function login(req, res) {
       );
 
       if (isPasswordMatch) {
-        const { password: _, ...userWithoutPassword } = user.toObject();
+        const {
+          password,
+          cardNumber,
+          cvc,
+          expiration,
+          ...userWithoutSensitiveData
+        } = user.toObject();
         return res.status(200).json({
           message: "User logged in successfully",
-          user: userWithoutPassword,
+          user: userWithoutSensitiveData,
         });
       } else {
         return res.status(401).json({ error: "Invalid email or password" });
@@ -561,6 +574,44 @@ async function resetPassword(req, res) {
   }
 }
 
+// update user status
+async function updateUserStatus(req, res) {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  // Validate status
+  const allowedStatuses = ["Active", "Canceled"];
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({ error: "Invalid status value." });
+  }
+
+  try {
+    const user = await User.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true, runValidators: true } // Returns the updated document and applies schema validations
+    ).populate(["dependents", "paymentHistory"]);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const {
+      password,
+      cardNumber,
+      cvc,
+      expiration,
+      ...userWithoutSensitiveData
+    } = user.toObject();
+
+    res.json({ message: "User status updated successfully.", user: userWithoutSensitiveData });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ error: "Internal server error.", details: error.message });
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -572,4 +623,5 @@ module.exports = {
   forgetPassword,
   deleteUser,
   updateUserImage,
+  updateUserStatus,
 };
