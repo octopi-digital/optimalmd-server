@@ -2,6 +2,9 @@ const Dependent = require("../model/dependentSchema");
 const User = require("../model/userSchema");
 const axios = require("axios");
 
+const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
+const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
+
 // Add a new dependent
 async function addDependent(req, res) {
   try {
@@ -98,17 +101,66 @@ async function updateDependent(req, res) {
     const user = await User.findById(primaryUserId).populate("dependents");
     const dependent = await Dependent.findById(dependentId);
 
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-    if (!dependent) {
+    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!dependent)
       return res.status(404).json({ error: "Dependent not found" });
-    }
 
     let updateData = { ...userInfo };
-
-    // Handle Lyric integration
     let { lyricDependentId, rxvaletDependentId } = dependent;
+
+    // Check if dependent is new to both Lyric and RxValet and charge $47 if so
+    if (!lyricDependentId && !rxvaletDependentId) {
+      const amount = 47; // Amount to charge
+
+      // Retrieve payment details from the user schema
+      const { cardNumber, cvc, expiration } = user;
+      if (!cardNumber || !cvc || !expiration) {
+        return res.status(400).json({ error: "Missing payment details" });
+      }
+
+      // Process payment
+      const paymentResponse = await axios.post(
+        "https://apitest.authorize.net/xml/v1/request.api",
+        {
+          createTransactionRequest: {
+            merchantAuthentication: {
+              name: API_LOGIN_ID,
+              transactionKey: TRANSACTION_KEY,
+            },
+            transactionRequest: {
+              transactionType: "authCaptureTransaction",
+              amount,
+              payment: {
+                creditCard: {
+                  cardNumber,
+                  expirationDate: expiration,
+                  cardCode: cvc,
+                },
+              },
+            },
+          },
+        },
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      const transactionId = paymentResponse?.data?.transactionResponse?.transId;
+      console.log(transactionId);
+
+      if (!transactionId)
+        return res.status(400).json({ error: "Payment failed" });
+
+      // Save payment record
+      const paymentRecord = new Payment({
+        userId: primaryUserId,
+        amount,
+        transactionId,
+      });
+      await paymentRecord.save();
+
+      // Add payment record to user's paymentHistory
+      user.paymentHistory.push(paymentRecord._id);
+      await user.save();
+    }
 
     if (!lyricDependentId) {
       const loginData = new FormData();
@@ -127,24 +179,15 @@ async function updateDependent(req, res) {
           .json({ error: "Authorization token missing for Lyric" });
       }
 
-      const relationMap = {
-        Spouse: "1",
-        Children: "2",
-        Other: "3",
-        Parents: "4",
-      };
-      let relationShipId="";
-      if(userInfo.relation==="Spouse"){
-        relationShipId="1"
-      }
-      else if(userInfo.relation==="Children"){
-        relationShipId="2"
-      }
-      else if(userInfo.relation==="Other"){
-        relationShipId="3"
-      }
-      else if(userInfo.relation==="Parents"){
-        relationShipId="4"
+      let relationShipId = "";
+      if (userInfo.relation === "Spouse") {
+        relationShipId = "1";
+      } else if (userInfo.relation === "Children") {
+        relationShipId = "2";
+      } else if (userInfo.relation === "Other") {
+        relationShipId = "3";
+      } else if (userInfo.relation === "Parents") {
+        relationShipId = "4";
       }
 
       const createDependentData = new FormData();
@@ -174,7 +217,9 @@ async function updateDependent(req, res) {
       );
 
       if (!createDependentResponse || !createDependentResponse.data) {
-        return res.status(500).json({ error: "Failed to create member in Lyric system" });
+        return res
+          .status(500)
+          .json({ error: "Failed to create member in Lyric system" });
       }
 
       lyricDependentId = createDependentResponse.data.dependentUserId;
@@ -210,7 +255,9 @@ async function updateDependent(req, res) {
       );
 
       if (!rxvaletResponse || rxvaletResponse.status !== 200) {
-        return res.status(500).json({ error: "Failed to enroll user in RxValet system" });
+        return res
+          .status(500)
+          .json({ error: "Failed to enroll user in RxValet system" });
       }
 
       rxvaletDependentId = rxvaletResponse.data.Result.DependentGUID;
@@ -221,9 +268,17 @@ async function updateDependent(req, res) {
 
     await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
 
-    const updatedUser = await User.findById(primaryUserId).populate("dependents");
+    const updatedUser = await User.findById(primaryUserId).populate(
+      "dependents"
+    );
 
-    const { password, cardNumber, cvc, expiration, ...userWithoutSensitiveData } = updatedUser.toObject();
+    const {
+      password,
+      cardNumber,
+      cvc,
+      expiration,
+      ...userWithoutSensitiveData
+    } = updatedUser.toObject();
 
     res.status(200).json({
       message: "Dependent updated successfully",
@@ -234,7 +289,6 @@ async function updateDependent(req, res) {
     res.status(500).json({ error: "Internal Server Error" });
   }
 }
-
 
 // Get all dependents by primary user ID
 async function getDependentsByUserId(req, res) {
