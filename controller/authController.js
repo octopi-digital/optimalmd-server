@@ -322,7 +322,7 @@ async function updateUser(req, res) {
           },
         },
         { new: true, runValidators: true }
-      ).populate("dependents");
+      ).populate(["dependents","paymentHistory"]);
       const {
         password,
         cardNumber,
@@ -344,7 +344,7 @@ async function updateUser(req, res) {
           },
         },
         { new: true, runValidators: true }
-      ).populate("dependents");
+      ).populate(["dependents","paymentHistory"]);
       const {
         password,
         cardNumber,
@@ -379,7 +379,7 @@ async function updateUserImage(req, res) {
       id,
       { image: image },
       { new: true, runValidators: true }
-    ).populate("dependents");
+    ).populate(["dependents","paymentHistory"]);
 
     if (!updatedUser) {
       return res.status(400).json({ error: "User update failed" });

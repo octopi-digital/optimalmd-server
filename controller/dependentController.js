@@ -35,7 +35,7 @@ async function addDependent(req, res) {
       primaryUser,
       { $push: { dependents: savedDependent._id } },
       { new: true }
-    ).populate("dependents");
+    ).populate(["dependents","paymentHistory"]);
 
     if (!updatedUser) {
       return res
@@ -268,9 +268,7 @@ async function updateDependent(req, res) {
 
     await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
 
-    const updatedUser = await User.findById(primaryUserId).populate(
-      "dependents"
-    );
+    const updatedUser = await User.findById(primaryUserId).populate(["dependents","paymentHistory"])
 
     const {
       password,
@@ -327,9 +325,7 @@ async function updateDependentImage(req, res) {
     }
 
     // Find the user and populate the dependents
-    const user = await User.findById(updatedDependent.primaryUser).populate(
-      "dependents"
-    );
+    const user = await User.findById(updatedDependent.primaryUser).populate(["dependents","paymentHistory"])
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
