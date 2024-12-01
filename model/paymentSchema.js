@@ -6,10 +6,10 @@ const paymentSchema = new mongoose.Schema({
   plan: {
     type: String,
     enum: ["Trial", "Plus", "Access", "Premiere"],
-    required: true,
+    // required: true,
   },
   transactionId: { type: String },
-  paymentDate: { type: Date, default: Date.now }
+  paymentDate: { type: Date, default: Date.now },
 });
 
 module.exports = mongoose.model("Payment", paymentSchema);
