@@ -193,51 +193,46 @@ async function updateUser(req, res) {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Authenticate with Lyric to get the token
+    const loginData = new FormData();
+    loginData.append("email", "mtmstgopt01@mytelemedicine.com");
+    loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+    const loginResponse = await axios.post(
+      "https://staging.getlyric.com/go/api/login",
+      loginData
+    );
+    const authToken = loginResponse.headers["authorization"];
+
+    if (!authToken) {
+      return res
+        .status(401)
+        .json({ error: "Authorization token missing for getlyric" });
+    }
+
+    // Prepare `createMember` API payload
+    const createMemberData = new FormData();
+    createMemberData.append("primaryExternalId", user?._id);
+    createMemberData.append("groupCode", "MTMSTGOPT01");
+    createMemberData.append("planId", "2322");
+    createMemberData.append("planDetailsId", user.plan === "Trial" ? "1" : "3");
+    createMemberData.append("firstName", userInfo.firstName);
+    createMemberData.append("lastName", userInfo.lastName);
+    createMemberData.append("dob", userInfo.dob);
+    createMemberData.append("email", userInfo.email);
+    createMemberData.append("primaryPhone", userInfo.phone);
+    createMemberData.append("gender", userInfo.sex === "Male" ? "m" : "f");
+    createMemberData.append("heightFeet", "0");
+    createMemberData.append("heightInches", "0");
+    createMemberData.append("weight", "0");
+    createMemberData.append("address", userInfo.shipingAddress1);
+    createMemberData.append("address2", userInfo.shipingAddress2 || "");
+    createMemberData.append("city", userInfo.shipingCity);
+    createMemberData.append("stateId", userInfo.shipingStateId);
+    createMemberData.append("timezoneId", "");
+    createMemberData.append("zipCode", userInfo.shipingZip);
+    createMemberData.append("sendRegistrationNotification", "0");
+
     if (!user.lyricsUserId && !user.PrimaryMemberGUID) {
-      // Authenticate with Lyric to get the token
-      const loginData = new FormData();
-      loginData.append("email", "mtmstgopt01@mytelemedicine.com");
-      loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
-
-      const loginResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/login",
-        loginData
-      );
-
-      const authToken = loginResponse.headers["authorization"];
-
-      if (!authToken) {
-        return res
-          .status(401)
-          .json({ error: "Authorization token missing for getlyric" });
-      }
-
-      // Prepare `createMember` API payload
-      const createMemberData = new FormData();
-      createMemberData.append("primaryExternalId", user?._id);
-      createMemberData.append("groupCode", "MTMSTGOPT01");
-      createMemberData.append("planId", "2322");
-      createMemberData.append(
-        "planDetailsId",
-        user.plan === "Trial" ? "1" : "3"
-      );
-      createMemberData.append("firstName", userInfo.firstName);
-      createMemberData.append("lastName", userInfo.lastName);
-      createMemberData.append("dob", userInfo.dob);
-      createMemberData.append("email", userInfo.email);
-      createMemberData.append("primaryPhone", userInfo.phone);
-      createMemberData.append("gender", userInfo.sex === "Male" ? "m" : "f");
-      createMemberData.append("heightFeet", "0");
-      createMemberData.append("heightInches", "0");
-      createMemberData.append("weight", "0");
-      createMemberData.append("address", userInfo.shipingAddress1);
-      createMemberData.append("address2", userInfo.shipingAddress2 || "");
-      createMemberData.append("city", userInfo.shipingCity);
-      createMemberData.append("stateId", userInfo.shipingStateId);
-      createMemberData.append("timezoneId", "");
-      createMemberData.append("zipCode", userInfo.shipingZip);
-      createMemberData.append("sendRegistrationNotification", "0");
-
       // Hit the `createMember` API
       const createMemberResponse = await axios.post(
         "https://staging.getlyric.com/go/api/census/createMember",
@@ -335,6 +330,17 @@ async function updateUser(req, res) {
         user: userWithoutSensitiveData,
       });
     } else {
+      // update user to get lyric
+      const updateGetLyricUserResponse = await axios.post(
+        "https://staging.getlyric.com/go/api/census/updateMember",
+        createMemberData,
+        {
+          headers: {
+            Authorization: authToken,
+          },
+        }
+      );
+
       // Update user with data from both APIs
       const updatedUser = await User.findByIdAndUpdate(
         userId,
@@ -604,7 +610,10 @@ async function updateUserStatus(req, res) {
       ...userWithoutSensitiveData
     } = user.toObject();
 
-    res.json({ message: "User status updated successfully.", user: userWithoutSensitiveData });
+    res.json({
+      message: "User status updated successfully.",
+      user: userWithoutSensitiveData,
+    });
   } catch (error) {
     res
       .status(500)
