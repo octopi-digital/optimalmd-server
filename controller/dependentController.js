@@ -1,4 +1,5 @@
 const Dependent = require("../model/dependentSchema");
+const Payment = require("../model/paymentSchema");
 const User = require("../model/userSchema");
 const axios = require("axios");
 
@@ -35,7 +36,7 @@ async function addDependent(req, res) {
       primaryUser,
       { $push: { dependents: savedDependent._id } },
       { new: true }
-    ).populate(["dependents","paymentHistory"]);
+    ).populate(["dependents", "paymentHistory"]);
 
     if (!updatedUser) {
       return res
@@ -154,6 +155,7 @@ async function updateDependent(req, res) {
         userId: primaryUserId,
         amount,
         transactionId,
+        Plan: "Plus",
       });
       await paymentRecord.save();
 
@@ -268,7 +270,10 @@ async function updateDependent(req, res) {
 
     await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
 
-    const updatedUser = await User.findById(primaryUserId).populate(["dependents","paymentHistory"])
+    const updatedUser = await User.findById(primaryUserId).populate([
+      "dependents",
+      "paymentHistory",
+    ]);
 
     const {
       password,
@@ -325,7 +330,10 @@ async function updateDependentImage(req, res) {
     }
 
     // Find the user and populate the dependents
-    const user = await User.findById(updatedDependent.primaryUser).populate(["dependents","paymentHistory"])
+    const user = await User.findById(updatedDependent.primaryUser).populate([
+      "dependents",
+      "paymentHistory",
+    ]);
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
