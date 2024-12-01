@@ -228,27 +228,27 @@ async function updateDependent(req, res) {
     }
 
     // Handle RxValet integration
+    const rxvaletDependentFormData = new FormData();
+    const rxvaletDependentInfo = {
+      PrimaryMemberGUID: user.PrimaryMemberGUID,
+      FirstName: userInfo.firstName,
+      LastName: userInfo.lastName,
+      Email: userInfo.email,
+      DOB: userInfo.dob,
+      Gender: userInfo.sex === "Male" ? "M" : "F",
+      Relationship: userInfo.relation === "Children" ? "Child" : "Spouse",
+      PhoneNumber: userInfo.phone,
+      Address: userInfo.shipingAddress1,
+      City: userInfo.shipingCity,
+      StateID: userInfo.shipingStateId || "44",
+      ZipCode: userInfo.shipingZip,
+    };
+
+    Object.entries(rxvaletDependentInfo).forEach(([key, value]) => {
+      rxvaletDependentFormData.append(key, value);
+    });
+
     if (!rxvaletDependentId) {
-      const rxvaletDependentFormData = new FormData();
-      const rxvaletDependentInfo = {
-        PrimaryMemberGUID: user.PrimaryMemberGUID,
-        FirstName: userInfo.firstName,
-        LastName: userInfo.lastName,
-        Email: userInfo.email,
-        DOB: userInfo.dob,
-        Gender: userInfo.sex === "Male" ? "M" : "F",
-        Relationship: userInfo.relation === "Children" ? "Child" : "Spouse",
-        PhoneNumber: userInfo.phone,
-        Address: userInfo.shipingAddress1,
-        City: userInfo.shipingCity,
-        StateID: userInfo.shipingStateId || "44",
-        ZipCode: userInfo.shipingZip,
-      };
-
-      Object.entries(rxvaletDependentInfo).forEach(([key, value]) => {
-        rxvaletDependentFormData.append(key, value);
-      });
-
       const rxvaletResponse = await axios.post(
         "https://rxvaletapi.com/api/omdrx/add_dependent.php",
         rxvaletDependentFormData,
@@ -266,6 +266,7 @@ async function updateDependent(req, res) {
     }
     updateData.status = "Active";
 
+    // Update dependent on get lyric
     const updateDependentGetLyricResponse = await axios.post(
       "https://staging.getlyric.com/go/api/census/updateMemberDependent",
       createDependentData,
@@ -281,6 +282,20 @@ async function updateDependent(req, res) {
         .json({ error: "Failed to create member in Lyric system" });
     }
 
+    // Update dependent on rx valet
+    const rxvaletResponse = await axios.post(
+      "https://rxvaletapi.com/api/omdrx/update_dependent.php",
+      rxvaletDependentFormData,
+      { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
+    );
+
+    if (!rxvaletResponse || rxvaletResponse.status !== 200) {
+      return res
+        .status(500)
+        .json({ error: "Failed to enroll user in RxValet system" });
+    }
+
+    // update dependent on our db
     await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
 
     const updatedUser = await User.findById(primaryUserId).populate([
