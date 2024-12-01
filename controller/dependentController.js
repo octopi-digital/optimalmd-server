@@ -163,55 +163,54 @@ async function updateDependent(req, res) {
       user.paymentHistory.push(paymentRecord._id);
       await user.save();
     }
+    const loginData = new FormData();
+    loginData.append("email", "mtmstgopt01@mytelemedicine.com");
+    loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+
+    const loginResponse = await axios.post(
+      "https://staging.getlyric.com/go/api/login",
+      loginData
+    );
+
+    const authToken = loginResponse.headers["authorization"];
+    if (!authToken) {
+      return res
+        .status(401)
+        .json({ error: "Authorization token missing for Lyric" });
+    }
+
+    let relationShipId = "";
+    if (userInfo.relation === "Spouse") {
+      relationShipId = "1";
+    } else if (userInfo.relation === "Children") {
+      relationShipId = "2";
+    } else if (userInfo.relation === "Other") {
+      relationShipId = "3";
+    } else if (userInfo.relation === "Parents") {
+      relationShipId = "4";
+    }
+
+    const createDependentData = new FormData();
+    createDependentData.append("primaryExternalId", primaryUserId);
+    createDependentData.append("dependentExternalId", dependentId);
+    createDependentData.append("groupCode", "MTMSTGOPT01");
+    createDependentData.append("planId", "2322");
+    createDependentData.append("firstName", userInfo.firstName);
+    createDependentData.append("lastName", userInfo.lastName);
+    createDependentData.append("dob", userInfo.dob);
+    createDependentData.append("email", userInfo.email);
+    createDependentData.append("gender", userInfo.sex === "Male" ? "m" : "f");
+    createDependentData.append("primaryPhone", userInfo.phone);
+    createDependentData.append("address", userInfo.shipingAddress1);
+    createDependentData.append("address2", userInfo.shipingAddress2 || "");
+    createDependentData.append("city", userInfo.shipingCity);
+    createDependentData.append("stateId", userInfo.shipingStateId || "44");
+    createDependentData.append("zipCode", userInfo.shipingZip);
+    createDependentData.append("relationShipId", relationShipId);
+    createDependentData.append("timezoneId", "");
+    createDependentData.append("sendRegistrationNotification", "0");
 
     if (!lyricDependentId) {
-      const loginData = new FormData();
-      loginData.append("email", "mtmstgopt01@mytelemedicine.com");
-      loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
-
-      const loginResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/login",
-        loginData
-      );
-
-      const authToken = loginResponse.headers["authorization"];
-      if (!authToken) {
-        return res
-          .status(401)
-          .json({ error: "Authorization token missing for Lyric" });
-      }
-
-      let relationShipId = "";
-      if (userInfo.relation === "Spouse") {
-        relationShipId = "1";
-      } else if (userInfo.relation === "Children") {
-        relationShipId = "2";
-      } else if (userInfo.relation === "Other") {
-        relationShipId = "3";
-      } else if (userInfo.relation === "Parents") {
-        relationShipId = "4";
-      }
-
-      const createDependentData = new FormData();
-      createDependentData.append("primaryExternalId", primaryUserId);
-      createDependentData.append("dependentExternalId", dependentId);
-      createDependentData.append("groupCode", "MTMSTGOPT01");
-      createDependentData.append("planId", "2322");
-      createDependentData.append("firstName", userInfo.firstName);
-      createDependentData.append("lastName", userInfo.lastName);
-      createDependentData.append("dob", userInfo.dob);
-      createDependentData.append("email", userInfo.email);
-      createDependentData.append("gender", userInfo.sex === "Male" ? "m" : "f");
-      createDependentData.append("primaryPhone", userInfo.phone);
-      createDependentData.append("address", userInfo.shipingAddress1);
-      createDependentData.append("address2", userInfo.shipingAddress2 || "");
-      createDependentData.append("city", userInfo.shipingCity);
-      createDependentData.append("stateId", userInfo.shipingStateId || "44");
-      createDependentData.append("zipCode", userInfo.shipingZip);
-      createDependentData.append("relationShipId", relationShipId);
-      createDependentData.append("timezoneId", "");
-      createDependentData.append("sendRegistrationNotification", "0");
-
       const createDependentResponse = await axios.post(
         "https://staging.getlyric.com/go/api/census/createMemberDependent",
         createDependentData,
@@ -265,8 +264,22 @@ async function updateDependent(req, res) {
       rxvaletDependentId = rxvaletResponse.data.Result.DependentGUID;
       updateData.rxvaletDependentId = rxvaletDependentId;
     }
-
     updateData.status = "Active";
+
+    const updateDependentGetLyricResponse = await axios.post(
+      "https://staging.getlyric.com/go/api/census/updateMemberDependent",
+      createDependentData,
+      { headers: { Authorization: authToken } }
+    );
+
+    if (
+      !updateDependentGetLyricResponse ||
+      !updateDependentGetLyricResponse.data
+    ) {
+      return res
+        .status(500)
+        .json({ error: "Failed to create member in Lyric system" });
+    }
 
     await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
 
