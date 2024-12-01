@@ -232,6 +232,36 @@ async function updateUser(req, res) {
     createMemberData.append("zipCode", userInfo.shipingZip);
     createMemberData.append("sendRegistrationNotification", "0");
 
+    // If successful, proceed to RxValet integration
+    const rxvaletUserInfo = {
+      CompanyID: "12212",
+      Testing: "1",
+      GroupID: user.plan === "Trial" ? "OPT125" : "OPT800",
+      MemberID: user?._id,
+      PersonCode: "1",
+      CoverageType: user.plan === "Trial" ? "EE" : "EF",
+      StartDate: user.planStartDate,
+      TermDate: user.planEndDate,
+      FirstName: userInfo.firstName,
+      LastName: userInfo.lastName,
+      Gender: userInfo.sex === "Male" ? "M" : "F",
+      DOB: userInfo.dob,
+      Email: userInfo.email,
+      Mobile: userInfo.phone,
+      BillingAddress1: userInfo.shipingAddress1,
+      BillingAddress2: userInfo.shipingAddress2,
+      BillingCity: userInfo.shipingCity,
+      BillingState: userInfo.shipingState,
+      BillingZip: userInfo.shipingZip,
+      BillingPhone: userInfo.phone,
+      DeliveryAddress1: userInfo.shipingAddress1,
+      DeliveryAddress2: userInfo.shipingAddress2,
+      DeliveryCity: userInfo.shipingCity,
+      DeliveryState: userInfo.shipingState,
+      DeliveryZip: userInfo.shipingZip,
+      DeliveryPhone: userInfo.phone,
+    };
+
     if (!user.lyricsUserId && !user.PrimaryMemberGUID) {
       // Hit the `createMember` API
       const createMemberResponse = await axios.post(
@@ -251,36 +281,6 @@ async function updateUser(req, res) {
       }
 
       const lyricsUserId = createMemberResponse.data.userid;
-
-      // If successful, proceed to RxValet integration
-      const rxvaletUserInfo = {
-        CompanyID: "12212",
-        Testing: "1",
-        GroupID: user.plan === "Trial" ? "OPT125" : "OPT800",
-        MemberID: user?._id,
-        PersonCode: "1",
-        CoverageType: user.plan === "Trial" ? "EE" : "EF",
-        StartDate: user.planStartDate,
-        TermDate: user.planEndDate,
-        FirstName: userInfo.firstName,
-        LastName: userInfo.lastName,
-        Gender: userInfo.sex === "Male" ? "M" : "F",
-        DOB: userInfo.dob,
-        Email: userInfo.email,
-        Mobile: userInfo.phone,
-        BillingAddress1: userInfo.shipingAddress1,
-        BillingAddress2: userInfo.shipingAddress2,
-        BillingCity: userInfo.shipingCity,
-        BillingState: userInfo.shipingState,
-        BillingZip: userInfo.shipingZip,
-        BillingPhone: userInfo.phone,
-        DeliveryAddress1: userInfo.shipingAddress1,
-        DeliveryAddress2: userInfo.shipingAddress2,
-        DeliveryCity: userInfo.shipingCity,
-        DeliveryState: userInfo.shipingState,
-        DeliveryZip: userInfo.shipingZip,
-        DeliveryPhone: userInfo.phone,
-      };
 
       // Prepare formData for RxValet
       const rxvaletFormData = new FormData();
@@ -340,6 +340,36 @@ async function updateUser(req, res) {
           },
         }
       );
+
+      if (!updateGetLyricUserResponse) {
+        return res
+          .status(500)
+          .json({ error: "Failed to create member in Lyric system" });
+      }
+
+      // update user on rxvalet
+      // Prepare formData for RxValet
+      const rxvaletFormData = new FormData();
+      Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
+        rxvaletFormData.append(key, value);
+      });
+
+      // Call RxValet API
+      const rxvaletResponse = await axios.post(
+        "https://rxvaletapi.com/api/omdrx/update_member.php",
+        rxvaletFormData,
+        {
+          headers: {
+            api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
+          },
+        }
+      );
+
+      if (!rxvaletResponse || rxvaletResponse.status !== 200) {
+        return res
+          .status(500)
+          .json({ error: "Failed to update user in RxValet system" });
+      }
 
       // Update user with data from both APIs
       const updatedUser = await User.findByIdAndUpdate(
