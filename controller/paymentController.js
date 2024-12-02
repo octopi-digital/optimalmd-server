@@ -56,31 +56,41 @@ const processPayment = async (req, res) => {
 const getAllPayment = async (req, res) => {
   try {
     let { startDate, endDate, invoiceId, page = 1, limit = 10 } = req.query;
-    const filters = {};
+    const filters = [];
 
     // Date range filtering
     if (startDate && endDate) {
-      filters.paymentDate = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
-      };
+      filters.push({
+        paymentDate: {
+          $gte: new Date(new Date(startDate).setHours(0, 0, 0, 0)),
+          $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
+        },
+      });
     }
 
     // Invoice (Payment ID) filtering
     if (invoiceId) {
-      filters._id = invoiceId;
+      try {
+        filters.push({
+          _id: mongoose.Types.ObjectId(invoiceId),
+        });
+      } catch (err) {
+        return res.status(400).json({ success: false, message: "Invalid invoice ID format" });
+      }
     }
 
     // Pagination setup
     page = parseInt(page);
     limit = parseInt(limit);
 
-    const payments = await Payment.find(filters)
+    const query = filters.length > 0 ? { $or: filters } : {};
+
+    const payments = await Payment.find(query)
       .skip((page - 1) * limit)
       .limit(limit)
       .sort({ paymentDate: -1 });
 
-    const totalPayments = await Payment.countDocuments(filters);
+    const totalPayments = await Payment.countDocuments(query);
 
     res.status(200).json({
       success: true,
