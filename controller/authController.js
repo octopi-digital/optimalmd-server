@@ -13,6 +13,7 @@ const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 
 // Get all users
 async function getAllUser(req, res) {
+
   try {
     const users = await User.find().select("-password");
     if (!users || users.length === 0) {
@@ -610,7 +611,6 @@ async function resetPassword(req, res) {
   }
 }
 
-// update user status
 async function updateUserStatus(req, res) {
   const { id } = req.params;
   const { status } = req.body;
