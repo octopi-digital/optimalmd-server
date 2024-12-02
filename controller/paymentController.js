@@ -75,7 +75,9 @@ const getAllPayment = async (req, res) => {
           _id: mongoose.Types.ObjectId(invoiceId),
         });
       } catch (err) {
-        return res.status(400).json({ success: false, message: "Invalid invoice ID format" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid invoice ID format" });
       }
     }
 
