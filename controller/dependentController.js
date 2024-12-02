@@ -95,8 +95,15 @@ async function deleteDependent(req, res) {
 // Update a dependent by ID
 async function updateDependent(req, res) {
   try {
-    const dependentId = req.params.id;
-    const { primaryUserId, ...userInfo } = req.body;
+    const { primaryUserId, dependentId, ...userInfo } = req.body;
+
+    if(!primaryUserId){
+      return res.status(400).json({ error: "User Id Is Required" });
+    }
+
+    if(!dependentId){
+      return res.status(400).json({ error: "Dependent Id Is Required" });
+    }
 
     // Find the primary user and dependent in the database
     const user = await User.findById(primaryUserId).populate("dependents");

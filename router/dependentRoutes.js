@@ -15,7 +15,7 @@ router.post("/add", addDependent);
 router.put("/upload/image", updateDependentImage);
 
 // Route to update a dependent by ID
-router.put("/update/:id", updateDependent);
+router.put("/update", updateDependent);
 
 // Route to delete a dependent by ID
 router.delete("/delete/:id", deleteDependent);
