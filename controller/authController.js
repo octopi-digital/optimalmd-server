@@ -13,6 +13,7 @@ const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 
 // Get all users
 async function getAllUser(req, res) {
+
   try {
     const users = await User.find().select("-password");
     if (!users || users.length === 0) {
@@ -574,43 +575,126 @@ async function resetPassword(req, res) {
   }
 }
 
-// update user status
 async function updateUserStatus(req, res) {
   const { id } = req.params;
   const { status } = req.body;
 
-  // Validate status
   const allowedStatuses = ["Active", "Canceled"];
   if (!allowedStatuses.includes(status)) {
     return res.status(400).json({ error: "Invalid status value." });
   }
 
   try {
-    const user = await User.findByIdAndUpdate(
-      id,
-      { status },
-      { new: true, runValidators: true } // Returns the updated document and applies schema validations
-    ).populate(["dependents", "paymentHistory"]);
-
+    // Fetch user from the database
+    let user = await User.findById(id).populate(["dependents", "paymentHistory"]);
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    const {
-      password,
-      cardNumber,
-      cvc,
-      expiration,
-      ...userWithoutSensitiveData
-    } = user.toObject();
+    // Authenticate with Lyric API
+    const cenSusloginData = new URLSearchParams();
+    cenSusloginData.append("email", "mtmstgopt01@mytelemedicine.com");
+    cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
 
-    res.json({ message: "User status updated successfully.", user: userWithoutSensitiveData });
+    const cenSusloginResponse = await axios.post(
+      "https://staging.getlyric.com/go/api/login",
+      cenSusloginData
+    );
+    const cenSusauthToken = cenSusloginResponse.headers["authorization"];
+    if (!cenSusauthToken) {
+      return res
+        .status(401)
+        .json({ error: "Authorization token missing for GetLyric." });
+    }
+
+    let terminationDate, memberActive, effectiveDate;
+    if (status === "Canceled") {
+      terminationDate = moment().format("MM/DD/YYYY");
+      memberActive = "0";
+    } else if (status === "Active") {
+      terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
+      memberActive = "1";
+      effectiveDate = moment().format("MM/DD/YYYY")
+    }
+
+    // Update status on GetLyric API
+    try {
+      const getLyricFormData = new URLSearchParams();
+      getLyricFormData.append("primaryExternalId", user._id);
+      getLyricFormData.append("groupCode", "MTMSTGOPT01");
+      getLyricFormData.append("terminationDate", terminationDate);
+      if (status === "Active") {
+        getLyricFormData.append("effectiveDate", effectiveDate);
+
+      }
+      await axios.post(
+        "https://staging.getlyric.com/go/api/census/updateTerminationDate",
+        getLyricFormData,
+        {
+          headers: {
+            Authorization: cenSusauthToken,
+          },
+        }
+      );
+    } catch (err) {
+      console.error("GetLyric API Error:", err.message);
+      return res.status(500).json({
+        message: `Failed to ${status === "Active" ? "reactivate" : "terminate"} user on GetLyric API.`,
+        error: err.message,
+      });
+    }
+
+    // Update status on RxValet API
+    try {
+      const rxValetHeaders = { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" };
+      const rxValetFormData = new URLSearchParams();
+      rxValetFormData.append("MemberGUID", user.PrimaryMemberGUID);
+      rxValetFormData.append("MemberActive", memberActive);
+
+      const rxValetResponse = await axios.post(
+        "https://rxvaletapi.com/api/omdrx/member_deactivate_or_reactivate.php",
+        rxValetFormData,
+        { headers: rxValetHeaders }
+      );
+
+      if (!rxValetResponse.data) {
+        console.log("RxValet Response Error:", rxValetResponse.data);
+        return res.status(500).json({
+          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"} user on RxValet API.`,
+          error: rxValetResponse.data || "Unknown error",
+        });
+      }
+    } catch (err) {
+      console.error("RxValet API Error:", err.message);
+      return res.status(500).json({
+        message: `Failed to ${status === "Active" ? "reactivate" : "terminate"} user on RxValet API.`,
+        error: err.message,
+      });
+    }
+
+    // Update user status in the databasepl
+    user.status = status;
+    user.planStartDate = effectiveDate ? effectiveDate : user.planStartDate
+    user.planEndDate = terminationDate
+    await user.save();
+
+    // Remove sensitive data before responding
+    const { password, cardNumber, cvc, expiration, ...userWithoutSensitiveData } = user.toObject();
+
+    res.json({
+      message: `User status successfully updated to ${status}.`,
+      user: userWithoutSensitiveData,
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({ error: "Internal server error.", details: error.message });
+    console.error(error);
+    res.status(500).json({
+      error: "Internal server error.",
+      details: error.message,
+    });
   }
 }
+
+
 
 module.exports = {
   register,
