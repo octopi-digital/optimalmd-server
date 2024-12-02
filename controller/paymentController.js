@@ -52,13 +52,13 @@ const processPayment = async (req, res) => {
   }
 };
 
-// Get All Payments with Pagination and Filtering
+// Get All Payments with Pagination and Filtering (OR conditions)
 const getAllPayment = async (req, res) => {
   try {
     let { startDate, endDate, invoiceId, page = 1, limit = 10 } = req.query;
     const filters = [];
 
-    // Date range filtering
+    // Date range filtering (if both dates provided)
     if (startDate && endDate) {
       filters.push({
         paymentDate: {
@@ -68,30 +68,43 @@ const getAllPayment = async (req, res) => {
       });
     }
 
-    // Invoice (Payment ID) filtering
+    // Invoice ID filtering (valid ObjectId)
     if (invoiceId) {
-      try {
-        filters.push({
-          _id: mongoose.Types.ObjectId(invoiceId),
-        });
-      } catch (err) {
+      if (mongoose.Types.ObjectId.isValid(invoiceId)) {
+        filters.push({ _id: mongoose.Types.ObjectId(invoiceId) });
+      } else {
         return res
           .status(400)
           .json({ success: false, message: "Invalid invoice ID format" });
       }
     }
 
+    // If no filters are provided, return an empty array immediately
+    if (filters.length === 0) {
+      return res.status(200).json({
+        success: true,
+        total: 0,
+        currentPage: page,
+        totalPages: 0,
+        data: [],
+      });
+    }
+
     // Pagination setup
     page = parseInt(page);
     limit = parseInt(limit);
+    const skip = (page - 1) * limit;
 
-    const query = filters.length > 0 ? { $or: filters } : {};
+    // Query with $or operator for filtering
+    const query = { $or: filters };
 
+    // Fetch payments with pagination and sorting by date (descending)
     const payments = await Payment.find(query)
-      .skip((page - 1) * limit)
+      .skip(skip)
       .limit(limit)
       .sort({ paymentDate: -1 });
 
+    // Count total payments matching the filter
     const totalPayments = await Payment.countDocuments(query);
 
     res.status(200).json({
@@ -102,9 +115,12 @@ const getAllPayment = async (req, res) => {
       data: payments,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to fetch payments", error });
+    console.error("Error fetching payments:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch payments",
+      error: error.message,
+    });
   }
 };
 

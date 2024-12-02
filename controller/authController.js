@@ -11,16 +11,61 @@ const { log } = require("console");
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 
-// Get all users
+// Get all users with pagination and filtering
 async function getAllUser(req, res) {
   try {
-    const users = await User.find().select("-password");
-    if (!users || users.length === 0) {
+    const { email, status, plan, page = 1, limit = 10 } = req.query;
+
+    // Build the filter array based on the provided query params
+    let conditions = [];
+
+    if (email) {
+      conditions.push({ email: { $regex: email, $options: "i" } });
+    }
+
+    if (status) {
+      conditions.push({ status });
+    }
+
+    if (plan) {
+      conditions.push({ plan });
+    }
+
+    // If no valid conditions are provided, return an empty array immediately
+    if (conditions.length === 0) {
       return res.status(200).json([]);
     }
-    res.status(200).json(users);
+
+    // Use the $or operator to find users matching any condition
+    const filter = { $or: conditions };
+
+    // Pagination calculations
+    const skip = (page - 1) * limit;
+
+    // Fetch users
+    const users = await User.find(filter)
+      .select("-password")
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    // Return results or an empty array if no matches found
+    if (users.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    // Get total count for pagination
+    const totalUsers = await User.countDocuments(filter);
+
+    res.status(200).json({
+      users,
+      pagination: {
+        totalUsers,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalUsers / limit),
+      },
+    });
   } catch (error) {
-    console.error("Error fetching all users:", error.message);
+    console.error("Error fetching users:", error.message);
     res
       .status(500)
       .json({ detail: "Internal Server Error", error: error.message });
@@ -172,9 +217,7 @@ async function register(req, res) {
     });
   } catch (error) {
     console.error("Error creating user:", error.message);
-    res
-      .status(500)
-      .json({ detail: "Internal Server Error", error: error });
+    res.status(500).json({ detail: "Internal Server Error", error: error });
   }
 }
 
