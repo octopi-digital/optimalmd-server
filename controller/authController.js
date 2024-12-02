@@ -13,7 +13,6 @@ const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 
 // Get all users
 async function getAllUser(req, res) {
-
   try {
     const users = await User.find().select("-password");
     if (!users || users.length === 0) {
@@ -263,41 +262,42 @@ async function updateUser(req, res) {
       DeliveryPhone: userInfo.phone,
     };
 
-    if (!user.lyricsUserId && !user.PrimaryMemberGUID) {
-      // Hit the `createMember` API
+    let lyricsUserId = user.lyricsUserId;
+    if (!lyricsUserId) {
+      // Create Lyric member
       const createMemberResponse = await axios.post(
         "https://staging.getlyric.com/go/api/census/createMember",
         createMemberData,
-        {
-          headers: {
-            Authorization: authToken,
-          },
-        }
+        { headers: { Authorization: authToken } }
       );
 
-      if (!createMemberResponse) {
+      if (!createMemberResponse || !createMemberResponse.data.userid) {
         return res
           .status(500)
           .json({ error: "Failed to create member in Lyric system" });
       }
+      lyricsUserId = createMemberResponse.data.userid;
+    } else {
+      // Update Lyric member
+      await axios.post(
+        "https://staging.getlyric.com/go/api/census/updateMember",
+        createMemberData,
+        { headers: { Authorization: authToken } }
+      );
+    }
 
-      const lyricsUserId = createMemberResponse.data.userid;
+    let rxvaletID = user.PrimaryMemberGUID;
+    const rxvaletFormData = new FormData();
+    Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
+      rxvaletFormData.append(key, value);
+    });
 
-      // Prepare formData for RxValet
-      const rxvaletFormData = new FormData();
-      Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
-        rxvaletFormData.append(key, value);
-      });
-
-      // Call RxValet API
+    if (!rxvaletID) {
+      // Enroll RxValet member
       const rxvaletResponse = await axios.post(
         "https://rxvaletapi.com/api/omdrx/member_enrollment.php",
         rxvaletFormData,
-        {
-          headers: {
-            api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
-          },
-        }
+        { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
 
       if (!rxvaletResponse || rxvaletResponse.status !== 200) {
@@ -305,95 +305,40 @@ async function updateUser(req, res) {
           .status(500)
           .json({ error: "Failed to enroll user in RxValet system" });
       }
-
-      const rxvaletID = rxvaletResponse.data.Result.PrimaryMemberGUID;
-
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        {
-          $set: {
-            ...userInfo,
-            PrimaryMemberGUID: rxvaletID,
-            lyricsUserId: lyricsUserId,
-          },
-        },
-        { new: true, runValidators: true }
-      ).populate(["dependents", "paymentHistory"]);
-      const {
-        password,
-        cardNumber,
-        cvc,
-        expiration,
-        ...userWithoutSensitiveData
-      } = updatedUser.toObject();
-      res.status(200).json({
-        message: "User updated successfully",
-        user: userWithoutSensitiveData,
-      });
+      rxvaletID = rxvaletResponse.data.Result.PrimaryMemberGUID;
     } else {
-      // update user to get lyric
-      const updateGetLyricUserResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/census/updateMember",
-        createMemberData,
-        {
-          headers: {
-            Authorization: authToken,
-          },
-        }
-      );
-
-      if (!updateGetLyricUserResponse) {
-        return res
-          .status(500)
-          .json({ error: "Failed to create member in Lyric system" });
-      }
-
-      // update user on rxvalet
-      // Prepare formData for RxValet
-      const rxvaletFormData = new FormData();
-      Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
-        rxvaletFormData.append(key, value);
-      });
-
-      // Call RxValet API
-      const rxvaletResponse = await axios.post(
+      // Update RxValet member
+      await axios.post(
         "https://rxvaletapi.com/api/omdrx/update_member.php",
         rxvaletFormData,
-        {
-          headers: {
-            api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
-          },
-        }
+        { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-
-      if (!rxvaletResponse || rxvaletResponse.status !== 200) {
-        return res
-          .status(500)
-          .json({ error: "Failed to update user in RxValet system" });
-      }
-
-      // Update user with data from both APIs
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        {
-          $set: {
-            ...userInfo,
-          },
-        },
-        { new: true, runValidators: true }
-      ).populate(["dependents", "paymentHistory"]);
-      const {
-        password,
-        cardNumber,
-        cvc,
-        expiration,
-        ...userWithoutSensitiveData
-      } = updatedUser.toObject();
-      res.status(200).json({
-        message: "User updated successfully",
-        user: userWithoutSensitiveData,
-      });
     }
+
+    // Update user in the database
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          ...userInfo,
+          PrimaryMemberGUID: rxvaletID,
+          lyricsUserId,
+        },
+      },
+      { new: true, runValidators: true }
+    ).populate(["dependents", "paymentHistory"]);
+
+    const {
+      password,
+      cardNumber,
+      cvc,
+      expiration,
+      ...userWithoutSensitiveData
+    } = updatedUser.toObject();
+    res.status(200).json({
+      message: "User updated successfully",
+      user: userWithoutSensitiveData,
+    });
   } catch (error) {
     console.error("Error updating user:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
@@ -622,7 +567,10 @@ async function updateUserStatus(req, res) {
 
   try {
     // Fetch user from the database
-    let user = await User.findById(id).populate(["dependents", "paymentHistory"]);
+    let user = await User.findById(id).populate([
+      "dependents",
+      "paymentHistory",
+    ]);
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
@@ -650,7 +598,7 @@ async function updateUserStatus(req, res) {
     } else if (status === "Active") {
       terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
       memberActive = "1";
-      effectiveDate = moment().format("MM/DD/YYYY")
+      effectiveDate = moment().format("MM/DD/YYYY");
     }
 
     // Update status on GetLyric API
@@ -661,7 +609,6 @@ async function updateUserStatus(req, res) {
       getLyricFormData.append("terminationDate", terminationDate);
       if (status === "Active") {
         getLyricFormData.append("effectiveDate", effectiveDate);
-
       }
       await axios.post(
         "https://staging.getlyric.com/go/api/census/updateTerminationDate",
@@ -675,14 +622,18 @@ async function updateUserStatus(req, res) {
     } catch (err) {
       console.error("GetLyric API Error:", err.message);
       return res.status(500).json({
-        message: `Failed to ${status === "Active" ? "reactivate" : "terminate"} user on GetLyric API.`,
+        message: `Failed to ${
+          status === "Active" ? "reactivate" : "terminate"
+        } user on GetLyric API.`,
         error: err.message,
       });
     }
 
     // Update status on RxValet API
     try {
-      const rxValetHeaders = { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" };
+      const rxValetHeaders = {
+        api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
+      };
       const rxValetFormData = new URLSearchParams();
       rxValetFormData.append("MemberGUID", user.PrimaryMemberGUID);
       rxValetFormData.append("MemberActive", memberActive);
@@ -696,26 +647,36 @@ async function updateUserStatus(req, res) {
       if (!rxValetResponse.data) {
         console.log("RxValet Response Error:", rxValetResponse.data);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"} user on RxValet API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on RxValet API.`,
           error: rxValetResponse.data || "Unknown error",
         });
       }
     } catch (err) {
       console.error("RxValet API Error:", err.message);
       return res.status(500).json({
-        message: `Failed to ${status === "Active" ? "reactivate" : "terminate"} user on RxValet API.`,
+        message: `Failed to ${
+          status === "Active" ? "reactivate" : "terminate"
+        } user on RxValet API.`,
         error: err.message,
       });
     }
 
     // Update user status in the databasepl
     user.status = status;
-    user.planStartDate = effectiveDate ? effectiveDate : user.planStartDate
-    user.planEndDate = terminationDate
+    user.planStartDate = effectiveDate ? effectiveDate : user.planStartDate;
+    user.planEndDate = terminationDate;
     await user.save();
 
     // Remove sensitive data before responding
-    const { password, cardNumber, cvc, expiration, ...userWithoutSensitiveData } = user.toObject();
+    const {
+      password,
+      cardNumber,
+      cvc,
+      expiration,
+      ...userWithoutSensitiveData
+    } = user.toObject();
 
     res.json({
       message: `User status successfully updated to ${status}.`,
