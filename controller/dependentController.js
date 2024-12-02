@@ -1,4 +1,5 @@
 const Dependent = require("../model/dependentSchema");
+const Payment = require("../model/paymentSchema");
 const User = require("../model/userSchema");
 const axios = require("axios");
 
@@ -35,7 +36,7 @@ async function addDependent(req, res) {
       primaryUser,
       { $push: { dependents: savedDependent._id } },
       { new: true }
-    ).populate(["dependents","paymentHistory"]);
+    ).populate(["dependents", "paymentHistory"]);
 
     if (!updatedUser) {
       return res
@@ -154,6 +155,7 @@ async function updateDependent(req, res) {
         userId: primaryUserId,
         amount,
         transactionId,
+        Plan: "Plus",
       });
       await paymentRecord.save();
 
@@ -161,55 +163,54 @@ async function updateDependent(req, res) {
       user.paymentHistory.push(paymentRecord._id);
       await user.save();
     }
+    const loginData = new FormData();
+    loginData.append("email", "mtmstgopt01@mytelemedicine.com");
+    loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+
+    const loginResponse = await axios.post(
+      "https://staging.getlyric.com/go/api/login",
+      loginData
+    );
+
+    const authToken = loginResponse.headers["authorization"];
+    if (!authToken) {
+      return res
+        .status(401)
+        .json({ error: "Authorization token missing for Lyric" });
+    }
+
+    let relationShipId = "";
+    if (userInfo.relation === "Spouse") {
+      relationShipId = "1";
+    } else if (userInfo.relation === "Children") {
+      relationShipId = "2";
+    } else if (userInfo.relation === "Other") {
+      relationShipId = "3";
+    } else if (userInfo.relation === "Parents") {
+      relationShipId = "4";
+    }
+
+    const createDependentData = new FormData();
+    createDependentData.append("primaryExternalId", primaryUserId);
+    createDependentData.append("dependentExternalId", dependentId);
+    createDependentData.append("groupCode", "MTMSTGOPT01");
+    createDependentData.append("planId", "2322");
+    createDependentData.append("firstName", userInfo.firstName);
+    createDependentData.append("lastName", userInfo.lastName);
+    createDependentData.append("dob", userInfo.dob);
+    createDependentData.append("email", userInfo.email);
+    createDependentData.append("gender", userInfo.sex === "Male" ? "m" : "f");
+    createDependentData.append("primaryPhone", userInfo.phone);
+    createDependentData.append("address", userInfo.shipingAddress1);
+    createDependentData.append("address2", userInfo.shipingAddress2 || "");
+    createDependentData.append("city", userInfo.shipingCity);
+    createDependentData.append("stateId", userInfo.shipingStateId || "44");
+    createDependentData.append("zipCode", userInfo.shipingZip);
+    createDependentData.append("relationShipId", relationShipId);
+    createDependentData.append("timezoneId", "");
+    createDependentData.append("sendRegistrationNotification", "0");
 
     if (!lyricDependentId) {
-      const loginData = new FormData();
-      loginData.append("email", "mtmstgopt01@mytelemedicine.com");
-      loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
-
-      const loginResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/login",
-        loginData
-      );
-
-      const authToken = loginResponse.headers["authorization"];
-      if (!authToken) {
-        return res
-          .status(401)
-          .json({ error: "Authorization token missing for Lyric" });
-      }
-
-      let relationShipId = "";
-      if (userInfo.relation === "Spouse") {
-        relationShipId = "1";
-      } else if (userInfo.relation === "Children") {
-        relationShipId = "2";
-      } else if (userInfo.relation === "Other") {
-        relationShipId = "3";
-      } else if (userInfo.relation === "Parents") {
-        relationShipId = "4";
-      }
-
-      const createDependentData = new FormData();
-      createDependentData.append("primaryExternalId", primaryUserId);
-      createDependentData.append("dependentExternalId", dependentId);
-      createDependentData.append("groupCode", "MTMSTGOPT01");
-      createDependentData.append("planId", "2322");
-      createDependentData.append("firstName", userInfo.firstName);
-      createDependentData.append("lastName", userInfo.lastName);
-      createDependentData.append("dob", userInfo.dob);
-      createDependentData.append("email", userInfo.email);
-      createDependentData.append("gender", userInfo.sex === "Male" ? "m" : "f");
-      createDependentData.append("primaryPhone", userInfo.phone);
-      createDependentData.append("address", userInfo.shipingAddress1);
-      createDependentData.append("address2", userInfo.shipingAddress2 || "");
-      createDependentData.append("city", userInfo.shipingCity);
-      createDependentData.append("stateId", userInfo.shipingStateId || "44");
-      createDependentData.append("zipCode", userInfo.shipingZip);
-      createDependentData.append("relationShipId", relationShipId);
-      createDependentData.append("timezoneId", "");
-      createDependentData.append("sendRegistrationNotification", "0");
-
       const createDependentResponse = await axios.post(
         "https://staging.getlyric.com/go/api/census/createMemberDependent",
         createDependentData,
@@ -227,27 +228,27 @@ async function updateDependent(req, res) {
     }
 
     // Handle RxValet integration
+    const rxvaletDependentFormData = new FormData();
+    const rxvaletDependentInfo = {
+      PrimaryMemberGUID: user.PrimaryMemberGUID,
+      FirstName: userInfo.firstName,
+      LastName: userInfo.lastName,
+      Email: userInfo.email,
+      DOB: userInfo.dob,
+      Gender: userInfo.sex === "Male" ? "M" : "F",
+      Relationship: userInfo.relation === "Children" ? "Child" : "Spouse",
+      PhoneNumber: userInfo.phone,
+      Address: userInfo.shipingAddress1,
+      City: userInfo.shipingCity,
+      StateID: userInfo.shipingStateId || "44",
+      ZipCode: userInfo.shipingZip,
+    };
+
+    Object.entries(rxvaletDependentInfo).forEach(([key, value]) => {
+      rxvaletDependentFormData.append(key, value);
+    });
+
     if (!rxvaletDependentId) {
-      const rxvaletDependentFormData = new FormData();
-      const rxvaletDependentInfo = {
-        PrimaryMemberGUID: user.PrimaryMemberGUID,
-        FirstName: userInfo.firstName,
-        LastName: userInfo.lastName,
-        Email: userInfo.email,
-        DOB: userInfo.dob,
-        Gender: userInfo.sex === "Male" ? "M" : "F",
-        Relationship: userInfo.relation === "Children" ? "Child" : "Spouse",
-        PhoneNumber: userInfo.phone,
-        Address: userInfo.shipingAddress1,
-        City: userInfo.shipingCity,
-        StateID: userInfo.shipingStateId || "44",
-        ZipCode: userInfo.shipingZip,
-      };
-
-      Object.entries(rxvaletDependentInfo).forEach(([key, value]) => {
-        rxvaletDependentFormData.append(key, value);
-      });
-
       const rxvaletResponse = await axios.post(
         "https://rxvaletapi.com/api/omdrx/add_dependent.php",
         rxvaletDependentFormData,
@@ -263,12 +264,44 @@ async function updateDependent(req, res) {
       rxvaletDependentId = rxvaletResponse.data.Result.DependentGUID;
       updateData.rxvaletDependentId = rxvaletDependentId;
     }
-
     updateData.status = "Active";
 
+    // Update dependent on get lyric
+    const updateDependentGetLyricResponse = await axios.post(
+      "https://staging.getlyric.com/go/api/census/updateMemberDependent",
+      createDependentData,
+      { headers: { Authorization: authToken } }
+    );
+
+    if (
+      !updateDependentGetLyricResponse ||
+      !updateDependentGetLyricResponse.data
+    ) {
+      return res
+        .status(500)
+        .json({ error: "Failed to create member in Lyric system" });
+    }
+
+    // Update dependent on rx valet
+    const rxvaletResponse = await axios.post(
+      "https://rxvaletapi.com/api/omdrx/update_dependent.php",
+      rxvaletDependentFormData,
+      { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
+    );
+
+    if (!rxvaletResponse || rxvaletResponse.status !== 200) {
+      return res
+        .status(500)
+        .json({ error: "Failed to enroll user in RxValet system" });
+    }
+
+    // update dependent on our db
     await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
 
-    const updatedUser = await User.findById(primaryUserId).populate(["dependents","paymentHistory"])
+    const updatedUser = await User.findById(primaryUserId).populate([
+      "dependents",
+      "paymentHistory",
+    ]);
 
     const {
       password,
@@ -325,7 +358,10 @@ async function updateDependentImage(req, res) {
     }
 
     // Find the user and populate the dependents
-    const user = await User.findById(updatedDependent.primaryUser).populate(["dependents","paymentHistory"])
+    const user = await User.findById(updatedDependent.primaryUser).populate([
+      "dependents",
+      "paymentHistory",
+    ]);
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });

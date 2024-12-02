@@ -194,51 +194,76 @@ async function updateUser(req, res) {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Authenticate with Lyric to get the token
+    const loginData = new FormData();
+    loginData.append("email", "mtmstgopt01@mytelemedicine.com");
+    loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+    const loginResponse = await axios.post(
+      "https://staging.getlyric.com/go/api/login",
+      loginData
+    );
+    const authToken = loginResponse.headers["authorization"];
+
+    if (!authToken) {
+      return res
+        .status(401)
+        .json({ error: "Authorization token missing for getlyric" });
+    }
+
+    // Prepare `createMember` API payload
+    const createMemberData = new FormData();
+    createMemberData.append("primaryExternalId", user?._id);
+    createMemberData.append("groupCode", "MTMSTGOPT01");
+    createMemberData.append("planId", "2322");
+    createMemberData.append("planDetailsId", user.plan === "Trial" ? "1" : "3");
+    createMemberData.append("firstName", userInfo.firstName);
+    createMemberData.append("lastName", userInfo.lastName);
+    createMemberData.append("dob", userInfo.dob);
+    createMemberData.append("email", userInfo.email);
+    createMemberData.append("primaryPhone", userInfo.phone);
+    createMemberData.append("gender", userInfo.sex === "Male" ? "m" : "f");
+    createMemberData.append("heightFeet", "0");
+    createMemberData.append("heightInches", "0");
+    createMemberData.append("weight", "0");
+    createMemberData.append("address", userInfo.shipingAddress1);
+    createMemberData.append("address2", userInfo.shipingAddress2 || "");
+    createMemberData.append("city", userInfo.shipingCity);
+    createMemberData.append("stateId", userInfo.shipingStateId);
+    createMemberData.append("timezoneId", "");
+    createMemberData.append("zipCode", userInfo.shipingZip);
+    createMemberData.append("sendRegistrationNotification", "0");
+
+    // If successful, proceed to RxValet integration
+    const rxvaletUserInfo = {
+      CompanyID: "12212",
+      Testing: "1",
+      GroupID: user.plan === "Trial" ? "OPT125" : "OPT800",
+      MemberID: user?._id,
+      PersonCode: "1",
+      CoverageType: user.plan === "Trial" ? "EE" : "EF",
+      StartDate: user.planStartDate,
+      TermDate: user.planEndDate,
+      FirstName: userInfo.firstName,
+      LastName: userInfo.lastName,
+      Gender: userInfo.sex === "Male" ? "M" : "F",
+      DOB: userInfo.dob,
+      Email: userInfo.email,
+      Mobile: userInfo.phone,
+      BillingAddress1: userInfo.shipingAddress1,
+      BillingAddress2: userInfo.shipingAddress2,
+      BillingCity: userInfo.shipingCity,
+      BillingState: userInfo.shipingState,
+      BillingZip: userInfo.shipingZip,
+      BillingPhone: userInfo.phone,
+      DeliveryAddress1: userInfo.shipingAddress1,
+      DeliveryAddress2: userInfo.shipingAddress2,
+      DeliveryCity: userInfo.shipingCity,
+      DeliveryState: userInfo.shipingState,
+      DeliveryZip: userInfo.shipingZip,
+      DeliveryPhone: userInfo.phone,
+    };
+
     if (!user.lyricsUserId && !user.PrimaryMemberGUID) {
-      // Authenticate with Lyric to get the token
-      const loginData = new FormData();
-      loginData.append("email", "mtmstgopt01@mytelemedicine.com");
-      loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
-
-      const loginResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/login",
-        loginData
-      );
-
-      const authToken = loginResponse.headers["authorization"];
-
-      if (!authToken) {
-        return res
-          .status(401)
-          .json({ error: "Authorization token missing for getlyric" });
-      }
-
-      // Prepare `createMember` API payload
-      const createMemberData = new FormData();
-      createMemberData.append("primaryExternalId", user?._id);
-      createMemberData.append("groupCode", "MTMSTGOPT01");
-      createMemberData.append("planId", "2322");
-      createMemberData.append(
-        "planDetailsId",
-        user.plan === "Trial" ? "1" : "3"
-      );
-      createMemberData.append("firstName", userInfo.firstName);
-      createMemberData.append("lastName", userInfo.lastName);
-      createMemberData.append("dob", userInfo.dob);
-      createMemberData.append("email", userInfo.email);
-      createMemberData.append("primaryPhone", userInfo.phone);
-      createMemberData.append("gender", userInfo.sex === "Male" ? "m" : "f");
-      createMemberData.append("heightFeet", "0");
-      createMemberData.append("heightInches", "0");
-      createMemberData.append("weight", "0");
-      createMemberData.append("address", userInfo.shipingAddress1);
-      createMemberData.append("address2", userInfo.shipingAddress2 || "");
-      createMemberData.append("city", userInfo.shipingCity);
-      createMemberData.append("stateId", userInfo.shipingStateId);
-      createMemberData.append("timezoneId", "");
-      createMemberData.append("zipCode", userInfo.shipingZip);
-      createMemberData.append("sendRegistrationNotification", "0");
-
       // Hit the `createMember` API
       const createMemberResponse = await axios.post(
         "https://staging.getlyric.com/go/api/census/createMember",
@@ -257,36 +282,6 @@ async function updateUser(req, res) {
       }
 
       const lyricsUserId = createMemberResponse.data.userid;
-
-      // If successful, proceed to RxValet integration
-      const rxvaletUserInfo = {
-        CompanyID: "12212",
-        Testing: "1",
-        GroupID: user.plan === "Trial" ? "OPT125" : "OPT800",
-        MemberID: user?._id,
-        PersonCode: "1",
-        CoverageType: user.plan === "Trial" ? "EE" : "EF",
-        StartDate: user.planStartDate,
-        TermDate: user.planEndDate,
-        FirstName: userInfo.firstName,
-        LastName: userInfo.lastName,
-        Gender: userInfo.sex === "Male" ? "M" : "F",
-        DOB: userInfo.dob,
-        Email: userInfo.email,
-        Mobile: userInfo.phone,
-        BillingAddress1: userInfo.shipingAddress1,
-        BillingAddress2: userInfo.shipingAddress2,
-        BillingCity: userInfo.shipingCity,
-        BillingState: userInfo.shipingState,
-        BillingZip: userInfo.shipingZip,
-        BillingPhone: userInfo.phone,
-        DeliveryAddress1: userInfo.shipingAddress1,
-        DeliveryAddress2: userInfo.shipingAddress2,
-        DeliveryCity: userInfo.shipingCity,
-        DeliveryState: userInfo.shipingState,
-        DeliveryZip: userInfo.shipingZip,
-        DeliveryPhone: userInfo.phone,
-      };
 
       // Prepare formData for RxValet
       const rxvaletFormData = new FormData();
@@ -336,6 +331,47 @@ async function updateUser(req, res) {
         user: userWithoutSensitiveData,
       });
     } else {
+      // update user to get lyric
+      const updateGetLyricUserResponse = await axios.post(
+        "https://staging.getlyric.com/go/api/census/updateMember",
+        createMemberData,
+        {
+          headers: {
+            Authorization: authToken,
+          },
+        }
+      );
+
+      if (!updateGetLyricUserResponse) {
+        return res
+          .status(500)
+          .json({ error: "Failed to create member in Lyric system" });
+      }
+
+      // update user on rxvalet
+      // Prepare formData for RxValet
+      const rxvaletFormData = new FormData();
+      Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
+        rxvaletFormData.append(key, value);
+      });
+
+      // Call RxValet API
+      const rxvaletResponse = await axios.post(
+        "https://rxvaletapi.com/api/omdrx/update_member.php",
+        rxvaletFormData,
+        {
+          headers: {
+            api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
+          },
+        }
+      );
+
+      if (!rxvaletResponse || rxvaletResponse.status !== 200) {
+        return res
+          .status(500)
+          .json({ error: "Failed to update user in RxValet system" });
+      }
+
       // Update user with data from both APIs
       const updatedUser = await User.findByIdAndUpdate(
         userId,
@@ -693,9 +729,6 @@ async function updateUserStatus(req, res) {
     });
   }
 }
-
-
-
 module.exports = {
   register,
   login,
