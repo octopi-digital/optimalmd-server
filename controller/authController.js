@@ -174,7 +174,7 @@ async function register(req, res) {
     console.error("Error creating user:", error.message);
     res
       .status(500)
-      .json({ detail: "Internal Server Error", error: error.message });
+      .json({ detail: "Internal Server Error", error: error });
   }
 }
 
