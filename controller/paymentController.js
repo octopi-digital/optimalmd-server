@@ -91,6 +91,10 @@ const getAllPayment = async (req, res) => {
     const payments = await Payment.find(query)
       .skip(skip)
       .limit(limit)
+      .populate({
+        path: "user",
+        select: "firstName lastName email phone",
+      })
       .sort({ paymentDate: -1 });
 
     // Count total payments matching the filter
