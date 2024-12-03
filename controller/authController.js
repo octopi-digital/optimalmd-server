@@ -31,13 +31,8 @@ async function getAllUser(req, res) {
       conditions.push({ plan });
     }
 
-    // If no valid conditions are provided, return an empty array immediately
-    if (conditions.length === 0) {
-      return res.status(200).json([]);
-    }
-
-    // Use the $or operator to find users matching any condition
-    const filter = { $or: conditions };
+    // Create filter object: If no conditions, fetch all users
+    const filter = conditions.length > 0 ? { $or: conditions } : {};
 
     // Pagination calculations
     const skip = (page - 1) * limit;
@@ -48,29 +43,21 @@ async function getAllUser(req, res) {
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Return results or an empty array if no matches found
-    if (users.length === 0) {
-      return res.status(200).json([]);
-    }
-
     // Get total count for pagination
     const totalUsers = await User.countDocuments(filter);
 
     res.status(200).json({
+      totalUsers,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalUsers / limit),
       users,
-      pagination: {
-        totalUsers,
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalUsers / limit),
-      },
     });
   } catch (error) {
     console.error("Error fetching users:", error.message);
-    res
-      .status(500)
-      .json({ detail: "Internal Server Error", error: error.message });
+    res.status(500).json({ detail: "Internal Server Error", error: error.message });
   }
 }
+
 
 // Get a single user by ID
 async function getSingleUser(req, res) {
