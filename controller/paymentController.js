@@ -52,7 +52,7 @@ const processPayment = async (req, res) => {
   }
 };
 
-// Get All Payments with Pagination and Filtering (OR conditions)
+// Get All Payments with Pagination and Filtering
 const getAllPayment = async (req, res) => {
   try {
     let { startDate, endDate, invoiceId, page = 1, limit = 10 } = req.query;
@@ -112,7 +112,6 @@ const getAllPayment = async (req, res) => {
     });
   }
 };
-
 
 // Get Single Payment by ID
 const getSinglePayment = async (req, res) => {
