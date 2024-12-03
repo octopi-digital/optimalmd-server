@@ -42,6 +42,11 @@ const userSchema = new mongoose.Schema({
   status: { type: String, enum: ["Active", "Canceled"], default: "Active" },
 
   // plans
+  role: {
+    type: String,
+    enum: ["User", "Admin"],
+    default: "User"
+  },
   plan: {
     type: String,
     enum: ["Trial", "Plus", "Access", "Premiere"],

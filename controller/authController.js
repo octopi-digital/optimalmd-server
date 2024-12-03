@@ -468,22 +468,22 @@ async function updateUserPlan(req, res) {
     updateMemberData.append("planDetailsId", plan === "Trial" ? "1" : "3");
     updateMemberData.append("effectiveDate", planStartDate);
     updateMemberData.append("terminationDate", planEndDate);
-    createMemberData.append("firstName", user.firstName);
-    createMemberData.append("lastName", user.lastName);
-    createMemberData.append("dob", user.dob);
-    createMemberData.append("email", user.email);
-    createMemberData.append("primaryPhone", user.phone);
-    createMemberData.append("gender", user.sex === "Male" ? "m" : "f");
-    createMemberData.append("heightFeet", "0");
-    createMemberData.append("heightInches", "0");
-    createMemberData.append("weight", "0");
-    createMemberData.append("address", userInfo.shipingAddress1);
-    createMemberData.append("address2", userInfo.shipingAddress2 || "");
-    createMemberData.append("city", userInfo.shipingCity);
-    createMemberData.append("stateId", userInfo.shipingStateId);
-    createMemberData.append("timezoneId", "");
-    createMemberData.append("zipCode", userInfo.shipingZip);
-    createMemberData.append("sendRegistrationNotification", "0");
+    updateMemberData.append("firstName", user.firstName);
+    updateMemberData.append("lastName", user.lastName);
+    updateMemberData.append("dob", user.dob);
+    updateMemberData.append("email", user.email);
+    updateMemberData.append("primaryPhone", user.phone);
+    updateMemberData.append("gender", user.sex === "Male" ? "m" : "f");
+    updateMemberData.append("heightFeet", "0");
+    updateMemberData.append("heightInches", "0");
+    updateMemberData.append("weight", "0");
+    updateMemberData.append("address", user.shipingAddress1);
+    updateMemberData.append("address2", user.shipingAddress2 || "");
+    updateMemberData.append("city", user.shipingCity);
+    updateMemberData.append("stateId", user.shipingStateId);
+    updateMemberData.append("timezoneId", "");
+    updateMemberData.append("zipCode", user.shipingZip);
+    updateMemberData.append("sendRegistrationNotification", "0");
 
     // Update user in Lyric
     const response = await axios.post(
@@ -499,11 +499,29 @@ async function updateUserPlan(req, res) {
       CompanyID: "12212",
       Testing: "1",
       GroupID: plan === "Trial" ? "OPT125" : "OPT800",
-      MemberID: user._id,
+      PrimaryMemberGUID: user?.PrimaryMemberGUID,
       PersonCode: "1",
       CoverageType: plan === "Trial" ? "EE" : "EF",
       StartDate: planStartDate,
       TermDate: planEndDate,
+      FirstName: user.firstName,
+      LastName: user.lastName,
+      Gender: user.sex === "Male" ? "M" : "F",
+      DOB: user.dob,
+      Email: user.email,
+      Mobile: user.phone,
+      BillingAddress1: user.shipingAddress1,
+      BillingAddress2: user.shipingAddress2,
+      BillingCity: user.shipingCity,
+      BillingState: user.shipingState,
+      BillingZip: user.shipingZip,
+      BillingPhone: user.phone,
+      DeliveryAddress1: user.shipingAddress1,
+      DeliveryAddress2: user.shipingAddress2,
+      DeliveryCity: user.shipingCity,
+      DeliveryState: user.shipingState,
+      DeliveryZip: user.shipingZip,
+      DeliveryPhone: user.phone,
     };
 
     const rxvaletFormData = new FormData();

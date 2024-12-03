@@ -58,7 +58,7 @@ const getAllPayment = async (req, res) => {
     let { startDate, endDate, invoiceId, page = 1, limit = 10 } = req.query;
     const filters = [];
 
-    // Date range filtering (if both dates provided)
+    // Date range filtering
     if (startDate && endDate) {
       filters.push({
         paymentDate: {
