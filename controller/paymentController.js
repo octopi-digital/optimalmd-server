@@ -92,7 +92,7 @@ const getAllPayment = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .populate({
-        path: "user",
+        path: "userId",
         select: "firstName lastName email phone",
       })
       .sort({ paymentDate: -1 });
