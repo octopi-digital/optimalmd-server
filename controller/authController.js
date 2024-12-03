@@ -78,6 +78,7 @@ async function getSingleUser(req, res) {
 
 // Register a new user
 async function register(req, res) {
+  
   try {
     const {
       plan,
@@ -150,6 +151,8 @@ async function register(req, res) {
       },
       { headers: { "Content-Type": "application/json" } }
     );
+    console.log(paymentResponse.data);
+    
 
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
 
@@ -186,7 +189,7 @@ async function register(req, res) {
 
     // Send Email Notification
     const emailResponse = await axios.post(
-      "https://services.leadconnectorhq.com/hooks/VrTTgjMoHCZk4jeKOm9F/webhook-trigger/a31063ba-c921-45c7-a109-248ede8af79b",
+      "https://services.leadconnectorhq.com/hooks/c4HwDVSDzA4oeLOnUvdK/webhook-trigger/d5158a62-4e43-440b-bb4a-f6ee715e97bc",
       {
         firstName: newUser.firstName,
         lastName: newUser.lastName,
@@ -323,6 +326,7 @@ async function updateUser(req, res) {
 
     if (!rxvaletID) {
       // Enroll RxValet member
+
       const rxvaletResponse = await axios.post(
         "https://rxvaletapi.com/api/omdrx/member_enrollment.php",
         rxvaletFormData,
@@ -337,11 +341,13 @@ async function updateUser(req, res) {
       rxvaletID = rxvaletResponse.data.Result.PrimaryMemberGUID;
     } else {
       // Update RxValet member
-      await axios.post(
+      rxvaletFormData.append("PrimaryMemberGUID", user?.PrimaryMemberGUID);
+      const resp = await axios.post(
         "https://rxvaletapi.com/api/omdrx/update_member.php",
         rxvaletFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
+      console.log("update rxvalet user: ",resp.data);
     }
 
     // Update user in the database
@@ -433,7 +439,6 @@ async function updateUserPlan(req, res) {
       transactionId: result.transactionResponse.transId,
     });
     const paymentResp = await payment.save();
-    console.log(paymentResp);
     
 
     // Add payment to user's payment history
@@ -491,9 +496,7 @@ async function updateUserPlan(req, res) {
       updateMemberData,
       { headers: { Authorization: authToken } }
     );
-    console.log(response.data);
     
-
     // RxValet integration
     const rxvaletUserInfo = {
       CompanyID: "12212",
@@ -534,7 +537,6 @@ async function updateUserPlan(req, res) {
       rxvaletFormData,
       { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
     );
-    console.log(rxRespose.data);
     
 
     // Update user in the database
