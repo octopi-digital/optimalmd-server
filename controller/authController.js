@@ -58,7 +58,6 @@ async function getAllUser(req, res) {
   }
 }
 
-
 // Get a single user by ID
 async function getSingleUser(req, res) {
   try {
@@ -597,15 +596,12 @@ async function updateUserStatus(req, res) {
 
   try {
     // Fetch user from the database
-    let user = await User.findById(id).populate([
-      "dependents",
-      "paymentHistory",
-    ]);
+    const user = await User.findById(id).populate(["dependents", "paymentHistory"]);
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    // Authenticate with Lyric API
+    // Login to GetLyric API
     const cenSusloginData = new URLSearchParams();
     cenSusloginData.append("email", "mtmstgopt01@mytelemedicine.com");
     cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
@@ -616,9 +612,7 @@ async function updateUserStatus(req, res) {
     );
     const cenSusauthToken = cenSusloginResponse.headers["authorization"];
     if (!cenSusauthToken) {
-      return res
-        .status(401)
-        .json({ error: "Authorization token missing for GetLyric." });
+      return res.status(401).json({ error: "Authorization token missing for GetLyric." });
     }
 
     let terminationDate, memberActive, effectiveDate;
@@ -629,9 +623,63 @@ async function updateUserStatus(req, res) {
       terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
       memberActive = "1";
       effectiveDate = moment().format("MM/DD/YYYY");
+
+      // Process Payment
+      const amount = 97;
+      try {
+        const paymentResponse = await axios.post(
+          "https://apitest.authorize.net/xml/v1/request.api",
+          {
+            createTransactionRequest: {
+              merchantAuthentication: {
+                name: process.env.AUTHORIZE_NET_API_LOGIN_ID,
+                transactionKey: process.env.AUTHORIZE_NET_TRANSACTION_KEY,
+              },
+              transactionRequest: {
+                transactionType: "authCaptureTransaction",
+                amount: amount,
+                payment: {
+                  creditCard: {
+                    cardNumber: user.cardNumber,
+                    expirationDate: user.expiration,
+                    cardCode: user.cvc,
+                  },
+                },
+              },
+            },
+          },
+          {
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+
+        const result = paymentResponse.data;
+        if (result.messages.resultCode !== "Ok") {
+          return res.status(500).json({
+            success: false,
+            error: result.messages.message[0].text,
+          });
+        }
+
+        // Save Payment to the Payment Schema
+        const payment = new Payment({
+          userId: user._id,
+          amount: amount,
+          plan: "Plus",
+          transactionId: result.transactionResponse.transId,
+        });
+        await payment.save();
+
+        // Add payment to user's payment history
+        user.paymentHistory.push(payment._id);
+        user.plan = "Plus";
+      } catch (error) {
+        console.error("Payment Processing Error:", error.message);
+        return res.status(500).json({ success: false, error: "Payment processing failed." });
+      }
     }
 
-    // Update status on GetLyric API
+    // Update GetLyric API
     try {
       const getLyricFormData = new URLSearchParams();
       getLyricFormData.append("primaryExternalId", user._id);
@@ -643,70 +691,44 @@ async function updateUserStatus(req, res) {
       await axios.post(
         "https://staging.getlyric.com/go/api/census/updateTerminationDate",
         getLyricFormData,
-        {
-          headers: {
-            Authorization: cenSusauthToken,
-          },
-        }
+        { headers: { Authorization: cenSusauthToken } }
       );
     } catch (err) {
       console.error("GetLyric API Error:", err.message);
       return res.status(500).json({
-        message: `Failed to ${
-          status === "Active" ? "reactivate" : "terminate"
-        } user on GetLyric API.`,
+        message: `Failed to ${status === "Active" ? "reactivate" : "terminate"} user on GetLyric API.`,
         error: err.message,
       });
     }
 
-    // Update status on RxValet API
+    // Update RxValet API
     try {
-      const rxValetHeaders = {
-        api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
-      };
+      const rxValetHeaders = { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" };
       const rxValetFormData = new URLSearchParams();
       rxValetFormData.append("MemberGUID", user.PrimaryMemberGUID);
       rxValetFormData.append("MemberActive", memberActive);
 
-      const rxValetResponse = await axios.post(
+      await axios.post(
         "https://rxvaletapi.com/api/omdrx/member_deactivate_or_reactivate.php",
         rxValetFormData,
         { headers: rxValetHeaders }
       );
-
-      if (!rxValetResponse.data) {
-        console.log("RxValet Response Error:", rxValetResponse.data);
-        return res.status(500).json({
-          message: `Failed to ${
-            status === "Active" ? "reactivate" : "terminate"
-          } user on RxValet API.`,
-          error: rxValetResponse.data || "Unknown error",
-        });
-      }
     } catch (err) {
       console.error("RxValet API Error:", err.message);
       return res.status(500).json({
-        message: `Failed to ${
-          status === "Active" ? "reactivate" : "terminate"
-        } user on RxValet API.`,
+        message: `Failed to ${status === "Active" ? "reactivate" : "terminate"} user on RxValet API.`,
         error: err.message,
       });
     }
 
-    // Update user status in the databasepl
+    // Update user status and plan in the database
     user.status = status;
-    user.planStartDate = effectiveDate ? effectiveDate : user.planStartDate;
+    user.planStartDate = effectiveDate || user.planStartDate;
     user.planEndDate = terminationDate;
     await user.save();
 
     // Remove sensitive data before responding
-    const {
-      password,
-      cardNumber,
-      cvc,
-      expiration,
-      ...userWithoutSensitiveData
-    } = user.toObject();
+    const { password, cardNumber, cvc, expiration, ...userWithoutSensitiveData } = user.toObject();
 
     res.json({
       message: `User status successfully updated to ${status}.`,
@@ -714,12 +736,11 @@ async function updateUserStatus(req, res) {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      error: "Internal server error.",
-      details: error.message,
-    });
+    res.status(500).json({ error: "Internal server error.", details: error.message });
   }
 }
+
+
 module.exports = {
   register,
   login,
