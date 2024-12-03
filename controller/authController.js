@@ -311,11 +311,12 @@ async function updateUser(req, res) {
       lyricsUserId = createMemberResponse.data.userid;
     } else {
       // Update Lyric member
-      await axios.post(
+      const resp = await axios.post(
         "https://staging.getlyric.com/go/api/census/updateMember",
         createMemberData,
         { headers: { Authorization: authToken } }
       );
+      console.log(resp);
     }
 
     let rxvaletID = user.PrimaryMemberGUID;
