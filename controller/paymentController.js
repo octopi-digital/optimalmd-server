@@ -79,24 +79,13 @@ const getAllPayment = async (req, res) => {
       }
     }
 
-    // If no filters are provided, return an empty array immediately
-    if (filters.length === 0) {
-      return res.status(200).json({
-        success: true,
-        total: 0,
-        currentPage: page,
-        totalPages: 0,
-        data: [],
-      });
-    }
-
     // Pagination setup
     page = parseInt(page);
     limit = parseInt(limit);
     const skip = (page - 1) * limit;
 
-    // Query with $or operator for filtering
-    const query = { $or: filters };
+    // Create the query: fallback to empty object if no filters exist
+    const query = filters.length > 0 ? { $or: filters } : {};
 
     // Fetch payments with pagination and sorting by date (descending)
     const payments = await Payment.find(query)
@@ -123,6 +112,7 @@ const getAllPayment = async (req, res) => {
     });
   }
 };
+
 
 // Get Single Payment by ID
 const getSinglePayment = async (req, res) => {
