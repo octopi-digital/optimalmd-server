@@ -117,59 +117,59 @@ async function updateDependent(req, res) {
     let { lyricDependentId, rxvaletDependentId } = dependent;
 
     // Check if dependent is new to both Lyric and RxValet and charge $47 if so
-    if (!lyricDependentId && !rxvaletDependentId) {
-      const amount = 47; // Amount to charge
+    // if (!lyricDependentId && !rxvaletDependentId) {
+    //   const amount = 47; // Amount to charge
 
-      // Retrieve payment details from the user schema
-      const { cardNumber, cvc, expiration } = user;
-      if (!cardNumber || !cvc || !expiration) {
-        return res.status(400).json({ error: "Missing payment details" });
-      }
+    //   // Retrieve payment details from the user schema
+    //   const { cardNumber, cvc, expiration } = user;
+    //   if (!cardNumber || !cvc || !expiration) {
+    //     return res.status(400).json({ error: "Missing payment details" });
+    //   }
 
-      // Process payment
-      const paymentResponse = await axios.post(
-        "https://apitest.authorize.net/xml/v1/request.api",
-        {
-          createTransactionRequest: {
-            merchantAuthentication: {
-              name: API_LOGIN_ID,
-              transactionKey: TRANSACTION_KEY,
-            },
-            transactionRequest: {
-              transactionType: "authCaptureTransaction",
-              amount,
-              payment: {
-                creditCard: {
-                  cardNumber,
-                  expirationDate: expiration,
-                  cardCode: cvc,
-                },
-              },
-            },
-          },
-        },
-        { headers: { "Content-Type": "application/json" } }
-      );
+    //   // Process payment
+    //   const paymentResponse = await axios.post(
+    //     "https://apitest.authorize.net/xml/v1/request.api",
+    //     {
+    //       createTransactionRequest: {
+    //         merchantAuthentication: {
+    //           name: API_LOGIN_ID,
+    //           transactionKey: TRANSACTION_KEY,
+    //         },
+    //         transactionRequest: {
+    //           transactionType: "authCaptureTransaction",
+    //           amount,
+    //           payment: {
+    //             creditCard: {
+    //               cardNumber,
+    //               expirationDate: expiration,
+    //               cardCode: cvc,
+    //             },
+    //           },
+    //         },
+    //       },
+    //     },
+    //     { headers: { "Content-Type": "application/json" } }
+    //   );
 
-      const transactionId = paymentResponse?.data?.transactionResponse?.transId;
-      console.log(transactionId);
+    //   const transactionId = paymentResponse?.data?.transactionResponse?.transId;
+    //   console.log(transactionId);
 
-      if (!transactionId)
-        return res.status(400).json({ error: "Payment failed" });
+    //   if (!transactionId)
+    //     return res.status(400).json({ error: "Payment failed" });
 
-      // Save payment record
-      const paymentRecord = new Payment({
-        userId: primaryUserId,
-        amount,
-        transactionId,
-        Plan: "Plus",
-      });
-      await paymentRecord.save();
+    //   // Save payment record
+    //   const paymentRecord = new Payment({
+    //     userId: primaryUserId,
+    //     amount,
+    //     transactionId,
+    //     Plan: "Plus",
+    //   });
+    //   await paymentRecord.save();
 
-      // Add payment record to user's paymentHistory
-      user.paymentHistory.push(paymentRecord._id);
-      await user.save();
-    }
+    //   // Add payment record to user's paymentHistory
+    //   user.paymentHistory.push(paymentRecord._id);
+    //   await user.save();
+    // }
     const loginData = new FormData();
     loginData.append("email", "mtmstgopt01@mytelemedicine.com");
     loginData.append("password", "xQnIq|TH=*}To(JX&B1r");

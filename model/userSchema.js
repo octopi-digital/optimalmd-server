@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema({
   shipingCity: { type: String, default: "" },
   shipingState: { type: String, default: "" },
   shipingZip: { type: String, default: "" },
+  shipingStateId: { type: String, default: "" },
 
   // secondary address:
   secondaryAddress1: { type: String, default: "" },

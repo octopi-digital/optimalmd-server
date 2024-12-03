@@ -374,6 +374,182 @@ async function updateUser(req, res) {
   }
 }
 
+// update plan
+async function updateUserPlan(req, res) {
+  try {
+    const { userId, plan } = req.body;
+
+    if (!userId || !plan) {
+      return res.status(400).json({ error: "User ID and plan are required" });
+    }
+
+    // Find user in the database
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Process Payment
+    const amount = 97;
+    const paymentResponse = await axios.post(
+      "https://apitest.authorize.net/xml/v1/request.api",
+      {
+        createTransactionRequest: {
+          merchantAuthentication: {
+            name: process.env.AUTHORIZE_NET_API_LOGIN_ID,
+            transactionKey: process.env.AUTHORIZE_NET_TRANSACTION_KEY,
+          },
+          transactionRequest: {
+            transactionType: "authCaptureTransaction",
+            amount: amount,
+            payment: {
+              creditCard: {
+                cardNumber: user.cardNumber,
+                expirationDate: user.expiration,
+                cardCode: user.cvc,
+              },
+            },
+          },
+        },
+      },
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+    const result = paymentResponse.data;
+    if (result.messages.resultCode !== "Ok") {
+      return res.status(500).json({
+        success: false,
+        error: result.messages.message[0].text,
+      });
+    }
+
+    // Save Payment to the Payment Schema
+    const payment = new Payment({
+      userId: user._id,
+      amount: amount,
+      plan: plan,
+      transactionId: result.transactionResponse.transId,
+    });
+    const paymentResp = await payment.save();
+    console.log(paymentResp);
+    
+
+    // Add payment to user's payment history
+    user.paymentHistory.push(payment._id);
+
+    // Set plan dates
+    const planStartDate = moment().format("MM/DD/YYYY");
+    const planEndDate = moment().add(1, "month").format("MM/DD/YYYY");
+
+    // Authenticate with Lyric to get the token
+    const loginData = new FormData();
+    loginData.append("email", "mtmstgopt01@mytelemedicine.com");
+    loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+
+    const loginResponse = await axios.post(
+      "https://staging.getlyric.com/go/api/login",
+      loginData
+    );
+    const authToken = loginResponse.headers["authorization"];
+
+    if (!authToken) {
+      return res
+        .status(401)
+        .json({ error: "Authorization token missing for getlyric" });
+    }
+
+    // Prepare `updateMember` API payload
+    const updateMemberData = new FormData();
+    updateMemberData.append("primaryExternalId", user?._id);
+    updateMemberData.append("groupCode", "MTMSTGOPT01");
+    updateMemberData.append("planId", "2322");
+    updateMemberData.append("planDetailsId", plan === "Trial" ? "1" : "3");
+    updateMemberData.append("effectiveDate", planStartDate);
+    updateMemberData.append("terminationDate", planEndDate);
+    createMemberData.append("firstName", user.firstName);
+    createMemberData.append("lastName", user.lastName);
+    createMemberData.append("dob", user.dob);
+    createMemberData.append("email", user.email);
+    createMemberData.append("primaryPhone", user.phone);
+    createMemberData.append("gender", user.sex === "Male" ? "m" : "f");
+    createMemberData.append("heightFeet", "0");
+    createMemberData.append("heightInches", "0");
+    createMemberData.append("weight", "0");
+    createMemberData.append("address", userInfo.shipingAddress1);
+    createMemberData.append("address2", userInfo.shipingAddress2 || "");
+    createMemberData.append("city", userInfo.shipingCity);
+    createMemberData.append("stateId", userInfo.shipingStateId);
+    createMemberData.append("timezoneId", "");
+    createMemberData.append("zipCode", userInfo.shipingZip);
+    createMemberData.append("sendRegistrationNotification", "0");
+
+    // Update user in Lyric
+    const response = await axios.post(
+      "https://staging.getlyric.com/go/api/census/updateMember",
+      updateMemberData,
+      { headers: { Authorization: authToken } }
+    );
+    console.log(response.data);
+    
+
+    // RxValet integration
+    const rxvaletUserInfo = {
+      CompanyID: "12212",
+      Testing: "1",
+      GroupID: plan === "Trial" ? "OPT125" : "OPT800",
+      MemberID: user._id,
+      PersonCode: "1",
+      CoverageType: plan === "Trial" ? "EE" : "EF",
+      StartDate: planStartDate,
+      TermDate: planEndDate,
+    };
+
+    const rxvaletFormData = new FormData();
+    Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
+      rxvaletFormData.append(key, value);
+    });
+
+    const rxRespose = await axios.post(
+      "https://rxvaletapi.com/api/omdrx/update_member.php",
+      rxvaletFormData,
+      { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
+    );
+    console.log(rxRespose.data);
+    
+
+    // Update user in the database
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          plan,
+          planStartDate,
+          planEndDate,
+        },
+      },
+      { new: true, runValidators: true }
+    ).populate(["dependents", "paymentHistory"]);
+
+    const {
+      password,
+      cardNumber,
+      cvc,
+      expiration,
+      ...userWithoutSensitiveData
+    } = updatedUser.toObject();
+
+    res.status(200).json({
+      message: "User Plan updated successfully",
+      user: userWithoutSensitiveData,
+    });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}
+
 // update user image
 async function updateUserImage(req, res) {
   try {
@@ -753,4 +929,5 @@ module.exports = {
   deleteUser,
   updateUserImage,
   updateUserStatus,
+  updateUserPlan
 };
