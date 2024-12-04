@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
+  omdId: { type: Number, unique: true },
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
   email: { type: String, required: true},
@@ -76,5 +77,7 @@ const userSchema = new mongoose.Schema({
   lyricsUserId: { type: String, default: "" },
   ssoAccessToken: { type: String, default: "" },
 });
+
+userSchema.plugin(AutoIncrement, { inc_field: "omdId" });
 
 module.exports = mongoose.model("User", userSchema);
