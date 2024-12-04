@@ -84,10 +84,8 @@ const getAllPayment = async (req, res) => {
     limit = parseInt(limit);
     const skip = (page - 1) * limit;
 
-    // Create the query: fallback to empty object if no filters exist
     const query = filters.length > 0 ? { $or: filters } : {};
 
-    // Fetch payments with pagination and sorting by date (descending)
     const payments = await Payment.find(query)
       .skip(skip)
       .limit(limit)
@@ -97,7 +95,6 @@ const getAllPayment = async (req, res) => {
       })
       .sort({ paymentDate: -1 });
 
-    // Count total payments matching the filter
     const totalPayments = await Payment.countDocuments(query);
 
     res.status(200).json({
