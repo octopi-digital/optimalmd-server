@@ -54,7 +54,9 @@ async function getAllUser(req, res) {
     });
   } catch (error) {
     console.error("Error fetching users:", error.message);
-    res.status(500).json({ detail: "Internal Server Error", error: error.message });
+    res
+      .status(500)
+      .json({ detail: "Internal Server Error", error: error.message });
   }
 }
 
@@ -78,7 +80,6 @@ async function getSingleUser(req, res) {
 
 // Register a new user
 async function register(req, res) {
-  
   try {
     const {
       plan,
@@ -152,7 +153,6 @@ async function register(req, res) {
       { headers: { "Content-Type": "application/json" } }
     );
     console.log(paymentResponse.data);
-    
 
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
 
@@ -348,7 +348,7 @@ async function updateUser(req, res) {
         rxvaletFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-      console.log("update rxvalet user: ",resp.data);
+      console.log("update rxvalet user: ", resp.data);
     }
 
     // Update user in the database
@@ -440,7 +440,6 @@ async function updateUserPlan(req, res) {
       transactionId: result.transactionResponse.transId,
     });
     const paymentResp = await payment.save();
-    
 
     // Add payment to user's payment history
     user.paymentHistory.push(payment._id);
@@ -497,7 +496,7 @@ async function updateUserPlan(req, res) {
       updateMemberData,
       { headers: { Authorization: authToken } }
     );
-    
+
     // RxValet integration
     const rxvaletUserInfo = {
       CompanyID: "12212",
@@ -538,7 +537,6 @@ async function updateUserPlan(req, res) {
       rxvaletFormData,
       { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
     );
-    
 
     // Update user in the database
     const updatedUser = await User.findByIdAndUpdate(
@@ -793,7 +791,10 @@ async function updateUserStatus(req, res) {
 
   try {
     // Fetch user from the database
-    const user = await User.findById(id).populate(["dependents", "paymentHistory"]);
+    const user = await User.findById(id).populate([
+      "dependents",
+      "paymentHistory",
+    ]);
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
@@ -809,7 +810,9 @@ async function updateUserStatus(req, res) {
     );
     const cenSusauthToken = cenSusloginResponse.headers["authorization"];
     if (!cenSusauthToken) {
-      return res.status(401).json({ error: "Authorization token missing for GetLyric." });
+      return res
+        .status(401)
+        .json({ error: "Authorization token missing for GetLyric." });
     }
 
     let terminationDate, memberActive, effectiveDate;
@@ -872,7 +875,9 @@ async function updateUserStatus(req, res) {
         user.plan = "Plus";
       } catch (error) {
         console.error("Payment Processing Error:", error.message);
-        return res.status(500).json({ success: false, error: "Payment processing failed." });
+        return res
+          .status(500)
+          .json({ success: false, error: "Payment processing failed." });
       }
     }
 
@@ -893,14 +898,18 @@ async function updateUserStatus(req, res) {
     } catch (err) {
       console.error("GetLyric API Error:", err.message);
       return res.status(500).json({
-        message: `Failed to ${status === "Active" ? "reactivate" : "terminate"} user on GetLyric API.`,
+        message: `Failed to ${
+          status === "Active" ? "reactivate" : "terminate"
+        } user on GetLyric API.`,
         error: err.message,
       });
     }
 
     // Update RxValet API
     try {
-      const rxValetHeaders = { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" };
+      const rxValetHeaders = {
+        api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
+      };
       const rxValetFormData = new URLSearchParams();
       rxValetFormData.append("MemberGUID", user.PrimaryMemberGUID);
       rxValetFormData.append("MemberActive", memberActive);
@@ -913,7 +922,9 @@ async function updateUserStatus(req, res) {
     } catch (err) {
       console.error("RxValet API Error:", err.message);
       return res.status(500).json({
-        message: `Failed to ${status === "Active" ? "reactivate" : "terminate"} user on RxValet API.`,
+        message: `Failed to ${
+          status === "Active" ? "reactivate" : "terminate"
+        } user on RxValet API.`,
         error: err.message,
       });
     }
@@ -925,7 +936,13 @@ async function updateUserStatus(req, res) {
     await user.save();
 
     // Remove sensitive data before responding
-    const { password, cardNumber, cvc, expiration, ...userWithoutSensitiveData } = user.toObject();
+    const {
+      password,
+      cardNumber,
+      cvc,
+      expiration,
+      ...userWithoutSensitiveData
+    } = user.toObject();
 
     res.json({
       message: `User status successfully updated to ${status}.`,
@@ -933,10 +950,49 @@ async function updateUserStatus(req, res) {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error.", details: error.message });
+    res
+      .status(500)
+      .json({ error: "Internal server error.", details: error.message });
   }
 }
 
+async function manageUserRole(req, res) {
+  const { id } = req.params;
+  const { role } = req.body;
+
+  const allowedRoles = ["User", "Admin"];
+
+  if (!allowedRoles.includes(role)) {
+    return res.status(400).json({ error: "Invalid User Role" });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "Invalid User ID" });
+  }
+
+  try {
+    const user = await User.findById(id)
+      .select("-password -cardNumber -cvc -expiration")
+      .populate(["dependents", "paymentHistory"]);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    user.role = role;
+    await user.save();
+
+    res.json({
+      message: `User role successfully updated to ${role}.`,
+      user,
+    });
+  } catch (error) {
+    console.error("Error updating user role:", error);
+    res
+      .status(500)
+      .json({ error: "Internal server error.", details: error.message });
+  }
+}
 
 module.exports = {
   register,
@@ -950,5 +1006,6 @@ module.exports = {
   deleteUser,
   updateUserImage,
   updateUserStatus,
-  updateUserPlan
+  updateUserPlan,
+  manageUserRole,
 };

@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { register, login, getAllUser, getSingleUser, changepassword, updateUser, resetPassword, forgetPassword, deleteUser, updateUserImage, updateUserStatus, updateUserPlan } = require("../controller/authController");
+const { register, login, getAllUser, getSingleUser, changepassword, updateUser, resetPassword, forgetPassword, deleteUser, updateUserImage, updateUserStatus, updateUserPlan, manageUserRole } = require("../controller/authController");
 
 // all user
 router.get("/users", getAllUser);
@@ -37,5 +37,8 @@ router.patch("/update-status/:id", updateUserStatus);
 
 // change user status:
 router.patch("/update-plan", updateUserPlan);
+
+// change user status:
+router.patch("/manage-role/:id", manageUserRole);
 
 module.exports = router;
