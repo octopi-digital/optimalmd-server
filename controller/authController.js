@@ -262,6 +262,7 @@ async function updateUser(req, res) {
     createMemberData.append("timezoneId", "");
     createMemberData.append("zipCode", userInfo.shipingZip);
     createMemberData.append("sendRegistrationNotification", "0");
+    createMemberData.append("numAllowedDependents", "7");
 
     // If successful, proceed to RxValet integration
     const rxvaletUserInfo = {
