@@ -6,6 +6,7 @@ const {
   getSinglePayment,
 } = require("../controller/paymentController");
 const auth = require("../middlewares/auth.middleware");
+const authorize = require("../middlewares/authorize.middleware");
 
 router.post("/process", auth, processPayment);
 

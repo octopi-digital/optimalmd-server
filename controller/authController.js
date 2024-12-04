@@ -7,6 +7,7 @@ const Dependent = require("../model/dependentSchema");
 const Payment = require("../model/paymentSchema");
 const moment = require("moment");
 const { log } = require("console");
+const jwt = require("jsonwebtoken");
 
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
@@ -665,9 +666,16 @@ async function login(req, res) {
           expiration,
           ...userWithoutSensitiveData
         } = user.toObject();
+
+        // Generate JWT
+        const token = jwt.sign(
+          { id: user._id, email: user.email, role: user.role }, // Payload
+          process.env.JWT_SECRET, // Secret key
+          { expiresIn: "1h" } // Token expiry
+        );
         return res.status(200).json({
           message: "User logged in successfully",
-          user: userWithoutSensitiveData,
+          user: { ...userWithoutSensitiveData, token },
         });
       } else {
         return res.status(401).json({ error: "Invalid email or password" });
