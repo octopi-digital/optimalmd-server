@@ -16,30 +16,36 @@ const {
   manageUserRole,
 } = require("../controller/authController");
 const auth = require("../middlewares/auth.middleware");
+const authorize = require("../middlewares/authorize.middleware");
 
 // all user
-router.get("/users", auth, getAllUser);
+router.get("/users", auth, authorize(["Admin"]), getAllUser);
 
 // all user
-router.get("/users/:id", auth, getSingleUser);
+router.get("/users/:id", auth, authorize(["Admin"]), getSingleUser);
 
 // registration
 router.post("/register", auth, register);
 
 //update user information
-router.patch("/update", auth, updateUser);
+router.patch("/update", auth, authorize(["Admin", "User"]), updateUser);
 
 //update user information
-router.patch("/upload/image", auth, updateUserImage);
+router.patch("/upload/image", auth, authorize(["User"]), updateUserImage);
 
 //delete user information
-router.delete("/delete/:id", auth, deleteUser);
+router.delete("/delete/:id", auth, authorize(["Admin"]), deleteUser);
 
 // login
 router.post("/login", login);
 
 // change password
-router.patch("/changepassword", auth, changepassword);
+router.patch(
+  "/changepassword",
+  auth,
+  authorize(["Admin", "User"]),
+  changepassword
+);
 
 // forget password
 router.post("/forgetPassword", forgetPassword);
@@ -48,12 +54,22 @@ router.post("/forgetPassword", forgetPassword);
 router.post("/resetPassword", resetPassword);
 
 // change user status:
-router.patch("/update-status/:id", auth, updateUserStatus);
+router.patch(
+  "/update-status/:id",
+  auth,
+  authorize(["Admin"]),
+  updateUserStatus
+);
 
 // change user status:
-router.patch("/update-plan", auth, updateUserPlan);
+router.patch(
+  "/update-plan",
+  auth,
+  authorize(["Admin", "User"]),
+  updateUserPlan
+);
 
 // change user status:
-router.patch("/manage-role/:id", auth, manageUserRole);
+router.patch("/manage-role/:id", auth, authorize(["Admin"]), manageUserRole);
 
 module.exports = router;
