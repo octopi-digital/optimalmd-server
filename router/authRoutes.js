@@ -1,30 +1,45 @@
 const express = require("express");
 const router = express.Router();
-const { register, login, getAllUser, getSingleUser, changepassword, updateUser, resetPassword, forgetPassword, deleteUser, updateUserImage, updateUserStatus, updateUserPlan, manageUserRole } = require("../controller/authController");
+const {
+  register,
+  login,
+  getAllUser,
+  getSingleUser,
+  changepassword,
+  updateUser,
+  resetPassword,
+  forgetPassword,
+  deleteUser,
+  updateUserImage,
+  updateUserStatus,
+  updateUserPlan,
+  manageUserRole,
+} = require("../controller/authController");
+const auth = require("../middlewares/auth.middleware");
 
 // all user
-router.get("/users", getAllUser);
+router.get("/users", auth, getAllUser);
 
 // all user
-router.get("/users/:id", getSingleUser);
+router.get("/users/:id", auth, getSingleUser);
 
 // registration
-router.post("/register", register);
+router.post("/register", auth, register);
 
 //update user information
-router.patch("/update", updateUser);
+router.patch("/update", auth, updateUser);
 
 //update user information
-router.patch("/upload/image", updateUserImage);
+router.patch("/upload/image", auth, updateUserImage);
 
 //delete user information
-router.delete("/delete/:id", deleteUser);
+router.delete("/delete/:id", auth, deleteUser);
 
 // login
 router.post("/login", login);
 
 // change password
-router.patch("/changepassword", changepassword);
+router.patch("/changepassword", auth, changepassword);
 
 // forget password
 router.post("/forgetPassword", forgetPassword);
@@ -33,12 +48,12 @@ router.post("/forgetPassword", forgetPassword);
 router.post("/resetPassword", resetPassword);
 
 // change user status:
-router.patch("/update-status/:id", updateUserStatus);
+router.patch("/update-status/:id", auth, updateUserStatus);
 
 // change user status:
-router.patch("/update-plan", updateUserPlan);
+router.patch("/update-plan", auth, updateUserPlan);
 
 // change user status:
-router.patch("/manage-role/:id", manageUserRole);
+router.patch("/manage-role/:id", auth, manageUserRole);
 
 module.exports = router;
