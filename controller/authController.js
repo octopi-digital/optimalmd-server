@@ -152,7 +152,6 @@ async function register(req, res) {
       },
       { headers: { "Content-Type": "application/json" } }
     );
-    console.log(paymentResponse.data);
 
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
 
@@ -316,7 +315,6 @@ async function updateUser(req, res) {
         createMemberData,
         { headers: { Authorization: authToken } }
       );
-      console.log(resp);
     }
 
     let rxvaletID = user.PrimaryMemberGUID;
@@ -348,7 +346,6 @@ async function updateUser(req, res) {
         rxvaletFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-      console.log("update rxvalet user: ", resp.data);
     }
 
     // Update user in the database
@@ -852,6 +849,8 @@ async function updateUserStatus(req, res) {
             headers: { "Content-Type": "application/json" },
           }
         );
+        console.log(paymentResponse.data);
+        
 
         const result = paymentResponse.data;
         if (result.messages.resultCode !== "Ok") {

@@ -18,7 +18,6 @@ async function login(req, res) {
         },
       }
     );
-    console.log(response);
     
 
     res.status(response.status).json(response.data);
