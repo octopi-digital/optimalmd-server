@@ -438,9 +438,13 @@ async function updateUserPlan(req, res) {
       transactionId: result.transactionResponse.transId,
     });
     const paymentResp = await payment.save();
+    console.log("payment: ",payment);
+    console.log("payment respose: ",paymentResp);
+    
 
     // Add payment to user's payment history
-    user.paymentHistory.push(payment._id);
+    user.paymentHistory.push(paymentResp._id);
+    await user.save();
 
     // Set plan dates
     const planStartDate = moment().format("MM/DD/YYYY");
@@ -494,6 +498,8 @@ async function updateUserPlan(req, res) {
       updateMemberData,
       { headers: { Authorization: authToken } }
     );
+    console.log("lyrics data: ",response.data);
+    
 
     // RxValet integration
     const rxvaletUserInfo = {
@@ -535,6 +541,8 @@ async function updateUserPlan(req, res) {
       rxvaletFormData,
       { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
     );
+    console.log("rxvalet data: ",rxRespose.data);
+    
 
     // Update user in the database
     const updatedUser = await User.findByIdAndUpdate(
@@ -548,6 +556,8 @@ async function updateUserPlan(req, res) {
       },
       { new: true, runValidators: true }
     ).populate(["dependents", "paymentHistory"]);
+    console.log(updatedUser);
+    
 
     const {
       password,
