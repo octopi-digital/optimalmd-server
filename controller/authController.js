@@ -90,6 +90,12 @@ async function register(req, res) {
       ...userData
     } = req.body;
 
+    // Check if the email already exists
+    const existingUser = await User.findOne({ email: userData.email });
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already exists" });
+    }
+
     // Format DOB
     const formattedDob = moment(dob, moment.ISO_8601, true).isValid()
       ? moment(dob).format("MM/DD/YYYY")
