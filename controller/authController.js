@@ -861,8 +861,6 @@ async function updateUserStatus(req, res) {
             headers: { "Content-Type": "application/json" },
           }
         );
-        console.log(paymentResponse.data);
-        
 
         const result = paymentResponse.data;
         if (result.messages.resultCode !== "Ok") {
