@@ -812,15 +812,16 @@ async function updateUserStatus(req, res) {
         .json({ error: "Authorization token missing for GetLyric." });
     }
 
-    let terminationDate, memberActive, effectiveDate;
+    let terminationDate, memberActive, effectiveDate, getLyricUrl ;
     if (status === "Canceled") {
       terminationDate = moment().format("MM/DD/YYYY");
       memberActive = "0";
+      getLyricUrl = "https://staging.getlyric.com/go/api/census/updateTerminationDate";
     } else if (status === "Active") {
       terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
       memberActive = "1";
       effectiveDate = moment().format("MM/DD/YYYY");
-
+      getLyricUrl = "https://staging.getlyric.com/go/api/census/updateEffectiveDate";
       // Process Payment
       const amount = 97;
       try {
@@ -890,7 +891,7 @@ async function updateUserStatus(req, res) {
         getLyricFormData.append("effectiveDate", effectiveDate);
       }
       await axios.post(
-        "https://staging.getlyric.com/go/api/census/updateTerminationDate",
+        getLyricUrl,
         getLyricFormData,
         { headers: { Authorization: cenSusauthToken } }
       );
