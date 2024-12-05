@@ -444,6 +444,7 @@ async function updateUserPlan(req, res) {
 
     // Add payment to user's payment history
     user.paymentHistory.push(paymentResp._id);
+    user.status = "Active";
     await user.save();
 
     // Set plan dates
