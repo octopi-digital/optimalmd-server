@@ -158,10 +158,12 @@ async function register(req, res) {
       },
       { headers: { "Content-Type": "application/json" } }
     );
+    console.log(paymentResponse.data);
+    
 
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
 
-    if (!transactionId) {
+    if (!transactionId || transactionId=="0") {
       return res.status(400).json({ error: "Payment failed" });
     }
 
@@ -230,6 +232,15 @@ async function updateUser(req, res) {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Format DOB
+    const formattedDob = moment(userInfo.dob, moment.ISO_8601, true).isValid()
+      ? moment(userInfo.dob).format("MM/DD/YYYY")
+      : null;
+
+    if (!formattedDob) {
+      return res.status(400).json({ error: "Invalid date of birth format" });
+    }
+
     // Authenticate with Lyric to get the token
     const loginData = new FormData();
     loginData.append("email", "mtmstgopt01@mytelemedicine.com");
@@ -254,7 +265,7 @@ async function updateUser(req, res) {
     createMemberData.append("planDetailsId", user.plan === "Trial" ? "1" : "3");
     createMemberData.append("firstName", userInfo.firstName);
     createMemberData.append("lastName", userInfo.lastName);
-    createMemberData.append("dob", userInfo.dob);
+    createMemberData.append("dob", formattedDob);
     createMemberData.append("email", userInfo.email);
     createMemberData.append("primaryPhone", userInfo.phone);
     createMemberData.append("gender", userInfo.sex === "Male" ? "m" : "f");
@@ -283,7 +294,7 @@ async function updateUser(req, res) {
       FirstName: userInfo.firstName,
       LastName: userInfo.lastName,
       Gender: userInfo.sex === "Male" ? "M" : "F",
-      DOB: userInfo.dob,
+      DOB: formattedDob,
       Email: userInfo.email,
       Mobile: userInfo.phone,
       BillingAddress1: userInfo.shipingAddress1,
@@ -317,7 +328,7 @@ async function updateUser(req, res) {
       lyricsUserId = createMemberResponse.data.userid;
     } else {
       // Update Lyric member
-      const resp = await axios.post(
+      await axios.post(
         "https://staging.getlyric.com/go/api/census/updateMember",
         createMemberData,
         { headers: { Authorization: authToken } }
@@ -332,7 +343,6 @@ async function updateUser(req, res) {
 
     if (!rxvaletID) {
       // Enroll RxValet member
-
       const rxvaletResponse = await axios.post(
         "https://rxvaletapi.com/api/omdrx/member_enrollment.php",
         rxvaletFormData,
@@ -348,7 +358,7 @@ async function updateUser(req, res) {
     } else {
       // Update RxValet member
       rxvaletFormData.append("PrimaryMemberGUID", user?.PrimaryMemberGUID);
-      const resp = await axios.post(
+      await axios.post(
         "https://rxvaletapi.com/api/omdrx/update_member.php",
         rxvaletFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
@@ -380,7 +390,7 @@ async function updateUser(req, res) {
       user: userWithoutSensitiveData,
     });
   } catch (error) {
-    console.error("Error updating user:", error.message);
+    console.error("Error updating user:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 }
@@ -398,6 +408,12 @@ async function updateUserPlan(req, res) {
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
+    }
+
+    const formattedDob = moment(user.dob).format("MM/DD/YYYY");
+
+    if (!formattedDob) {
+      return res.status(400).json({ error: "Invalid date of birth format" });
     }
 
     // Process Payment
@@ -428,11 +444,11 @@ async function updateUserPlan(req, res) {
       }
     );
 
-    const result = paymentResponse.data;
-    if (result.messages.resultCode !== "Ok") {
+  
+    if (paymentResponse?.data?.transactionResponse?.transId==='0') {
       return res.status(500).json({
         success: false,
-        error: result.messages.message[0].text,
+        error: "Payment Failed",
       });
     }
 
@@ -444,9 +460,6 @@ async function updateUserPlan(req, res) {
       transactionId: result.transactionResponse.transId,
     });
     const paymentResp = await payment.save();
-    console.log("payment: ",payment);
-    console.log("payment respose: ",paymentResp);
-    
 
     // Add payment to user's payment history
     user.paymentHistory.push(paymentResp._id);
@@ -484,7 +497,7 @@ async function updateUserPlan(req, res) {
     updateMemberData.append("terminationDate", planEndDate);
     updateMemberData.append("firstName", user.firstName);
     updateMemberData.append("lastName", user.lastName);
-    updateMemberData.append("dob", user.dob);
+    updateMemberData.append("dob", formattedDob);
     updateMemberData.append("email", user.email);
     updateMemberData.append("primaryPhone", user.phone);
     updateMemberData.append("gender", user.sex === "Male" ? "m" : "f");
@@ -521,7 +534,7 @@ async function updateUserPlan(req, res) {
       FirstName: user.firstName,
       LastName: user.lastName,
       Gender: user.sex === "Male" ? "M" : "F",
-      DOB: user.dob,
+      DOB: formattedDob,
       Email: user.email,
       Mobile: user.phone,
       BillingAddress1: user.shipingAddress1,
@@ -870,10 +883,10 @@ async function updateUserStatus(req, res) {
         );
 
         const result = paymentResponse.data;
-        if (result.messages.resultCode !== "Ok") {
+        if (paymentResponse.data?.transactionResponse?.transId) {
           return res.status(500).json({
             success: false,
-            error: result.messages.message[0].text,
+            error: "Payment Failed!",
           });
         }
 

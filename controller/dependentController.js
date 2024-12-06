@@ -116,6 +116,12 @@ async function updateDependent(req, res) {
     let updateData = { ...userInfo };
     let { lyricDependentId, rxvaletDependentId } = dependent;
 
+    const formattedDob = moment(userInfo.dob).format("MM/DD/YYYY");
+
+    if (!formattedDob) {
+      return res.status(400).json({ error: "Invalid date of birth format" });
+    }
+
     // Check if dependent is new to both Lyric and RxValet and charge $47 if so
     // if (!lyricDependentId && !rxvaletDependentId) {
     //   const amount = 47; // Amount to charge
@@ -154,7 +160,7 @@ async function updateDependent(req, res) {
     //   const transactionId = paymentResponse?.data?.transactionResponse?.transId;
     //   console.log(transactionId);
 
-    //   if (!transactionId)
+    //   if (!transactionId || transactionId==='0')
     //     return res.status(400).json({ error: "Payment failed" });
 
     //   // Save payment record
@@ -204,7 +210,7 @@ async function updateDependent(req, res) {
     createDependentData.append("planId", "2322");
     createDependentData.append("firstName", userInfo.firstName);
     createDependentData.append("lastName", userInfo.lastName);
-    createDependentData.append("dob", userInfo.dob);
+    createDependentData.append("dob", formattedDob);
     createDependentData.append("email", userInfo.email);
     createDependentData.append("gender", userInfo.sex === "Male" ? "m" : "f");
     createDependentData.append("primaryPhone", userInfo.phone);
@@ -241,7 +247,7 @@ async function updateDependent(req, res) {
       FirstName: userInfo.firstName,
       LastName: userInfo.lastName,
       Email: userInfo.email,
-      DOB: userInfo.dob,
+      DOB: formattedDob,
       Gender: userInfo.sex === "Male" ? "M" : "F",
       Relationship: userInfo.relation === "Children" ? "Child" : "Spouse",
       PhoneNumber: userInfo.phone,

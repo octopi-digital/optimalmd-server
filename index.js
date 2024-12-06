@@ -8,6 +8,9 @@ const moment = require('moment');
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 
+const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
+const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
+
 // middle ware:
 app.use(cors());
 app.use(express.json());
@@ -59,6 +62,9 @@ const Payment = require("./model/paymentSchema");
 //       console.log(
 //         `User ID: ${user._id}, Plan: ${user.plan}, Plan End Date: ${user.planEndDate}`
 //       );
+
+
+
 //     });
 //   } catch (error) {
 //     console.error("Error running cron job:", error);
