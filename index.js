@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 const mongoose = require("mongoose");
+const cron = require("node-cron");
+const moment = require('moment');
 
 require("dotenv").config();
 const port = process.env.PORT || 5000;
@@ -33,6 +35,36 @@ app.use("/api/rxvalet", rxvaletRoutes);
 app.use("/api/getLyric", getLyricRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/plans", planRoutes);
+const User = require("./model/userSchema");
+const Payment = require("./model/paymentSchema");
+
+// // Cron job to run every 2 minutes
+// cron.schedule("*/1 * * * *", async () => {
+//   try {
+
+//     // Find users with active status, trial plan, and past planEndDate
+//     const usersToUpdate = await User.find({
+//       status: "Active", // Match exact case
+//       plan: "Trial",
+//       planEndDate: { $lte: moment().format("MM/DD/YYYY") }, // Compare formatted dates as strings
+//     });
+
+//     if (!usersToUpdate.length) {
+//       console.log("No users found with trial plan that need updating.");
+//       return;
+//     }
+
+//     // Log the users that meet the condition
+//     console.log("Users whose trial plans need to be updated:");
+//     usersToUpdate.forEach((user) => {
+//       console.log(
+//         `User ID: ${user._id}, Plan: ${user.plan}, Plan End Date: ${user.planEndDate}`
+//       );
+//     });
+//   } catch (error) {
+//     console.error("Error running cron job:", error);
+//   }
+// });
 
 app.get("/", (req, res) => {
   res.send("Optimal MD network is running...");

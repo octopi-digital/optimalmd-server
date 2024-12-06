@@ -90,6 +90,12 @@ async function register(req, res) {
       ...userData
     } = req.body;
 
+    // Check if the email already exists
+    const existingUser = await User.findOne({ email: userData.email });
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already exists" });
+    }
+
     // Format DOB
     const formattedDob = moment(dob, moment.ISO_8601, true).isValid()
       ? moment(dob).format("MM/DD/YYYY")
@@ -152,7 +158,6 @@ async function register(req, res) {
       },
       { headers: { "Content-Type": "application/json" } }
     );
-    console.log(paymentResponse.data);
 
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
 
@@ -263,6 +268,7 @@ async function updateUser(req, res) {
     createMemberData.append("timezoneId", "");
     createMemberData.append("zipCode", userInfo.shipingZip);
     createMemberData.append("sendRegistrationNotification", "0");
+    createMemberData.append("numAllowedDependents", "7");
 
     // If successful, proceed to RxValet integration
     const rxvaletUserInfo = {
@@ -316,7 +322,6 @@ async function updateUser(req, res) {
         createMemberData,
         { headers: { Authorization: authToken } }
       );
-      console.log(resp);
     }
 
     let rxvaletID = user.PrimaryMemberGUID;
@@ -348,7 +353,6 @@ async function updateUser(req, res) {
         rxvaletFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-      console.log("update rxvalet user: ", resp.data);
     }
 
     // Update user in the database
@@ -440,9 +444,14 @@ async function updateUserPlan(req, res) {
       transactionId: result.transactionResponse.transId,
     });
     const paymentResp = await payment.save();
+    console.log("payment: ",payment);
+    console.log("payment respose: ",paymentResp);
+    
 
     // Add payment to user's payment history
-    user.paymentHistory.push(payment._id);
+    user.paymentHistory.push(paymentResp._id);
+    user.status = "Active";
+    await user.save();
 
     // Set plan dates
     const planStartDate = moment().format("MM/DD/YYYY");
@@ -496,6 +505,8 @@ async function updateUserPlan(req, res) {
       updateMemberData,
       { headers: { Authorization: authToken } }
     );
+    console.log("lyrics data: ",response.data);
+    
 
     // RxValet integration
     const rxvaletUserInfo = {
@@ -537,6 +548,8 @@ async function updateUserPlan(req, res) {
       rxvaletFormData,
       { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
     );
+    console.log("rxvalet data: ",rxRespose.data);
+    
 
     // Update user in the database
     const updatedUser = await User.findByIdAndUpdate(
@@ -550,6 +563,8 @@ async function updateUserPlan(req, res) {
       },
       { new: true, runValidators: true }
     ).populate(["dependents", "paymentHistory"]);
+    console.log(updatedUser);
+    
 
     const {
       password,
@@ -815,15 +830,16 @@ async function updateUserStatus(req, res) {
         .json({ error: "Authorization token missing for GetLyric." });
     }
 
-    let terminationDate, memberActive, effectiveDate;
+    let terminationDate, memberActive, effectiveDate, getLyricUrl ;
     if (status === "Canceled") {
       terminationDate = moment().format("MM/DD/YYYY");
       memberActive = "0";
+      getLyricUrl = "https://staging.getlyric.com/go/api/census/updateTerminationDate";
     } else if (status === "Active") {
       terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
       memberActive = "1";
       effectiveDate = moment().format("MM/DD/YYYY");
-
+      getLyricUrl = "https://staging.getlyric.com/go/api/census/updateEffectiveDate";
       // Process Payment
       const amount = 97;
       try {
@@ -891,7 +907,7 @@ async function updateUserStatus(req, res) {
         getLyricFormData.append("effectiveDate", effectiveDate);
       }
       await axios.post(
-        "https://staging.getlyric.com/go/api/census/updateTerminationDate",
+        getLyricUrl,
         getLyricFormData,
         { headers: { Authorization: cenSusauthToken } }
       );
