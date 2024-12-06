@@ -30,13 +30,14 @@ const dependentRoutes = require("./router/dependentRoutes");
 const rxvaletRoutes = require("./router/rxvaletRoutes");
 const getLyricRoutes = require("./router/getLyricRoutes");
 const paymentRoutes = require("./router/paymentRoutes");
+const planRoutes = require("./router/plan.routes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
 app.use("/api/rxvalet", rxvaletRoutes);
 app.use("/api/getLyric", getLyricRoutes);
 app.use("/api/payment", paymentRoutes);
-
+app.use("/api/plans", planRoutes);
 const User = require("./model/userSchema");
 const Payment = require("./model/paymentSchema");
 
