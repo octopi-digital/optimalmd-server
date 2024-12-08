@@ -14,7 +14,7 @@ const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 // Get all users with pagination and filtering
 async function getAllUser(req, res) {
   try {
-    const { email, status, plan, page = 1, limit = 10 } = req.query;
+    const { email, status, plan, search, page = 1, limit = 10 } = req.query;
 
     // Build the filter array based on the provided query params
     let conditions = [];
@@ -31,8 +31,20 @@ async function getAllUser(req, res) {
       conditions.push({ plan });
     }
 
+    // Add search functionality
+    if (search) {
+      const searchRegex = { $regex: search, $options: "i" };
+      conditions.push({
+        $or: [
+          { email: searchRegex },
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+        ],
+      });
+    }
+
     // Create filter object: If no conditions, fetch all users
-    const filter = conditions.length > 0 ? { $or: conditions } : {};
+    const filter = conditions.length > 0 ? { $and: conditions } : {};
 
     // Pagination calculations
     const skip = (page - 1) * limit;
@@ -149,11 +161,10 @@ async function register(req, res) {
       },
       { headers: { "Content-Type": "application/json" } }
     );
-    
 
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
 
-    if (!transactionId || transactionId=="0") {
+    if (!transactionId || transactionId == "0") {
       return res.status(400).json({ error: "Payment failed" });
     }
 
@@ -336,8 +347,8 @@ async function updateUser(req, res) {
         rxvaletFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-      console.log("create response: ",rxvaletResponse.data);
-      
+      console.log("create response: ", rxvaletResponse.data);
+
       if (!rxvaletResponse || rxvaletResponse.status !== 200) {
         return res
           .status(500)
@@ -347,13 +358,12 @@ async function updateUser(req, res) {
     } else {
       // Update RxValet member
       rxvaletFormData.append("PrimaryMemberGUID", user?.PrimaryMemberGUID);
-      const resp =  await axios.post(
+      const resp = await axios.post(
         "https://rxvaletapi.com/api/omdrx/update_member.php",
         rxvaletFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-      console.log("update resp: ",resp.data);
-      
+      console.log("update resp: ", resp.data);
     }
 
     // Update user in the database
@@ -436,8 +446,7 @@ async function updateUserPlan(req, res) {
       }
     );
 
-  
-    if (paymentResponse?.data?.transactionResponse?.transId==='0') {
+    if (paymentResponse?.data?.transactionResponse?.transId === "0") {
       return res.status(500).json({
         success: false,
         error: "Payment Failed",
@@ -510,8 +519,7 @@ async function updateUserPlan(req, res) {
       updateMemberData,
       { headers: { Authorization: authToken } }
     );
-    console.log("lyrics data: ",response.data);
-    
+    console.log("lyrics data: ", response.data);
 
     // RxValet integration
     const rxvaletUserInfo = {
@@ -553,8 +561,7 @@ async function updateUserPlan(req, res) {
       rxvaletFormData,
       { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
     );
-    console.log("rxvalet data: ",rxRespose.data);
-    
+    console.log("rxvalet data: ", rxRespose.data);
 
     // Update user in the database
     const updatedUser = await User.findByIdAndUpdate(
@@ -569,7 +576,6 @@ async function updateUserPlan(req, res) {
       { new: true, runValidators: true }
     ).populate(["dependents", "paymentHistory"]);
     console.log(updatedUser);
-    
 
     const {
       password,
@@ -835,16 +841,18 @@ async function updateUserStatus(req, res) {
         .json({ error: "Authorization token missing for GetLyric." });
     }
 
-    let terminationDate, memberActive, effectiveDate, getLyricUrl ;
+    let terminationDate, memberActive, effectiveDate, getLyricUrl;
     if (status === "Canceled") {
       terminationDate = moment().format("MM/DD/YYYY");
       memberActive = "0";
-      getLyricUrl = "https://staging.getlyric.com/go/api/census/updateTerminationDate";
+      getLyricUrl =
+        "https://staging.getlyric.com/go/api/census/updateTerminationDate";
     } else if (status === "Active") {
       terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
       memberActive = "1";
       effectiveDate = moment().format("MM/DD/YYYY");
-      getLyricUrl = "https://staging.getlyric.com/go/api/census/updateEffectiveDate";
+      getLyricUrl =
+        "https://staging.getlyric.com/go/api/census/updateEffectiveDate";
       // Process Payment
       const amount = 97;
       try {
@@ -911,11 +919,9 @@ async function updateUserStatus(req, res) {
       if (status === "Active") {
         getLyricFormData.append("effectiveDate", effectiveDate);
       }
-      await axios.post(
-        getLyricUrl,
-        getLyricFormData,
-        { headers: { Authorization: cenSusauthToken } }
-      );
+      await axios.post(getLyricUrl, getLyricFormData, {
+        headers: { Authorization: cenSusauthToken },
+      });
     } catch (err) {
       console.error("GetLyric API Error:", err.message);
       return res.status(500).json({
