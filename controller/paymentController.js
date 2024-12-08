@@ -62,20 +62,18 @@ const getAllPayment = async (req, res) => {
     limit = parseInt(limit);
     const skip = (page - 1) * limit;
 
-    // Build filters for searching
-    const filters = [];
+    // Build match filters
+    const match = {};
 
     // Search filter
     if (search) {
-      filters.push({
-        $or: [
-          { "userId.firstName": { $regex: search, $options: "i" } },
-          { "userId.lastName": { $regex: search, $options: "i" } },
-          { "userId.email": { $regex: search, $options: "i" } },
-          { "userId.phone": { $regex: search, $options: "i" } },
-          { transactionId: { $regex: search, $options: "i" } },
-        ],
-      });
+      match.$or = [
+        { "userId.firstName": { $regex: search, $options: "i" } },
+        { "userId.lastName": { $regex: search, $options: "i" } },
+        { "userId.email": { $regex: search, $options: "i" } },
+        { "userId.phone": { $regex: search, $options: "i" } },
+        { transactionId: { $regex: search, $options: "i" } },
+      ];
     }
 
     // Date range filter
@@ -85,27 +83,48 @@ const getAllPayment = async (req, res) => {
         dateFilter.$gte = new Date(startDate);
       }
       if (endDate) {
-        // Set endDate to the end of the day if only the same day is specified
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
         dateFilter.$lte = endOfDay;
       }
-      filters.push({ paymentDate: dateFilter });
+      match.paymentDate = dateFilter;
     }
 
-    const query = filters.length > 0 ? { $and: filters } : {};
+    // Aggregate pipeline
+    const pipeline = [
+      {
+        $lookup: {
+          from: "users", // Replace with your actual users collection name
+          localField: "userId",
+          foreignField: "_id",
+          as: "userId",
+        },
+      },
+      { $unwind: "$userId" },
+      { $match: match },
+      { $sort: { paymentDate: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $project: {
+          "userId.firstName": 1,
+          "userId.lastName": 1,
+          "userId.email": 1,
+          "userId.phone": 1,
+          transactionId: 1,
+          paymentDate: 1,
+        },
+      },
+    ];
 
-    // Fetch payments with search, date range, and pagination
-    const payments = await Payment.find(query)
-      .skip(skip)
-      .limit(limit)
-      .populate({
-        path: "userId",
-        select: "firstName lastName email phone",
-      })
-      .sort({ paymentDate: -1 });
+    // Execute the pipeline
+    const payments = await Payment.aggregate(pipeline);
 
-    const totalPayments = await Payment.countDocuments(query);
+    // Count total documents matching the query
+    const totalPaymentsPipeline = [...pipeline];
+    totalPaymentsPipeline.splice(3, 2); // Remove skip and limit stages for counting
+    const totalPayments = (await Payment.aggregate(totalPaymentsPipeline))
+      .length;
 
     res.status(200).json({
       success: true,
