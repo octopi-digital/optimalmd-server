@@ -307,6 +307,8 @@ async function updateUser(req, res) {
         createMemberData,
         { headers: { Authorization: authToken } }
       );
+      console.log("lyrics create",createMemberResponse.data);
+      
 
       if (!createMemberResponse || !createMemberResponse.data.userid) {
         return res
@@ -316,11 +318,12 @@ async function updateUser(req, res) {
       lyricsUserId = createMemberResponse.data.userid;
     } else {
       // Update Lyric member
-      await axios.post(
+      const updateResp = await axios.post(
         "https://staging.getlyric.com/go/api/census/updateMember",
         createMemberData,
         { headers: { Authorization: authToken } }
       );
+      console.log("lyrics create", updateResp.data);
     }
 
     let rxvaletID = user.PrimaryMemberGUID;
@@ -820,7 +823,7 @@ async function updateUserStatus(req, res) {
     }
 
     // Login to GetLyric API
-    const cenSusloginData = new URLSearchParams();
+    const cenSusloginData = new FormData();
     cenSusloginData.append("email", "mtmstgopt01@mytelemedicine.com");
     cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
 
@@ -875,7 +878,7 @@ async function updateUserStatus(req, res) {
         );
 
         const result = paymentResponse.data;
-        if (paymentResponse.data?.transactionResponse?.transId) {
+        if (paymentResponse.data?.transactionResponse?.transId==="0") {
           return res.status(500).json({
             success: false,
             error: "Payment Failed!",
@@ -904,7 +907,7 @@ async function updateUserStatus(req, res) {
 
     // Update GetLyric API
     try {
-      const getLyricFormData = new URLSearchParams();
+      const getLyricFormData = new FormData();
       getLyricFormData.append("primaryExternalId", user._id);
       getLyricFormData.append("groupCode", "MTMSTGOPT01");
       getLyricFormData.append("terminationDate", terminationDate);
@@ -931,7 +934,7 @@ async function updateUserStatus(req, res) {
       const rxValetHeaders = {
         api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
       };
-      const rxValetFormData = new URLSearchParams();
+      const rxValetFormData = new FormData();
       rxValetFormData.append("MemberGUID", user.PrimaryMemberGUID);
       rxValetFormData.append("MemberActive", memberActive);
 
