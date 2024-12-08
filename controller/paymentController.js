@@ -55,8 +55,9 @@ const processPayment = async (req, res) => {
 // Get All Payments with Pagination and Filtering
 const getAllPayment = async (req, res) => {
   try {
-    let { page = 1, limit = 10, search = "" } = req.query;
-
+    let { page = 1, limit = 10, search = "", startDate, endDate } = req.query;
+    console.log("start date: ", startDate);
+    console.log("end date: ", endDate);
     // Pagination setup
     page = parseInt(page);
     limit = parseInt(limit);
@@ -64,6 +65,8 @@ const getAllPayment = async (req, res) => {
 
     // Build filters for searching
     const filters = [];
+
+    // Search filter
     if (search) {
       filters.push({
         $or: [
@@ -76,9 +79,21 @@ const getAllPayment = async (req, res) => {
       });
     }
 
+    // Date range filter
+    if (startDate || endDate) {
+      const dateFilter = {};
+      if (startDate) {
+        dateFilter.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateFilter.$lte = new Date(endDate);
+      }
+      filters.push({ paymentDate: dateFilter });
+    }
+
     const query = filters.length > 0 ? { $and: filters } : {};
 
-    // Fetch payments with search and pagination
+    // Fetch payments with search, date range, and pagination
     const payments = await Payment.find(query)
       .skip(skip)
       .limit(limit)
