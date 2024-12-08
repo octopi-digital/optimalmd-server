@@ -2,7 +2,7 @@ const Dependent = require("../model/dependentSchema");
 const Payment = require("../model/paymentSchema");
 const User = require("../model/userSchema");
 const axios = require("axios");
-const moment = require('moment');
+const moment = require("moment");
 
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
@@ -98,11 +98,11 @@ async function updateDependent(req, res) {
   try {
     const { primaryUserId, dependentId, ...userInfo } = req.body;
 
-    if(!primaryUserId){
+    if (!primaryUserId) {
       return res.status(400).json({ error: "User Id Is Required" });
     }
 
-    if(!dependentId){
+    if (!dependentId) {
       return res.status(400).json({ error: "Dependent Id Is Required" });
     }
 
@@ -177,6 +177,7 @@ async function updateDependent(req, res) {
     //   user.paymentHistory.push(paymentRecord._id);
     //   await user.save();
     // }
+
     const loginData = new FormData();
     loginData.append("email", "mtmstgopt01@mytelemedicine.com");
     loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
@@ -239,6 +240,22 @@ async function updateDependent(req, res) {
 
       lyricDependentId = createDependentResponse.data.dependentUserId;
       updateData.lyricDependentId = lyricDependentId;
+    } else {
+      // Update dependent on get lyric
+      const updateDependentGetLyricResponse = await axios.post(
+        "https://staging.getlyric.com/go/api/census/updateMemberDependent",
+        createDependentData,
+        { headers: { Authorization: authToken } }
+      );
+
+      if (
+        !updateDependentGetLyricResponse ||
+        !updateDependentGetLyricResponse.status !== 200
+      ) {
+        return res
+          .status(500)
+          .json({ error: "Failed to update member in Lyric system" });
+      }
     }
 
     // Handle RxValet integration
@@ -277,37 +294,21 @@ async function updateDependent(req, res) {
 
       rxvaletDependentId = rxvaletResponse.data.Result.DependentGUID;
       updateData.rxvaletDependentId = rxvaletDependentId;
+    } else {
+      // Update dependent on rx valet
+      const rxvaletUpdateResponse = await axios.post(
+        "https://rxvaletapi.com/api/omdrx/update_dependent.php",
+        rxvaletDependentFormData,
+        { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
+      );
+
+      if (!rxvaletUpdateResponse || rxvaletUpdateResponse.status !== 200) {
+        return res
+          .status(500)
+          .json({ error: "Failed to update user in RxValet system" });
+      }
     }
     updateData.status = "Active";
-
-    // Update dependent on get lyric
-    const updateDependentGetLyricResponse = await axios.post(
-      "https://staging.getlyric.com/go/api/census/updateMemberDependent",
-      createDependentData,
-      { headers: { Authorization: authToken } }
-    );
-
-    if (
-      !updateDependentGetLyricResponse ||
-      !updateDependentGetLyricResponse.data
-    ) {
-      return res
-        .status(500)
-        .json({ error: "Failed to create member in Lyric system" });
-    }
-
-    // Update dependent on rx valet
-    const rxvaletResponse = await axios.post(
-      "https://rxvaletapi.com/api/omdrx/update_dependent.php",
-      rxvaletDependentFormData,
-      { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
-    );
-
-    if (!rxvaletResponse || rxvaletResponse.status !== 200) {
-      return res
-        .status(500)
-        .json({ error: "Failed to enroll user in RxValet system" });
-    }
 
     // update dependent on our db
     await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });

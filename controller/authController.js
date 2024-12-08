@@ -96,15 +96,6 @@ async function register(req, res) {
       return res.status(400).json({ error: "Email already exists" });
     }
 
-    // Format DOB
-    const formattedDob = moment(dob, moment.ISO_8601, true).isValid()
-      ? moment(dob).format("MM/DD/YYYY")
-      : null;
-
-    if (!formattedDob) {
-      return res.status(400).json({ error: "Invalid date of birth format" });
-    }
-
     // Generate random password and hash it
     const defaultPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
@@ -158,7 +149,6 @@ async function register(req, res) {
       },
       { headers: { "Content-Type": "application/json" } }
     );
-    console.log(paymentResponse.data);
     
 
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
@@ -170,7 +160,7 @@ async function register(req, res) {
     // Create User
     const user = new User({
       ...userData,
-      dob: formattedDob,
+      dob: dob,
       password: hashedPassword,
       plan,
       planStartDate,
@@ -220,7 +210,7 @@ async function register(req, res) {
 // update user info
 async function updateUser(req, res) {
   try {
-    const { userId, ...userInfo } = req.body;
+    const { userId, dob, ...userInfo } = req.body;
 
     if (!userId) {
       return res.status(400).json({ error: "User ID is required" });
@@ -233,9 +223,7 @@ async function updateUser(req, res) {
     }
 
     // Format DOB
-    const formattedDob = moment(userInfo.dob, moment.ISO_8601, true).isValid()
-      ? moment(userInfo.dob).format("MM/DD/YYYY")
-      : null;
+    const formattedDob = moment(user.dob).format("MM/DD/YYYY");
 
     if (!formattedDob) {
       return res.status(400).json({ error: "Invalid date of birth format" });
@@ -348,7 +336,8 @@ async function updateUser(req, res) {
         rxvaletFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-
+      console.log("create response: ",rxvaletResponse.data);
+      
       if (!rxvaletResponse || rxvaletResponse.status !== 200) {
         return res
           .status(500)
@@ -358,11 +347,13 @@ async function updateUser(req, res) {
     } else {
       // Update RxValet member
       rxvaletFormData.append("PrimaryMemberGUID", user?.PrimaryMemberGUID);
-      await axios.post(
+      const resp =  await axios.post(
         "https://rxvaletapi.com/api/omdrx/update_member.php",
         rxvaletFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
+      console.log("update resp: ",resp.data);
+      
     }
 
     // Update user in the database
@@ -370,6 +361,7 @@ async function updateUser(req, res) {
       userId,
       {
         $set: {
+          dob: dob,
           ...userInfo,
           PrimaryMemberGUID: rxvaletID,
           lyricsUserId,
