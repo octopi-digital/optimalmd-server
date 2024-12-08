@@ -223,7 +223,7 @@ async function updateUser(req, res) {
     }
 
     // Format DOB
-    const formattedDob = moment(user.dob).format("MM/DD/YYYY");
+    const formattedDob = moment(dob).format("MM/DD/YYYY");
 
     if (!formattedDob) {
       return res.status(400).json({ error: "Invalid date of birth format" });
@@ -307,8 +307,6 @@ async function updateUser(req, res) {
         createMemberData,
         { headers: { Authorization: authToken } }
       );
-      console.log("lyrics create",createMemberResponse.data);
-      
 
       if (!createMemberResponse || !createMemberResponse.data.userid) {
         return res
@@ -318,12 +316,11 @@ async function updateUser(req, res) {
       lyricsUserId = createMemberResponse.data.userid;
     } else {
       // Update Lyric member
-      const updateResp = await axios.post(
+      await axios.post(
         "https://staging.getlyric.com/go/api/census/updateMember",
         createMemberData,
         { headers: { Authorization: authToken } }
       );
-      console.log("lyrics create", updateResp.data);
     }
 
     let rxvaletID = user.PrimaryMemberGUID;
@@ -355,8 +352,6 @@ async function updateUser(req, res) {
         rxvaletFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-      console.log("update resp: ",resp.data);
-      
     }
 
     // Update user in the database
