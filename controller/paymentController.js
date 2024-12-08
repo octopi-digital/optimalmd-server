@@ -56,8 +56,7 @@ const processPayment = async (req, res) => {
 const getAllPayment = async (req, res) => {
   try {
     let { page = 1, limit = 10, search = "", startDate, endDate } = req.query;
-    console.log("start date: ", startDate);
-    console.log("end date: ", endDate);
+
     // Pagination setup
     page = parseInt(page);
     limit = parseInt(limit);
@@ -86,7 +85,10 @@ const getAllPayment = async (req, res) => {
         dateFilter.$gte = new Date(startDate);
       }
       if (endDate) {
-        dateFilter.$lte = new Date(endDate);
+        // Set endDate to the end of the day if only the same day is specified
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        dateFilter.$lte = endOfDay;
       }
       filters.push({ paymentDate: dateFilter });
     }
