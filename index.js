@@ -23,12 +23,16 @@ mongoose
   .then(() => console.log("MongoDB connected successfully"))
   .catch((error) => console.error("MongoDB connection error:", error));
 
+const User = require("./model/userSchema");
+const Payment = require("./model/paymentSchema");
+
 const authRoutes = require("./router/authRoutes");
 const dependentRoutes = require("./router/dependentRoutes");
 const rxvaletRoutes = require("./router/rxvaletRoutes");
 const getLyricRoutes = require("./router/getLyricRoutes");
 const paymentRoutes = require("./router/paymentRoutes");
 const planRoutes = require("./router/plan.routes");
+const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
@@ -36,8 +40,8 @@ app.use("/api/rxvalet", rxvaletRoutes);
 app.use("/api/getLyric", getLyricRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/plans", planRoutes);
-const User = require("./model/userSchema");
-const Payment = require("./model/paymentSchema");
+app.use("/api/admin/stats", adminStatisticsRoutes);
+
 
 cron.schedule("0 0 * * *", async () => {
   try {

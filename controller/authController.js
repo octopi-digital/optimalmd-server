@@ -327,11 +327,16 @@ async function updateUser(req, res) {
       lyricsUserId = createMemberResponse.data.userid;
     } else {
       // Update Lyric member
-      await axios.post(
+      const resp = await axios.post(
         "https://staging.getlyric.com/go/api/census/updateMember",
         createMemberData,
         { headers: { Authorization: authToken } }
       );
+      if (!resp.data.success) {
+        return res
+          .status(500)
+          .json({ error: "Failed to update member in Lyric system" });
+      }
     }
 
     let rxvaletID = user.PrimaryMemberGUID;
@@ -349,11 +354,11 @@ async function updateUser(req, res) {
       );
       console.log("create response: ", rxvaletResponse.data);
 
-      if (!rxvaletResponse || rxvaletResponse.status !== 200) {
-        return res
-          .status(500)
-          .json({ error: "Failed to enroll user in RxValet system" });
-      }
+      // if (!rxvaletResponse || rxvaletResponse.status !== 200) {
+      //   return res
+      //     .status(500)
+      //     .json({ error: "Failed to enroll user in RxValet system" });
+      // }
       rxvaletID = rxvaletResponse.data.Result.PrimaryMemberGUID;
     } else {
       // Update RxValet member
@@ -363,6 +368,7 @@ async function updateUser(req, res) {
         rxvaletFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
+      console.log("update response rx: ", resp);
     }
 
     // Update user in the database
@@ -882,7 +888,7 @@ async function updateUserStatus(req, res) {
         );
 
         const result = paymentResponse.data;
-        if (paymentResponse.data?.transactionResponse?.transId==="0") {
+        if (paymentResponse.data?.transactionResponse?.transId === "0") {
           return res.status(500).json({
             success: false,
             error: "Payment Failed!",

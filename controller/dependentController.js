@@ -122,6 +122,7 @@ async function updateDependent(req, res) {
     if (!formattedDob) {
       return res.status(400).json({ error: "Invalid date of birth format" });
     }
+    console.log(formattedDob);
 
     // Check if dependent is new to both Lyric and RxValet and charge $47 if so
     // if (!lyricDependentId && !rxvaletDependentId) {
@@ -231,8 +232,9 @@ async function updateDependent(req, res) {
         createDependentData,
         { headers: { Authorization: authToken } }
       );
+      console.log(createDependentResponse.data);
 
-      if (!createDependentResponse || !createDependentResponse.data) {
+      if (!createDependentResponse.data.success) {
         return res
           .status(500)
           .json({ error: "Failed to create member in Lyric system" });
@@ -248,13 +250,10 @@ async function updateDependent(req, res) {
         { headers: { Authorization: authToken } }
       );
 
-      if (
-        !updateDependentGetLyricResponse ||
-        !updateDependentGetLyricResponse.status !== 200
-      ) {
+      if (!updateDependentGetLyricResponse.data.success) {
         return res
           .status(500)
-          .json({ error: "Failed to update member in Lyric system" });
+          .json({ error: "Failed to update dependent in Lyric system" });
       }
     }
 
@@ -271,7 +270,7 @@ async function updateDependent(req, res) {
       PhoneNumber: userInfo.phone,
       Address: userInfo.shipingAddress1,
       City: userInfo.shipingCity,
-      StateID: userInfo.shipingStateId || "44",
+      StateID: userInfo.shipingStateId,
       ZipCode: userInfo.shipingZip,
     };
 
@@ -285,28 +284,35 @@ async function updateDependent(req, res) {
         rxvaletDependentFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
+      console.log(rxvaletResponse.data);
 
-      if (!rxvaletResponse || rxvaletResponse.status !== 200) {
-        return res
-          .status(500)
-          .json({ error: "Failed to enroll user in RxValet system" });
-      }
+      // if (!rxvaletResponse || rxvaletResponse.status !== 200) {
+      //   return res
+      //     .status(500)
+      //     .json({ error: "Failed to enroll user in RxValet system" });
+      // }
 
       rxvaletDependentId = rxvaletResponse.data.Result.DependentGUID;
       updateData.rxvaletDependentId = rxvaletDependentId;
     } else {
       // Update dependent on rx valet
+      rxvaletDependentFormData.append(
+        "DependentGUID",
+        dependent.rxvaletDependentId
+      );
       const rxvaletUpdateResponse = await axios.post(
         "https://rxvaletapi.com/api/omdrx/update_dependent.php",
         rxvaletDependentFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
 
-      if (!rxvaletUpdateResponse || rxvaletUpdateResponse.status !== 200) {
-        return res
-          .status(500)
-          .json({ error: "Failed to update user in RxValet system" });
-      }
+      console.log(rxvaletUpdateResponse.data);
+
+      // if (!rxvaletResponse || rxvaletResponse.status !== 200) {
+      //   return res
+      //     .status(500)
+      //     .json({ error: "Failed to enroll user in RxValet system" });
+      // }
     }
     updateData.status = "Active";
 
