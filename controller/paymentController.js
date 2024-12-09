@@ -55,16 +55,47 @@ const processPayment = async (req, res) => {
 // Get All Payments with Pagination and Filtering
 const getAllPayment = async (req, res) => {
   try {
-    let {page = 1, limit = 10 } = req.query;
-    const filters = [];
+    let { page = 1, limit = 10, search = "", startDate, endDate } = req.query;
 
     // Pagination setup
     page = parseInt(page);
     limit = parseInt(limit);
     const skip = (page - 1) * limit;
 
-    const query = filters.length > 0 ? { $or: filters } : {};
+    // Build filters for searching
+    const filters = [];
 
+    // Search filter
+    if (search) {
+      filters.push({
+        $or: [
+          { "userId.firstName": { $regex: `.*${search}.*`, $options: "i" } },
+          { "userId.lastName": { $regex: `.*${search}.*`, $options: "i" } },
+          { "userId.email": { $regex: `.*${search}.*`, $options: "i" } },
+          { "userId.phone": { $regex: `.*${search}.*`, $options: "i" } },
+          { transactionId: { $regex: `.*${search}.*`, $options: "i" } },
+        ],
+      });
+    }
+
+    // Date range filter
+    if (startDate || endDate) {
+      const dateFilter = {};
+      if (startDate) {
+        dateFilter.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        // Set endDate to the end of the day if only the same day is specified
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        dateFilter.$lte = endOfDay;
+      }
+      filters.push({ paymentDate: dateFilter });
+    }
+
+    const query = filters.length > 0 ? { $and: filters } : {};
+    console.log(await Payment.find({}));
+    // Fetch payments with search, date range, and pagination
     const payments = await Payment.find(query)
       .skip(skip)
       .limit(limit)
@@ -125,16 +156,18 @@ const searchByEmail = async (req, res) => {
     }
 
     const skip = (page - 1) * limit;
-    const payments = await Payment.find()
-      .populate({
-        path: "userId",
-        match: { email: { $regex: email, $options: "i" } },
-        select: "firstName lastName email phone",
-      });
+    const payments = await Payment.find().populate({
+      path: "userId",
+      match: { email: { $regex: email, $options: "i" } },
+      select: "firstName lastName email phone",
+    });
 
     // Filter results for matched users and paginate
     const filteredPayments = payments.filter((p) => p.userId);
-    const paginatedResults = filteredPayments.slice(skip, skip + parseInt(limit));
+    const paginatedResults = filteredPayments.slice(
+      skip,
+      skip + parseInt(limit)
+    );
 
     res.status(200).json({
       success: true,
@@ -166,8 +199,7 @@ const searchByInvoice = async (req, res) => {
     const skip = (page - 1) * limit;
     const payments = await Payment.find({
       transactionId: { $regex: invoiceId, $options: "i" },
-    })
-      .sort({ paymentDate: -1 });
+    }).sort({ paymentDate: -1 });
 
     // Paginate results
     const paginatedResults = payments.slice(skip, skip + parseInt(limit));
@@ -194,9 +226,10 @@ const filterByDateRange = async (req, res) => {
     const { startDate, endDate, page = 1, limit = 10 } = req.query;
 
     if (!startDate || !endDate) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Both startDate and endDate are required" });
+      return res.status(400).json({
+        success: false,
+        message: "Both startDate and endDate are required",
+      });
     }
 
     const skip = (page - 1) * limit;
