@@ -247,10 +247,10 @@ async function updateDependent(req, res) {
         createDependentData,
         { headers: { Authorization: authToken } }
       );
-
+      console.log("udpate res: ", updateDependentGetLyricResponse);
       if (
         !updateDependentGetLyricResponse ||
-        !updateDependentGetLyricResponse.status !== 200
+        !updateDependentGetLyricResponse.data.success
       ) {
         return res
           .status(500)
@@ -285,8 +285,9 @@ async function updateDependent(req, res) {
         rxvaletDependentFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
+      console.log("rx valet response: ", rxvaletResponse);
 
-      if (!rxvaletResponse || rxvaletResponse.status !== 200) {
+      if (!rxvaletResponse || rxvaletResponse.data.StatusCode !== "1") {
         return res
           .status(500)
           .json({ error: "Failed to enroll user in RxValet system" });
@@ -301,8 +302,12 @@ async function updateDependent(req, res) {
         rxvaletDependentFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
+      console.log("rx valet response: ", rxvaletUpdateResponse);
 
-      if (!rxvaletUpdateResponse || rxvaletUpdateResponse.status !== 200) {
+      if (
+        !rxvaletUpdateResponse ||
+        rxvaletUpdateResponse.data.StatusCode !== "1"
+      ) {
         return res
           .status(500)
           .json({ error: "Failed to update user in RxValet system" });
