@@ -318,13 +318,16 @@ async function updateUser(req, res) {
         createMemberData,
         { headers: { Authorization: authToken } }
       );
+      console.log("create response lyric: ", createMemberResponse.data);
+      lyricsUserId = createMemberResponse.data.userid;
+      await User.findByIdAndUpdate(userId, { lyricsUserId });
 
-      if (!createMemberResponse || !createMemberResponse.data.userid) {
+      if (!createMemberResponse.data.userid) {
         return res
           .status(500)
           .json({ error: "Failed to create member in Lyric system" });
       }
-      lyricsUserId = createMemberResponse.data.userid;
+      
     } else {
       // Update Lyric member
       const resp = await axios.post(
@@ -353,13 +356,13 @@ async function updateUser(req, res) {
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
       console.log("create response: ", rxvaletResponse.data);
-
-      // if (!rxvaletResponse || rxvaletResponse.status !== 200) {
-      //   return res
-      //     .status(500)
-      //     .json({ error: "Failed to enroll user in RxValet system" });
-      // }
       rxvaletID = rxvaletResponse.data.Result.PrimaryMemberGUID;
+      await User.findByIdAndUpdate(userId, { PrimaryMemberGUID: rxvaletID });
+
+      if (rxvaletResponse.data.StatusCode !== "1") {
+        return res.status(500).json({ error: rxvaletResponse.data.Message, data: rxvaletResponse.data });
+      }
+      
     } else {
       // Update RxValet member
       rxvaletFormData.append("PrimaryMemberGUID", user?.PrimaryMemberGUID);
@@ -368,7 +371,10 @@ async function updateUser(req, res) {
         rxvaletFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-      console.log("update response rx: ", resp);
+      console.log("update response rx: ", resp.data);
+      if (resp.data.StatusCode !== "1") {
+        return res.status(500).json({ error: resp.data.Message, data: resp.data });
+      }
     }
 
     // Update user in the database
@@ -924,16 +930,18 @@ async function updateUserStatus(req, res) {
       if (status === "Active") {
         getLyricFormData.append("effectiveDate", effectiveDate);
       }
-      await axios.post(getLyricUrl, getLyricFormData, {
+      const resp = await axios.post(getLyricUrl, getLyricFormData, {
         headers: { Authorization: cenSusauthToken },
       });
+      console.log("get lyrics account status resp: ",resp.data);
+      
     } catch (err) {
-      console.error("GetLyric API Error:", err.message);
+      console.error("GetLyric API Error:", err);
       return res.status(500).json({
         message: `Failed to ${
           status === "Active" ? "reactivate" : "terminate"
         } user on GetLyric API.`,
-        error: err.message,
+        error: err,
       });
     }
 
@@ -946,11 +954,13 @@ async function updateUserStatus(req, res) {
       rxValetFormData.append("MemberGUID", user.PrimaryMemberGUID);
       rxValetFormData.append("MemberActive", memberActive);
 
-      await axios.post(
+      const resp = await axios.post(
         "https://rxvaletapi.com/api/omdrx/member_deactivate_or_reactivate.php",
         rxValetFormData,
         { headers: rxValetHeaders }
       );
+      console.log("get rxvalet account status resp: ",resp.data);
+
     } catch (err) {
       console.error("RxValet API Error:", err.message);
       return res.status(500).json({

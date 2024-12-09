@@ -122,7 +122,6 @@ async function updateDependent(req, res) {
     if (!formattedDob) {
       return res.status(400).json({ error: "Invalid date of birth format" });
     }
-    console.log(formattedDob);
 
     // Check if dependent is new to both Lyric and RxValet and charge $47 if so
     // if (!lyricDependentId && !rxvaletDependentId) {
@@ -237,7 +236,7 @@ async function updateDependent(req, res) {
       if (!createDependentResponse.data.success) {
         return res
           .status(500)
-          .json({ error: "Failed to create member in Lyric system" });
+          .json({ error: "Failed to create member in Lyric system", data: createDependentResponse.data });
       }
 
       lyricDependentId = createDependentResponse.data.dependentUserId;
@@ -253,7 +252,7 @@ async function updateDependent(req, res) {
       if (!updateDependentGetLyricResponse.data.success) {
         return res
           .status(500)
-          .json({ error: "Failed to update dependent in Lyric system" });
+          .json({ error: "Failed to update dependent in Lyric system", data: updateDependentGetLyricResponse.data });
       }
     }
 
@@ -286,11 +285,11 @@ async function updateDependent(req, res) {
       );
       console.log(rxvaletResponse.data);
 
-      // if (!rxvaletResponse || rxvaletResponse.status !== 200) {
-      //   return res
-      //     .status(500)
-      //     .json({ error: "Failed to enroll user in RxValet system" });
-      // }
+      if (rxvaletResponse.data.StatusCode !== "1") {
+        return res
+          .status(500)
+          .json({ error: "Failed to enroll user in RxValet system", data: rxvaletResponse.data});
+      }
 
       rxvaletDependentId = rxvaletResponse.data.Result.DependentGUID;
       updateData.rxvaletDependentId = rxvaletDependentId;
@@ -307,12 +306,12 @@ async function updateDependent(req, res) {
       );
 
       console.log(rxvaletUpdateResponse.data);
-
-      // if (!rxvaletResponse || rxvaletResponse.status !== 200) {
-      //   return res
-      //     .status(500)
-      //     .json({ error: "Failed to enroll user in RxValet system" });
-      // }
+      
+      if (rxvaletUpdateResponse.data.StatusCode !== "1") {
+        return res
+          .status(500)
+          .json({ error: "Failed to update user in RxValet system", data: rxvaletUpdateResponse.data });
+      }
     }
     updateData.status = "Active";
 
