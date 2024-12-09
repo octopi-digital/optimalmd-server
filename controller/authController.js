@@ -469,7 +469,7 @@ async function updateUserPlan(req, res) {
       userId: user._id,
       amount: amount,
       plan: plan,
-      transactionId: result.transactionResponse.transId,
+      transactionId: paymentResponse?.data?.transactionResponse?.transId,
     });
     const paymentResp = await payment.save();
 
@@ -526,40 +526,21 @@ async function updateUserPlan(req, res) {
 
     // Update user in Lyric
     const response = await axios.post(
-      "https://staging.getlyric.com/go/api/census/updateMember",
+      "https://rxvaletapi.com/api/omdrx/member_change_plan.php",
       updateMemberData,
       { headers: { Authorization: authToken } }
     );
     console.log("lyrics data: ", response.data);
+    if (!response.data.success) {
+      return res
+        .status(500)
+        .json({ error: "Failed to update user in Lyric system", data: response.data });
+    }
 
     // RxValet integration
     const rxvaletUserInfo = {
-      CompanyID: "12212",
-      Testing: "1",
       GroupID: plan === "Trial" ? "OPT125" : "OPT800",
-      PrimaryMemberGUID: user?.PrimaryMemberGUID,
-      PersonCode: "1",
-      CoverageType: plan === "Trial" ? "EE" : "EF",
-      StartDate: planStartDate,
-      TermDate: planEndDate,
-      FirstName: user.firstName,
-      LastName: user.lastName,
-      Gender: user.sex === "Male" ? "M" : "F",
-      DOB: formattedDob,
-      Email: user.email,
-      Mobile: user.phone,
-      BillingAddress1: user.shipingAddress1,
-      BillingAddress2: user.shipingAddress2,
-      BillingCity: user.shipingCity,
-      BillingState: user.shipingState,
-      BillingZip: user.shipingZip,
-      BillingPhone: user.phone,
-      DeliveryAddress1: user.shipingAddress1,
-      DeliveryAddress2: user.shipingAddress2,
-      DeliveryCity: user.shipingCity,
-      DeliveryState: user.shipingState,
-      DeliveryZip: user.shipingZip,
-      DeliveryPhone: user.phone,
+      MemberGUID: user?.PrimaryMemberGUID,
     };
 
     const rxvaletFormData = new FormData();
@@ -573,6 +554,11 @@ async function updateUserPlan(req, res) {
       { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
     );
     console.log("rxvalet data: ", rxRespose.data);
+    if (rxRespose.data.StatusCode !== "1") {
+      return res
+        .status(500)
+        .json({ error: "Failed to update user plan in RxValet system", data: rxRespose.data });
+    }
 
     // Update user in the database
     const updatedUser = await User.findByIdAndUpdate(
@@ -586,7 +572,6 @@ async function updateUserPlan(req, res) {
       },
       { new: true, runValidators: true }
     ).populate(["dependents", "paymentHistory"]);
-    console.log(updatedUser);
 
     const {
       password,
