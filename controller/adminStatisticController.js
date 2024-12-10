@@ -3,91 +3,59 @@ const Payment = require("../model/paymentSchema");
 
 async function getAllStats(req, res) {
   try {
-    // 1. Total Users
+    // Total Users, Active Users, Canceled Users
     const totalUsers = await User.countDocuments();
-
-    // 2. Active Users
     const activeUsers = await User.countDocuments({ status: "Active" });
-
-    // 3. Canceled Users
     const canceledUsers = await User.countDocuments({ status: "Canceled" });
 
-    // 4. Total Revenue
     const totalRevenue = await Payment.aggregate([
-      { $group: { _id: null, total: { $sum: "$amount" } } },
+      { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } },
     ]);
 
-    // 5. Last Month Revenue
-    const lastMonthStart = new Date();
-    lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
-    lastMonthStart.setDate(1);
-
-    const lastMonthEnd = new Date(lastMonthStart);
-    lastMonthEnd.setMonth(lastMonthEnd.getMonth() + 1);
-
-    const lastMonthRevenue = await Payment.aggregate([
-      {
-        $match: {
-          paymentDate: {
-            $gte: lastMonthStart,
-            $lt: lastMonthEnd,
-          },
-        },
-      },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]);
-
-    // 6. Growth Rate
-    const currentMonthStart = new Date();
-    currentMonthStart.setDate(1);
-
-    const currentMonthRevenue = await Payment.aggregate([
-      {
-        $match: {
-          paymentDate: { $gte: currentMonthStart },
-        },
-      },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]);
-
-    const growthRate =
-      currentMonthRevenue[0]?.total && lastMonthRevenue[0]?.total
-        ? ((currentMonthRevenue[0].total - lastMonthRevenue[0].total) /
-            lastMonthRevenue[0].total) *
-          100
-        : 0;
-
-    // 7. Yearly/Weekly Revenue Graph
-    const yearlyRevenue = await Payment.aggregate([
-      {
-        $group: {
-          _id: { year: { $year: "$paymentDate" }, month: { $month: "$paymentDate" } },
-          total: { $sum: "$amount" },
-        },
-      },
-      { $sort: { "_id.year": 1, "_id.month": 1 } },
-    ]);
+    // Weekly Revenue (Last 7 days - breakdown by day)
+    const last7DaysStart = new Date();
+    last7DaysStart.setDate(last7DaysStart.getDate() - 7);
 
     const weeklyRevenue = await Payment.aggregate([
       {
-        $group: {
-          _id: { week: { $week: "$paymentDate" }, year: { $year: "$paymentDate" } },
-          total: { $sum: "$amount" },
+        $match: {
+          paymentDate: { $gte: last7DaysStart },
         },
       },
-      { $sort: { "_id.year": 1, "_id.week": 1 } },
+      {
+        $project: {
+          dayOfWeek: { $dayOfWeek: "$paymentDate" }, // 1=Sun, 2=Mon, ..., 7=Sat
+          amount: 1,
+        },
+      },
+      {
+        $group: {
+          _id: "$dayOfWeek",
+          totalAmount: { $sum: "$amount" },
+        },
+      },
+      { $sort: { _id: 1 } }, // Sorting by day
     ]);
 
-    // Send the response
+    // Mapping dayOfWeek to actual day names
+    const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const weeklyRevenueMap = daysOfWeek.map((day, index) => {
+      const dayRevenue = weeklyRevenue.find((rev) => rev._id === index + 1);
+      return {
+        day: day,
+        totalAmount: dayRevenue ? dayRevenue.totalAmount : 0,
+      };
+    });
+
+    // Return the stats
     res.status(200).json({
-      totalUsers,
-      activeUsers,
-      canceledUsers,
+      totalUsers: totalUsers || 0,
+      activeUsers: activeUsers || 0,
+      canceledUsers: canceledUsers || 0,
       totalRevenue: totalRevenue[0]?.total || 0,
-      lastMonthRevenue: lastMonthRevenue[0]?.total || 0,
-      growthRate,
-      yearlyRevenue,
-      weeklyRevenue,
+      weeklyRevenue: weeklyRevenueMap.length
+        ? weeklyRevenueMap
+        : Array(7).fill({ day: "Sun", totalAmount: 0 }),
     });
   } catch (error) {
     console.error("Error fetching admin stats:", error.message);

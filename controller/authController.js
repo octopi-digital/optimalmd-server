@@ -456,9 +456,9 @@ async function updateUserPlan(req, res) {
             amount: amount,
             payment: {
               creditCard: {
-                cardNumber: user.cardNumber,
+                cardNumber: customDecrypt(user.cardNumber),
                 expirationDate: user.expiration,
-                cardCode: user.cvc,
+                cardCode: customDecrypt(user.cvc),
               },
             },
           },
@@ -868,9 +868,9 @@ async function updateUserStatus(req, res) {
                 amount: amount,
                 payment: {
                   creditCard: {
-                    cardNumber: user.cardNumber,
+                    cardNumber: customDecrypt(user.cardNumber),
                     expirationDate: user.expiration,
-                    cardCode: user.cvc,
+                    cardCode: customDecrypt(user.cvc),
                   },
                 },
               },
