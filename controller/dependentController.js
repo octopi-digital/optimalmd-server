@@ -48,9 +48,6 @@ async function addDependent(req, res) {
     // Remove sensitive fields before sending response
     const {
       password,
-      cardNumber,
-      cvc,
-      expiration,
       ...userWithoutSensitiveData
     } = updatedUser.toObject();
 
@@ -318,9 +315,6 @@ async function updateDependent(req, res) {
 
     const {
       password,
-      cardNumber,
-      cvc,
-      expiration,
       ...userWithoutSensitiveData
     } = updatedUser.toObject();
 
@@ -382,9 +376,6 @@ async function updateDependentImage(req, res) {
 
     const {
       password,
-      cardNumber,
-      cvc,
-      expiration,
       ...userWithoutSensitiveData
     } = user.toObject();
 
