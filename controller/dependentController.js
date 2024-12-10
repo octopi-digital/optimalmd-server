@@ -97,6 +97,8 @@ async function deleteDependent(req, res) {
 async function updateDependent(req, res) {
   try {
     const { primaryUserId, dependentId, ...userInfo } = req.body;
+    console.log(req.body);
+    
 
     if (!primaryUserId) {
       return res.status(400).json({ error: "User Id Is Required" });
@@ -248,7 +250,6 @@ async function updateDependent(req, res) {
         createDependentData,
         { headers: { Authorization: authToken } }
       );
-
       if (!updateDependentGetLyricResponse.data.success) {
         return res
           .status(500)
@@ -283,14 +284,11 @@ async function updateDependent(req, res) {
         rxvaletDependentFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-      console.log(rxvaletResponse.data);
-
       if (rxvaletResponse.data.StatusCode !== "1") {
         return res
           .status(500)
           .json({ error: "Failed to enroll user in RxValet system", data: rxvaletResponse.data});
       }
-
       rxvaletDependentId = rxvaletResponse.data.Result.DependentGUID;
       updateData.rxvaletDependentId = rxvaletDependentId;
     } else {
@@ -304,9 +302,6 @@ async function updateDependent(req, res) {
         rxvaletDependentFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-
-      console.log(rxvaletUpdateResponse.data);
-      
       if (rxvaletUpdateResponse.data.StatusCode !== "1") {
         return res
           .status(500)
@@ -314,10 +309,8 @@ async function updateDependent(req, res) {
       }
     }
     updateData.status = "Active";
-
     // update dependent on our db
     await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
-
     const updatedUser = await User.findById(primaryUserId).populate([
       "dependents",
       "paymentHistory",

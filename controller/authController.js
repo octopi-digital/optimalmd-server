@@ -297,7 +297,7 @@ async function updateUser(req, res) {
       Email: userInfo.email,
       Mobile: userInfo.phone,
       BillingAddress1: userInfo.shipingAddress1,
-      BillingAddress2: userInfo.shipingAddress2,
+      BillingAddress2: userInfo.shipingAddress2 || "",
       BillingCity: userInfo.shipingCity,
       BillingState: userInfo.shipingState,
       BillingZip: userInfo.shipingZip,
@@ -364,13 +364,26 @@ async function updateUser(req, res) {
       }
       
     } else {
-      // Update RxValet member
-      rxvaletFormData.append("PrimaryMemberGUID", user?.PrimaryMemberGUID);
+      const rxvaletUpdateFormData = new FormData();
+      rxvaletUpdateFormData.append("PrimaryMemberGUID", user?.PrimaryMemberGUID);
+      rxvaletUpdateFormData.append("FirstName", user.firstName);
+      // rxvaletUpdateFormData.append("LastName", userInfo.lastName);
+      // rxvaletUpdateFormData.append("DOB", formattedDob);
+      rxvaletUpdateFormData.append("Gender", userInfo.sex === "Male" ? "M" : "F");
+      rxvaletUpdateFormData.append("PhoneNumber", userInfo.phone);
+      rxvaletUpdateFormData.append("Address", userInfo.shipingAddress1);
+      rxvaletUpdateFormData.append("City", userInfo.shipingCity);
+      rxvaletUpdateFormData.append("StateID", userInfo.shipingStateId);
+      rxvaletUpdateFormData.append("ZipCode", userInfo.shipingZip);
+      console.log(rxvaletUpdateFormData);
+      
+
       const resp = await axios.post(
         "https://rxvaletapi.com/api/omdrx/update_member.php",
-        rxvaletFormData,
+        rxvaletUpdateFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
+      console.log("rx: ", resp);
       console.log("update response rx: ", resp.data);
       if (resp.data.StatusCode !== "1") {
         return res.status(500).json({ error: resp.data.Message, data: resp.data });
