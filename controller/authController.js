@@ -375,8 +375,6 @@ async function updateUser(req, res) {
       rxvaletUpdateFormData.append("City", userInfo.shipingCity);
       rxvaletUpdateFormData.append("StateID", userInfo.shipingStateId);
       rxvaletUpdateFormData.append("ZipCode", userInfo.shipingZip);
-      console.log(rxvaletUpdateFormData);
-      
 
       const resp = await axios.post(
         "https://rxvaletapi.com/api/omdrx/update_member.php",
