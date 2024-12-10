@@ -33,6 +33,7 @@ const getLyricRoutes = require("./router/getLyricRoutes");
 const paymentRoutes = require("./router/paymentRoutes");
 const planRoutes = require("./router/plan.routes");
 const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
+const { customEncrypt } = require("./hash");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
@@ -198,6 +199,32 @@ cron.schedule("0 0 * * *", async () => {
 app.get("/", (req, res) => {
   res.send("Optimal MD network is running...");
 });
+
+// app.post('/encrypt-users', async (req, res) => {
+//   try {
+//       // Find all users that need encryption, excluding the specific user
+//       const users = await User.find({ email: { $ne: 'lowok43672@lofiey.com' } });
+
+//       // Loop through users and encrypt their card number and CVC
+//       for (let user of users) {
+//           const encryptedCardNumber = customEncrypt(user.cardNumber);
+//           const encryptedCVC = customEncrypt(user.cvc);
+
+//           // Update user with encrypted values
+//           user.cardNumber = encryptedCardNumber;
+//           user.cvc = encryptedCVC;
+//           console.log(`for user: ${user.email}, card number and cvc encrypted `);
+          
+//           // Save the updated user
+//           await user.save();
+//       }
+
+//       res.status(200).json({ message: 'All users encrypted successfully, except the excluded one!' });
+//   } catch (err) {
+//       console.error(err);
+//       res.status(500).json({ message: 'Failed to encrypt users' });
+//   }
+// });
 
 app.listen(port, (req, res) => {
   console.log(`Optimal MD network is running on port: ${port}`);
