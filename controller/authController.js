@@ -499,6 +499,29 @@ async function updateUserPlan(req, res) {
         .json({ error: "Authorization token missing for getlyric" });
     }
 
+    // RxValet integration
+    const rxvaletUserInfo = {
+      GroupID: plan === "Trial" ? "OPT125" : "OPT800",
+      MemberGUID: user?.PrimaryMemberGUID,
+    };
+
+    const rxvaletFormData = new FormData();
+    Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
+      rxvaletFormData.append(key, value);
+    });
+
+    const rxRespose = await axios.post(
+      "https://rxvaletapi.com/api/omdrx/member_change_plan.php",
+      rxvaletFormData,
+      { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
+    );
+    console.log("rxvalet data: ", rxRespose.data);
+    if (rxRespose.data.StatusCode !== "1") {
+      return res
+        .status(500)
+        .json({ error: "Failed to update user plan in RxValet system", data: rxRespose.data });
+    }
+
     // Prepare `updateMember` API payload
     const updateMemberData = new FormData();
     updateMemberData.append("primaryExternalId", user?._id);
@@ -526,38 +549,15 @@ async function updateUserPlan(req, res) {
 
     // Update user in Lyric
     const response = await axios.post(
-      "https://rxvaletapi.com/api/omdrx/member_change_plan.php",
+      "https://staging.getlyric.com/go/api/census/updateMember",
       updateMemberData,
       { headers: { Authorization: authToken } }
     );
-    console.log("lyrics data: ", response.data);
+    console.log("lyrics data-: ", response.data);
     if (!response.data.success) {
       return res
         .status(500)
         .json({ error: "Failed to update user in Lyric system", data: response.data });
-    }
-
-    // RxValet integration
-    const rxvaletUserInfo = {
-      GroupID: plan === "Trial" ? "OPT125" : "OPT800",
-      MemberGUID: user?.PrimaryMemberGUID,
-    };
-
-    const rxvaletFormData = new FormData();
-    Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
-      rxvaletFormData.append(key, value);
-    });
-
-    const rxRespose = await axios.post(
-      "https://rxvaletapi.com/api/omdrx/update_member.php",
-      rxvaletFormData,
-      { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
-    );
-    console.log("rxvalet data: ", rxRespose.data);
-    if (rxRespose.data.StatusCode !== "1") {
-      return res
-        .status(500)
-        .json({ error: "Failed to update user plan in RxValet system", data: rxRespose.data });
     }
 
     // Update user in the database
