@@ -7,6 +7,7 @@ const Dependent = require("../model/dependentSchema");
 const Payment = require("../model/paymentSchema");
 const moment = require("moment");
 const { log } = require("console");
+const { customDecrypt } = require("../hash");
 
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
@@ -96,11 +97,14 @@ async function register(req, res) {
     const {
       plan,
       dob,
-      cardNumber: rawCardNumber,
-      cvc: rawCvc,
-      expiration: rawExpiration,
+      cardNumber,
+      cvc,
+      expiration,
       ...userData
     } = req.body;
+
+    const rawCardNumber = customDecrypt(cardNumber);
+    const rawCvc = customDecrypt(cvc);
 
     // Check if the email already exists
     const existingUser = await User.findOne({ email: userData.email });
@@ -152,7 +156,7 @@ async function register(req, res) {
             payment: {
               creditCard: {
                 cardNumber: rawCardNumber,
-                expirationDate: rawExpiration,
+                expirationDate: expiration,
                 cardCode: rawCvc,
               },
             },
@@ -176,9 +180,9 @@ async function register(req, res) {
       plan,
       planStartDate,
       planEndDate,
-      cardNumber: rawCardNumber,
-      cvc: rawCvc,
-      expiration: rawExpiration,
+      cardNumber: cardNumber,
+      cvc: cvc,
+      expiration: expiration,
     });
     const newUser = await user.save();
 
@@ -404,9 +408,6 @@ async function updateUser(req, res) {
 
     const {
       password,
-      cardNumber,
-      cvc,
-      expiration,
       ...userWithoutSensitiveData
     } = updatedUser.toObject();
     res.status(200).json({
@@ -586,9 +587,6 @@ async function updateUserPlan(req, res) {
 
     const {
       password,
-      cardNumber,
-      cvc,
-      expiration,
       ...userWithoutSensitiveData
     } = updatedUser.toObject();
 
@@ -626,9 +624,6 @@ async function updateUserImage(req, res) {
 
     const {
       password,
-      cardNumber,
-      cvc,
-      expiration,
       ...userWithoutSensitiveData
     } = updatedUser.toObject();
 
@@ -693,9 +688,6 @@ async function login(req, res) {
       if (isPasswordMatch) {
         const {
           password,
-          cardNumber,
-          cvc,
-          expiration,
           ...userWithoutSensitiveData
         } = user.toObject();
         return res.status(200).json({
@@ -976,9 +968,6 @@ async function updateUserStatus(req, res) {
     // Remove sensitive data before responding
     const {
       password,
-      cardNumber,
-      cvc,
-      expiration,
       ...userWithoutSensitiveData
     } = user.toObject();
 

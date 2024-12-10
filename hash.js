@@ -1,5 +1,5 @@
 // Hashing function
-function encrypt(numberString) {
+function customEncrypt(numberString) {
     return numberString
         .split('') // Split the number into individual digits
         .map(num => {
@@ -10,7 +10,7 @@ function encrypt(numberString) {
 }
 
 // Decryption function
-function decrypt(hashString) {
+function customDecrypt(hashString) {
     return hashString
         .split('') // Split the hash into individual characters
         .map(char => {
@@ -20,10 +20,12 @@ function decrypt(hashString) {
         .join(''); // Join the numbers back into a string
 }
 
-// Example usage
-const numberString = "123"; // Original number as a string
-const encrypted = encrypt(numberString); // Encrypt
-console.log('Encrypted:', encrypted); // Output: Encrypted hash
+// // Example usage
+// const numberString = "123"; // Original number as a string
+// const encrypted = encrypt(numberString); // Encrypt
+// console.log('Encrypted:', encrypted); // Output: Encrypted hash
 
-const decrypted = decrypt(encrypted); // Decrypt
-console.log('Decrypted:', decrypted); // Output: Original number string
+// const decrypted = decrypt(encrypted); // Decrypt
+// console.log('Decrypted:', decrypted); // Output: Original number string
+
+module.exports = { customEncrypt, customDecrypt };
