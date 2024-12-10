@@ -94,14 +94,7 @@ async function getSingleUser(req, res) {
 // Register a new user
 async function register(req, res) {
   try {
-    const {
-      plan,
-      dob,
-      cardNumber,
-      cvc,
-      expiration,
-      ...userData
-    } = req.body;
+    const { plan, dob, cardNumber, cvc, expiration, ...userData } = req.body;
 
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
@@ -331,7 +324,6 @@ async function updateUser(req, res) {
           .status(500)
           .json({ error: "Failed to create member in Lyric system" });
       }
-      
     } else {
       // Update Lyric member
       const resp = await axios.post(
@@ -364,16 +356,26 @@ async function updateUser(req, res) {
       await User.findByIdAndUpdate(userId, { PrimaryMemberGUID: rxvaletID });
 
       if (rxvaletResponse.data.StatusCode !== "1") {
-        return res.status(500).json({ error: rxvaletResponse.data.Message, data: rxvaletResponse.data });
+        return res
+          .status(500)
+          .json({
+            error: rxvaletResponse.data.Message,
+            data: rxvaletResponse.data,
+          });
       }
-      
     } else {
       const rxvaletUpdateFormData = new FormData();
-      rxvaletUpdateFormData.append("PrimaryMemberGUID", user?.PrimaryMemberGUID);
+      rxvaletUpdateFormData.append(
+        "PrimaryMemberGUID",
+        user?.PrimaryMemberGUID
+      );
       rxvaletUpdateFormData.append("FirstName", user.firstName);
       // rxvaletUpdateFormData.append("LastName", userInfo.lastName);
       // rxvaletUpdateFormData.append("DOB", formattedDob);
-      rxvaletUpdateFormData.append("Gender", userInfo.sex === "Male" ? "M" : "F");
+      rxvaletUpdateFormData.append(
+        "Gender",
+        userInfo.sex === "Male" ? "M" : "F"
+      );
       rxvaletUpdateFormData.append("PhoneNumber", userInfo.phone);
       rxvaletUpdateFormData.append("Address", userInfo.shipingAddress1);
       rxvaletUpdateFormData.append("City", userInfo.shipingCity);
@@ -388,7 +390,9 @@ async function updateUser(req, res) {
       console.log("rx: ", resp);
       console.log("update response rx: ", resp.data);
       if (resp.data.StatusCode !== "1") {
-        return res.status(500).json({ error: resp.data.Message, data: resp.data });
+        return res
+          .status(500)
+          .json({ error: resp.data.Message, data: resp.data });
       }
     }
 
@@ -406,10 +410,7 @@ async function updateUser(req, res) {
       { new: true, runValidators: true }
     ).populate(["dependents", "paymentHistory"]);
 
-    const {
-      password,
-      ...userWithoutSensitiveData
-    } = updatedUser.toObject();
+    const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
     res.status(200).json({
       message: "User updated successfully",
       user: userWithoutSensitiveData,
@@ -531,7 +532,10 @@ async function updateUserPlan(req, res) {
     if (rxRespose.data.StatusCode !== "1") {
       return res
         .status(500)
-        .json({ error: "Failed to update user plan in RxValet system", data: rxRespose.data });
+        .json({
+          error: "Failed to update user plan in RxValet system",
+          data: rxRespose.data,
+        });
     }
 
     // Prepare `updateMember` API payload
@@ -569,7 +573,10 @@ async function updateUserPlan(req, res) {
     if (!response.data.success) {
       return res
         .status(500)
-        .json({ error: "Failed to update user in Lyric system", data: response.data });
+        .json({
+          error: "Failed to update user in Lyric system",
+          data: response.data,
+        });
     }
 
     // Update user in the database
@@ -585,10 +592,7 @@ async function updateUserPlan(req, res) {
       { new: true, runValidators: true }
     ).populate(["dependents", "paymentHistory"]);
 
-    const {
-      password,
-      ...userWithoutSensitiveData
-    } = updatedUser.toObject();
+    const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
 
     res.status(200).json({
       message: "User Plan updated successfully",
@@ -622,10 +626,7 @@ async function updateUserImage(req, res) {
       return res.status(400).json({ error: "User update failed" });
     }
 
-    const {
-      password,
-      ...userWithoutSensitiveData
-    } = updatedUser.toObject();
+    const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
 
     res.status(200).json({
       message: "User image updated successfully",
@@ -686,10 +687,7 @@ async function login(req, res) {
       );
 
       if (isPasswordMatch) {
-        const {
-          password,
-          ...userWithoutSensitiveData
-        } = user.toObject();
+        const { password, ...userWithoutSensitiveData } = user.toObject();
         return res.status(200).json({
           message: "User logged in successfully",
           user: userWithoutSensitiveData,
@@ -880,6 +878,25 @@ async function updateUserStatus(req, res) {
             headers: { "Content-Type": "application/json" },
           }
         );
+        console.log({
+          createTransactionRequest: {
+            merchantAuthentication: {
+              name: process.env.AUTHORIZE_NET_API_LOGIN_ID,
+              transactionKey: process.env.AUTHORIZE_NET_TRANSACTION_KEY,
+            },
+            transactionRequest: {
+              transactionType: "authCaptureTransaction",
+              amount: amount,
+              payment: {
+                creditCard: {
+                  cardNumber: customDecrypt(user.cardNumber),
+                  expirationDate: user.expiration,
+                  cardCode: customDecrypt(user.cvc),
+                },
+              },
+            },
+          },
+        });
 
         const result = paymentResponse.data;
         if (paymentResponse.data?.transactionResponse?.transId === "0") {
@@ -921,8 +938,7 @@ async function updateUserStatus(req, res) {
       const resp = await axios.post(getLyricUrl, getLyricFormData, {
         headers: { Authorization: cenSusauthToken },
       });
-      console.log("get lyrics account status resp: ",resp.data);
-      
+      console.log("get lyrics account status resp: ", resp.data);
     } catch (err) {
       console.error("GetLyric API Error:", err);
       return res.status(500).json({
@@ -947,8 +963,7 @@ async function updateUserStatus(req, res) {
         rxValetFormData,
         { headers: rxValetHeaders }
       );
-      console.log("get rxvalet account status resp: ",resp.data);
-
+      console.log("get rxvalet account status resp: ", resp.data);
     } catch (err) {
       console.error("RxValet API Error:", err.message);
       return res.status(500).json({
@@ -966,10 +981,7 @@ async function updateUserStatus(req, res) {
     await user.save();
 
     // Remove sensitive data before responding
-    const {
-      password,
-      ...userWithoutSensitiveData
-    } = user.toObject();
+    const { password, ...userWithoutSensitiveData } = user.toObject();
 
     res.json({
       message: `User status successfully updated to ${status}.`,
