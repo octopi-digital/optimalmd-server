@@ -822,171 +822,177 @@ async function updateUserStatus(req, res) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    // Login to GetLyric API
-    const cenSusloginData = new FormData();
-    cenSusloginData.append("email", "mtmstgopt01@mytelemedicine.com");
-    cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+    if (!user.PrimaryMemberGUID && !user.lyricsUserId) {
+      // Update user status and plan in the database
+      user.status = status;
+      await user.save();
 
-    const cenSusloginResponse = await axios.post(
-      "https://staging.getlyric.com/go/api/login",
-      cenSusloginData
-    );
-    const cenSusauthToken = cenSusloginResponse.headers["authorization"];
-    if (!cenSusauthToken) {
-      return res
-        .status(401)
-        .json({ error: "Authorization token missing for GetLyric." });
-    }
+      // Populate dependents and paymentHistory
+      await user.populate([
+        { path: "dependents" },
+        { path: "paymentHistory" },
+      ]);
 
-    let terminationDate, memberActive, effectiveDate, getLyricUrl;
-    if (status === "Canceled") {
-      terminationDate = moment().format("MM/DD/YYYY");
-      memberActive = "0";
-      getLyricUrl =
-        "https://staging.getlyric.com/go/api/census/updateTerminationDate";
-    } else if (status === "Active") {
-      terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
-      memberActive = "1";
-      effectiveDate = moment().format("MM/DD/YYYY");
-      getLyricUrl =
-        "https://staging.getlyric.com/go/api/census/updateEffectiveDate";
-      // Process Payment
-      const amount = 97;
-      try {
-        const paymentResponse = await axios.post(
-          "https://apitest.authorize.net/xml/v1/request.api",
-          {
-            createTransactionRequest: {
-              merchantAuthentication: {
-                name: process.env.AUTHORIZE_NET_API_LOGIN_ID,
-                transactionKey: process.env.AUTHORIZE_NET_TRANSACTION_KEY,
-              },
-              transactionRequest: {
-                transactionType: "authCaptureTransaction",
-                amount: amount,
-                payment: {
-                  creditCard: {
-                    cardNumber: customDecrypt(user.cardNumber),
-                    expirationDate: user.expiration,
-                    cardCode: customDecrypt(user.cvc),
+      // Remove sensitive data before responding
+      const { password, ...userWithoutSensitiveData } = user.toObject();
+
+      res.json({
+        message: `User status successfully updated to ${status}.`,
+        user: userWithoutSensitiveData,
+      });
+    } else {
+      // Login to GetLyric API
+      const cenSusloginData = new FormData();
+      cenSusloginData.append("email", "mtmstgopt01@mytelemedicine.com");
+      cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+
+      const cenSusloginResponse = await axios.post(
+        "https://staging.getlyric.com/go/api/login",
+        cenSusloginData
+      );
+      const cenSusauthToken = cenSusloginResponse.headers["authorization"];
+      if (!cenSusauthToken) {
+        return res
+          .status(401)
+          .json({ error: "Authorization token missing for GetLyric." });
+      }
+
+      let terminationDate, memberActive, effectiveDate, getLyricUrl;
+      if (status === "Canceled") {
+        terminationDate = moment().format("MM/DD/YYYY");
+        memberActive = "0";
+        getLyricUrl =
+          "https://staging.getlyric.com/go/api/census/updateTerminationDate";
+      } else if (status === "Active") {
+        terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
+        memberActive = "1";
+        effectiveDate = moment().format("MM/DD/YYYY");
+        getLyricUrl =
+          "https://staging.getlyric.com/go/api/census/updateEffectiveDate";
+        // Process Payment
+        const amount = 97;
+        try {
+          const paymentResponse = await axios.post(
+            "https://apitest.authorize.net/xml/v1/request.api",
+            {
+              createTransactionRequest: {
+                merchantAuthentication: {
+                  name: process.env.AUTHORIZE_NET_API_LOGIN_ID,
+                  transactionKey: process.env.AUTHORIZE_NET_TRANSACTION_KEY,
+                },
+                transactionRequest: {
+                  transactionType: "authCaptureTransaction",
+                  amount: amount,
+                  payment: {
+                    creditCard: {
+                      cardNumber: customDecrypt(user.cardNumber),
+                      expirationDate: user.expiration,
+                      cardCode: customDecrypt(user.cvc),
+                    },
                   },
                 },
               },
             },
-          },
-          {
-            headers: { "Content-Type": "application/json" },
+            {
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+
+          const result = paymentResponse.data;
+          if (paymentResponse.data?.transactionResponse?.transId === "0") {
+            return res.status(500).json({
+              success: false,
+              error: "Payment Failed!",
+            });
           }
-        );
-        console.log({
-          createTransactionRequest: {
-            merchantAuthentication: {
-              name: process.env.AUTHORIZE_NET_API_LOGIN_ID,
-              transactionKey: process.env.AUTHORIZE_NET_TRANSACTION_KEY,
-            },
-            transactionRequest: {
-              transactionType: "authCaptureTransaction",
-              amount: amount,
-              payment: {
-                creditCard: {
-                  cardNumber: customDecrypt(user.cardNumber),
-                  expirationDate: user.expiration,
-                  cardCode: customDecrypt(user.cvc),
-                },
-              },
-            },
-          },
-        });
 
-        const result = paymentResponse.data;
-        if (paymentResponse.data?.transactionResponse?.transId === "0") {
-          return res.status(500).json({
-            success: false,
-            error: "Payment Failed!",
+          // Save Payment to the Payment Schema
+          const payment = new Payment({
+            userId: user._id,
+            amount: amount,
+            plan: "Plus",
+            transactionId: result.transactionResponse.transId,
           });
+          await payment.save();
+
+          // Add payment to user's payment history
+          user.paymentHistory.push(payment._id);
+          user.plan = "Plus";
+        } catch (error) {
+          console.error("Payment Processing Error:", error.message);
+          return res
+            .status(500)
+            .json({ success: false, error: "Payment processing failed." });
         }
+      }
 
-        // Save Payment to the Payment Schema
-        const payment = new Payment({
-          userId: user._id,
-          amount: amount,
-          plan: "Plus",
-          transactionId: result.transactionResponse.transId,
+      // Update GetLyric API
+      try {
+        const getLyricFormData = new FormData();
+        getLyricFormData.append("primaryExternalId", user._id);
+        getLyricFormData.append("groupCode", "MTMSTGOPT01");
+        getLyricFormData.append("terminationDate", terminationDate);
+        if (status === "Active") {
+          getLyricFormData.append("effectiveDate", effectiveDate);
+        }
+        const resp = await axios.post(getLyricUrl, getLyricFormData, {
+          headers: { Authorization: cenSusauthToken },
         });
-        await payment.save();
-
-        // Add payment to user's payment history
-        user.paymentHistory.push(payment._id);
-        user.plan = "Plus";
-      } catch (error) {
-        console.error("Payment Processing Error:", error.message);
-        return res
-          .status(500)
-          .json({ success: false, error: "Payment processing failed." });
+        console.log("get lyrics account status resp: ", resp.data);
+      } catch (err) {
+        console.error("GetLyric API Error:", err);
+        return res.status(500).json({
+          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
+            } user on GetLyric API.`,
+          error: err,
+        });
       }
-    }
 
-    // Update GetLyric API
-    try {
-      const getLyricFormData = new FormData();
-      getLyricFormData.append("primaryExternalId", user._id);
-      getLyricFormData.append("groupCode", "MTMSTGOPT01");
-      getLyricFormData.append("terminationDate", terminationDate);
-      if (status === "Active") {
-        getLyricFormData.append("effectiveDate", effectiveDate);
+      // Update RxValet API
+      try {
+        const rxValetHeaders = {
+          api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
+        };
+        const rxValetFormData = new FormData();
+        rxValetFormData.append("MemberGUID", user.PrimaryMemberGUID);
+        rxValetFormData.append("MemberActive", memberActive);
+
+        const resp = await axios.post(
+          "https://rxvaletapi.com/api/omdrx/member_deactivate_or_reactivate.php",
+          rxValetFormData,
+          { headers: rxValetHeaders }
+        );
+        console.log("get rxvalet account status resp: ", resp.data);
+      } catch (err) {
+        console.error("RxValet API Error:", err.message);
+        return res.status(500).json({
+          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
+            } user on RxValet API.`,
+          error: err.message,
+        });
       }
-      const resp = await axios.post(getLyricUrl, getLyricFormData, {
-        headers: { Authorization: cenSusauthToken },
-      });
-      console.log("get lyrics account status resp: ", resp.data);
-    } catch (err) {
-      console.error("GetLyric API Error:", err);
-      return res.status(500).json({
-        message: `Failed to ${
-          status === "Active" ? "reactivate" : "terminate"
-        } user on GetLyric API.`,
-        error: err,
-      });
-    }
 
-    // Update RxValet API
-    try {
-      const rxValetHeaders = {
-        api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
-      };
-      const rxValetFormData = new FormData();
-      rxValetFormData.append("MemberGUID", user.PrimaryMemberGUID);
-      rxValetFormData.append("MemberActive", memberActive);
+      // Update user status and plan in the database
+      user.status = status;
+      user.planStartDate = effectiveDate || user.planStartDate;
+      user.planEndDate = terminationDate;
+      await user.save();
 
-      const resp = await axios.post(
-        "https://rxvaletapi.com/api/omdrx/member_deactivate_or_reactivate.php",
-        rxValetFormData,
-        { headers: rxValetHeaders }
-      );
-      console.log("get rxvalet account status resp: ", resp.data);
-    } catch (err) {
-      console.error("RxValet API Error:", err.message);
-      return res.status(500).json({
-        message: `Failed to ${
-          status === "Active" ? "reactivate" : "terminate"
-        } user on RxValet API.`,
-        error: err.message,
+      // Populate dependents and paymentHistory
+      await user.populate([
+        { path: "dependents" },
+        { path: "paymentHistory" },
+      ]);
+
+      // Remove sensitive data before responding
+      const { password, ...userWithoutSensitiveData } = user.toObject();
+
+      res.json({
+        message: `User status successfully updated to ${status}.`,
+        user: userWithoutSensitiveData,
       });
     }
 
-    // Update user status and plan in the database
-    user.status = status;
-    user.planStartDate = effectiveDate || user.planStartDate;
-    user.planEndDate = terminationDate;
-    await user.save();
-
-    // Remove sensitive data before responding
-    const { password, ...userWithoutSensitiveData } = user.toObject();
-
-    res.json({
-      message: `User status successfully updated to ${status}.`,
-      user: userWithoutSensitiveData,
-    });
   } catch (error) {
     console.error(error);
     res
