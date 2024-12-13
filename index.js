@@ -31,7 +31,7 @@ const dependentRoutes = require("./router/dependentRoutes");
 const rxvaletRoutes = require("./router/rxvaletRoutes");
 const getLyricRoutes = require("./router/getLyricRoutes");
 const paymentRoutes = require("./router/paymentRoutes");
-const planRoutes = require("./router/plan.routes");
+const planRoutes = require("./router/planRoutes");
 const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 const { customEncrypt } = require("./hash");
 
@@ -42,7 +42,6 @@ app.use("/api/getLyric", getLyricRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/admin/stats", adminStatisticsRoutes);
-
 
 cron.schedule("0 0 * * *", async () => {
   try {
@@ -186,7 +185,6 @@ cron.schedule("0 0 * * *", async () => {
             transactionId: result.transactionResponse.transId,
           }
         );
-
       } catch (err) {
         console.error(`Error processing user ${user._id}:`, err);
       }
@@ -214,7 +212,7 @@ app.get("/", (req, res) => {
 //           user.cardNumber = encryptedCardNumber;
 //           user.cvc = encryptedCVC;
 //           console.log(`for user: ${user.email}, card number and cvc encrypted `);
-          
+
 //           // Save the updated user
 //           await user.save();
 //       }
