@@ -281,7 +281,7 @@ async function updateDependent(req, res) {
       );
       if (rxvaletResponse.data.StatusCode !== "1") {
         return res.status(500).json({
-          message: "Failed to enroll user in RxValet system",
+          message: rxvaletResponse.data.Message,
           data: rxvaletResponse.data,
         });
       }
@@ -321,9 +321,7 @@ async function updateDependent(req, res) {
     });
   } catch (error) {
     console.error("Error updating dependent:", error.response);
-    res
-      .status(500)
-      .json({ message: error.response.data.message, error: error });
+    res.status(500).json({ message: error.response.data, error: error });
   }
 }
 
