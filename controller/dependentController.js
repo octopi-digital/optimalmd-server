@@ -320,8 +320,10 @@ async function updateDependent(req, res) {
       user: userWithoutSensitiveData,
     });
   } catch (error) {
-    console.error("Error updating dependent:", error);
-    res.status(500).json({ message: error.reponse.data, message: error });
+    console.error("Error updating dependent:", error.response);
+    res
+      .status(500)
+      .json({ message: error.response.data.message, error: error });
   }
 }
 
