@@ -253,6 +253,11 @@ async function updateUser(req, res) {
         .json({ error: "Authorization token missing for getlyric" });
     }
 
+    if (loginResponse.status === 403) {
+      return res.status(403).json({ message: loginResponse.data });
+    }
+    console.log("lyric login reponse: ", loginResponse);
+
     // Prepare `createMember` API payload
     const createMemberData = new FormData();
     createMemberData.append("primaryExternalId", user?._id);
@@ -356,12 +361,10 @@ async function updateUser(req, res) {
       await User.findByIdAndUpdate(userId, { PrimaryMemberGUID: rxvaletID });
 
       if (rxvaletResponse.data.StatusCode !== "1") {
-        return res
-          .status(500)
-          .json({
-            error: rxvaletResponse.data.Message,
-            data: rxvaletResponse.data,
-          });
+        return res.status(500).json({
+          error: rxvaletResponse.data.Message,
+          data: rxvaletResponse.data,
+        });
       }
     } else {
       const rxvaletUpdateFormData = new FormData();
@@ -416,8 +419,10 @@ async function updateUser(req, res) {
       user: userWithoutSensitiveData,
     });
   } catch (error) {
-    console.error("Error updating user:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("Error updating user:", error.response.data);
+    res
+      .status(error.status)
+      .json({ error: error, message: error.response.data });
   }
 }
 
@@ -530,12 +535,10 @@ async function updateUserPlan(req, res) {
     );
     console.log("rxvalet data: ", rxRespose.data);
     if (rxRespose.data.StatusCode !== "1") {
-      return res
-        .status(500)
-        .json({
-          error: "Failed to update user plan in RxValet system",
-          data: rxRespose.data,
-        });
+      return res.status(500).json({
+        error: "Failed to update user plan in RxValet system",
+        data: rxRespose.data,
+      });
     }
 
     // Prepare `updateMember` API payload
@@ -571,12 +574,10 @@ async function updateUserPlan(req, res) {
     );
     console.log("lyrics data-: ", response.data);
     if (!response.data.success) {
-      return res
-        .status(500)
-        .json({
-          error: "Failed to update user in Lyric system",
-          data: response.data,
-        });
+      return res.status(500).json({
+        error: "Failed to update user in Lyric system",
+        data: response.data,
+      });
     }
 
     // Update user in the database
@@ -600,7 +601,9 @@ async function updateUserPlan(req, res) {
     });
   } catch (error) {
     console.error("Error updating user:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res
+      .status(500)
+      .json({ error: "Internal Server Error", message: error.data });
   }
 }
 
@@ -634,7 +637,7 @@ async function updateUserImage(req, res) {
     });
   } catch (error) {
     console.error("Error updating user image:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ message: "Internal Server Error", error: error });
   }
 }
 
@@ -668,7 +671,7 @@ async function deleteUser(req, res) {
       .json({ message: "User and their dependents deleted successfully" });
   } catch (error) {
     console.error("Error deleting user:", error.message);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ message: "Internal Server Error", error: error });
   }
 }
 
