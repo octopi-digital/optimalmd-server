@@ -230,8 +230,8 @@ async function updateDependent(req, res) {
 
       if (!createDependentResponse.data.success) {
         return res.status(500).json({
-          message: "Failed to create member in Lyric system",
-          data: createDependentResponse.data,
+          message: createDependentResponse.data.Message,
+          error: createDependentResponse.data,
         });
       }
 
@@ -300,8 +300,8 @@ async function updateDependent(req, res) {
       );
       if (rxvaletUpdateResponse.data.StatusCode !== "1") {
         return res.status(500).json({
-          message: "Failed to update user in RxValet system",
-          data: rxvaletUpdateResponse.data,
+          message: rxvaletUpdateResponse.data.Message,
+          error: rxvaletUpdateResponse.data,
         });
       }
     }
