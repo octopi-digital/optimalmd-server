@@ -1,5 +1,5 @@
 // controllers/plan.controller.js
-const Plan = require("../model/plan.model");
+const Plan = require("../model/planSchema");
 
 // Create a new plan
 exports.createPlan = async (req, res) => {

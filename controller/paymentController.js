@@ -94,7 +94,6 @@ const getAllPayment = async (req, res) => {
     }
 
     const query = filters.length > 0 ? { $and: filters } : {};
-    console.log(await Payment.find({}));
     // Fetch payments with search, date range, and pagination
     const payments = await Payment.find(query)
       .skip(skip)
