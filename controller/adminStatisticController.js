@@ -143,7 +143,31 @@ async function getLast12MonthsStats(req, res) {
       0
     );
 
+    // Collect all unique user IDs across the 12 months
+    const allUniqueUsers = new Set();
+    last12MonthsStats.forEach((stat) => {
+      stat.uniqueUsers.forEach((userId) => allUniqueUsers.add(userId));
+    });
+
+    // Count total unique users for the last 12 months
+    const totalLast12MonthsUsers = allUniqueUsers.size;
+
     // Generate the response data for the last 12 months, ensuring no missing month
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+
     const monthlyStatsMap = Array.from({ length: 12 }, (_, index) => {
       // Calculate the current month in the 12-month range
       const month = (currentDate.getMonth() - 11 + index + 12) % 12;
@@ -166,6 +190,7 @@ async function getLast12MonthsStats(req, res) {
     // Return the stats
     res.status(200).json({
       totalLast12MonthsRevenue, // Total revenue for the last 12 months
+      totalLast12MonthsUsers, // Total unique users for the last 12 months
       last12MonthsStats: monthlyStatsMap, // Monthly breakdown with user counts
     });
   } catch (error) {
