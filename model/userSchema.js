@@ -82,7 +82,10 @@ const userSchema = new mongoose.Schema({
   // getlyric user id
   lyricsUserId: { type: String, default: "" },
   ssoAccessToken: { type: String, default: "" },
-});
+},
+
+  { timestamps: true }
+);
 
 userSchema.plugin(AutoIncrement, { inc_field: "omdId" });
 

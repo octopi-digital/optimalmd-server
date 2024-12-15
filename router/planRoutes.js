@@ -1,7 +1,7 @@
 // routes/plan.route.js
 const express = require("express");
 const router = express.Router();
-const planController = require("../controller/plan.controllers");
+const planController = require("../controller/planController");
 
 // Route to create a new plan
 router.post("/", planController.createPlan);

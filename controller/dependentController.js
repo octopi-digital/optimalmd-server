@@ -16,13 +16,13 @@ async function addDependent(req, res) {
     if (!primaryUser || !relation) {
       return res
         .status(400)
-        .json({ error: "primaryUser and relation are required." });
+        .json({ message: "primaryUser and relation are required." });
     }
 
     // Check if primary user exists
     const userExists = await User.findById(primaryUser);
     if (!userExists) {
-      return res.status(404).json({ error: "Primary user not found." });
+      return res.status(404).json({ message: "Primary user not found." });
     }
 
     // Create new dependent
@@ -42,14 +42,11 @@ async function addDependent(req, res) {
     if (!updatedUser) {
       return res
         .status(500)
-        .json({ error: "Failed to update user dependents." });
+        .json({ message: "Failed to update user dependents." });
     }
 
     // Remove sensitive fields before sending response
-    const {
-      password,
-      ...userWithoutSensitiveData
-    } = updatedUser.toObject();
+    const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
 
     res.status(201).json({
       message: "Dependent added successfully",
@@ -58,7 +55,7 @@ async function addDependent(req, res) {
     });
   } catch (error) {
     console.error("Error adding dependent:", error.message);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ message: "Internal Server Error" });
   }
 }
 
@@ -70,7 +67,7 @@ async function deleteDependent(req, res) {
     // Find the dependent to retrieve the primaryUser ID
     const dependent = await Dependent.findById(dependentId);
     if (!dependent) {
-      return res.status(404).json({ error: "Dependent not found" });
+      return res.status(404).json({ message: "Dependent not found" });
     }
 
     // Remove the dependent from the User's `dependents` array
@@ -86,7 +83,7 @@ async function deleteDependent(req, res) {
     res.status(200).json({ message: "Dependent deleted successfully" });
   } catch (error) {
     console.error("Error deleting dependent:", error.message);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ message: "Internal Server Error" });
   }
 }
 
@@ -95,23 +92,22 @@ async function updateDependent(req, res) {
   try {
     const { primaryUserId, dependentId, ...userInfo } = req.body;
     console.log(req.body);
-    
 
     if (!primaryUserId) {
-      return res.status(400).json({ error: "User Id Is Required" });
+      return res.status(400).json({ message: "User Id Is Required" });
     }
 
     if (!dependentId) {
-      return res.status(400).json({ error: "Dependent Id Is Required" });
+      return res.status(400).json({ message: "Dependent Id Is Required" });
     }
 
     // Find the primary user and dependent in the database
     const user = await User.findById(primaryUserId).populate("dependents");
     const dependent = await Dependent.findById(dependentId);
 
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return res.status(404).json({ message: "User not found" });
     if (!dependent)
-      return res.status(404).json({ error: "Dependent not found" });
+      return res.status(404).json({ message: "Dependent not found" });
 
     let updateData = { ...userInfo };
     let { lyricDependentId, rxvaletDependentId } = dependent;
@@ -119,7 +115,7 @@ async function updateDependent(req, res) {
     const formattedDob = moment(userInfo.dob).format("MM/DD/YYYY");
 
     if (!formattedDob) {
-      return res.status(400).json({ error: "Invalid date of birth format" });
+      return res.status(400).json({ message: "Invalid date of birth format" });
     }
 
     // Check if dependent is new to both Lyric and RxValet and charge $47 if so
@@ -129,7 +125,7 @@ async function updateDependent(req, res) {
     //   // Retrieve payment details from the user schema
     //   const { cardNumber, cvc, expiration } = user;
     //   if (!cardNumber || !cvc || !expiration) {
-    //     return res.status(400).json({ error: "Missing payment details" });
+    //     return res.status(400).json({ message: "Missing payment details" });
     //   }
 
     //   // Process payment
@@ -161,7 +157,7 @@ async function updateDependent(req, res) {
     //   console.log(transactionId);
 
     //   if (!transactionId || transactionId==='0')
-    //     return res.status(400).json({ error: "Payment failed" });
+    //     return res.status(400).json({ message: "Payment failed" });
 
     //   // Save payment record
     //   const paymentRecord = new Payment({
@@ -190,7 +186,7 @@ async function updateDependent(req, res) {
     if (!authToken) {
       return res
         .status(401)
-        .json({ error: "Authorization token missing for Lyric" });
+        .json({ message: "Authorization token missing for Lyric" });
     }
 
     let relationShipId = "";
@@ -233,9 +229,10 @@ async function updateDependent(req, res) {
       console.log(createDependentResponse.data);
 
       if (!createDependentResponse.data.success) {
-        return res
-          .status(500)
-          .json({ error: "Failed to create member in Lyric system", data: createDependentResponse.data });
+        return res.status(500).json({
+          message: createDependentResponse.data.Message,
+          error: createDependentResponse.data,
+        });
       }
 
       lyricDependentId = createDependentResponse.data.dependentUserId;
@@ -249,9 +246,10 @@ async function updateDependent(req, res) {
         { headers: { Authorization: authToken } }
       );
       if (!updateDependentGetLyricResponse.data.success) {
-        return res
-          .status(500)
-          .json({ error: "Failed to update dependent in Lyric system", data: updateDependentGetLyricResponse.data });
+        return res.status(500).json({
+          message: "Failed to update dependent in Lyric system",
+          data: updateDependentGetLyricResponse.data,
+        });
       }
     }
 
@@ -283,9 +281,10 @@ async function updateDependent(req, res) {
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
       if (rxvaletResponse.data.StatusCode !== "1") {
-        return res
-          .status(500)
-          .json({ error: "Failed to enroll user in RxValet system", data: rxvaletResponse.data});
+        return res.status(500).json({
+          message: rxvaletResponse.data.Message,
+          data: rxvaletResponse.data,
+        });
       }
       rxvaletDependentId = rxvaletResponse.data.Result.DependentGUID;
       updateData.rxvaletDependentId = rxvaletDependentId;
@@ -302,9 +301,10 @@ async function updateDependent(req, res) {
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
       if (rxvaletUpdateResponse.data.StatusCode !== "1") {
-        return res
-          .status(500)
-          .json({ error: "Failed to update user in RxValet system", data: rxvaletUpdateResponse.data });
+        return res.status(500).json({
+          message: rxvaletUpdateResponse.data.Message,
+          error: rxvaletUpdateResponse.data,
+        });
       }
     }
     updateData.status = "Active";
@@ -315,18 +315,15 @@ async function updateDependent(req, res) {
       "paymentHistory",
     ]);
 
-    const {
-      password,
-      ...userWithoutSensitiveData
-    } = updatedUser.toObject();
+    const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
 
     res.status(200).json({
       message: "Dependent updated successfully",
       user: userWithoutSensitiveData,
     });
   } catch (error) {
-    console.error("Error updating dependent:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("Error updating dependent:", error.response);
+    res.status(500).json({ message: error.response.data, error: error });
   }
 }
 
@@ -340,13 +337,13 @@ async function getDependentsByUserId(req, res) {
     if (!dependents || dependents.length === 0) {
       return res
         .status(404)
-        .json({ error: "No dependents found for this user" });
+        .json({ message: "No dependents found for this user" });
     }
 
     res.status(200).json(dependents);
   } catch (error) {
     console.error("Error fetching dependents by user ID:", error.message);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ message: "Internal Server Error" });
   }
 }
 
@@ -363,7 +360,7 @@ async function updateDependentImage(req, res) {
     );
 
     if (!updatedDependent) {
-      return res.status(404).json({ error: "Dependent not found" });
+      return res.status(404).json({ message: "Dependent not found" });
     }
 
     // Find the user and populate the dependents
@@ -373,13 +370,10 @@ async function updateDependentImage(req, res) {
     ]);
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    const {
-      password,
-      ...userWithoutSensitiveData
-    } = user.toObject();
+    const { password, ...userWithoutSensitiveData } = user.toObject();
 
     res.status(200).json({
       message: "Dependent image updated successfully",
@@ -387,7 +381,7 @@ async function updateDependentImage(req, res) {
     });
   } catch (error) {
     console.error("Error updating dependent image:", error.message);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ message: "Internal Server Error" });
   }
 }
 

@@ -4,7 +4,6 @@ const User = require("../model/userSchema");
 const moment = require("moment");
 async function login(req, res) {
   try {
-
     // Step 1: Login and get the authorization token
     const ssoAdminFormData = new FormData();
     ssoAdminFormData.append("email", "MTMSTGOPT01SSO@mytelemedicine.com");
@@ -58,8 +57,8 @@ async function login(req, res) {
   } catch (error) {
     console.error("Error calling the external API:", error);
     res.status(error.response?.status || 500).json({
-      message: "Error calling the external API",
-      error: error.message,
+      message: error.response.data,
+      error: error,
     });
   }
 }
@@ -76,7 +75,9 @@ const terminateUser = async (req, res) => {
     // Find the user in your database
     const user = await User.findOne({ lyricsUserId: primaryExternalId });
     if (!user) {
-      return res.status(404).json({ message: "User not found in the database" });
+      return res
+        .status(404)
+        .json({ message: "User not found in the database" });
     }
 
     // Prepare form data for the external API
@@ -129,8 +130,7 @@ const terminateUser = async (req, res) => {
   }
 };
 
-
 module.exports = {
   login,
-  terminateUser
+  terminateUser,
 };
