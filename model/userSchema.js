@@ -40,13 +40,18 @@ const userSchema = new mongoose.Schema({
     ref: "Payment",
     default: [],
   },
+  org: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: "Org",
+    default: [],
+  },
 
   status: { type: String, enum: ["Active", "Canceled"], default: "Active" },
 
   // plans
   role: {
     type: String,
-    enum: ["User", "Admin"],
+    enum: ["User", "Admin","SuperAdmin"],
     default: "User"
   },
   plan: {

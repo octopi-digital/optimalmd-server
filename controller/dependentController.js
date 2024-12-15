@@ -237,6 +237,7 @@ async function updateDependent(req, res) {
 
       lyricDependentId = createDependentResponse.data.dependentUserId;
       updateData.lyricDependentId = lyricDependentId;
+      await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
     } else {
       // Update dependent on get lyric
       const updateDependentGetLyricResponse = await axios.post(
@@ -287,6 +288,7 @@ async function updateDependent(req, res) {
       }
       rxvaletDependentId = rxvaletResponse.data.Result.DependentGUID;
       updateData.rxvaletDependentId = rxvaletDependentId;
+      await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
     } else {
       // Update dependent on rx valet
       rxvaletDependentFormData.append(
