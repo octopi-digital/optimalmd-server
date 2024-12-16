@@ -13,6 +13,7 @@ const PlanSchema = new mongoose.Schema({
       // enum: ["day", "month", "year", "days", "months", "years"], // Allowed units
     },
   },
+  status: { type: String, enum: ["Active", "Inactive"], default: "Inactive" },
 });
 
 const Plan = mongoose.model("Plan", PlanSchema);
