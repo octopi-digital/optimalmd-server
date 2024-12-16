@@ -92,3 +92,40 @@ exports.deletePlan = async (req, res) => {
       .json({ message: "Error deleting plan", error: error.message });
   }
 };
+
+// update status
+exports.updatePlanStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  if (!status || !["Active", "Inactive"].includes(status)) {
+    return res.status(400).json({ message: "Invalid status provided" });
+  }
+  try {
+    if (status === "Active") {
+      const activePlansCount = await Plan.countDocuments({ status: "Active" });
+
+      if (activePlansCount >= 3) {
+        return res.status(400).json({
+          message: "Cannot activate more than 3 plans. Please deactivate an existing active plan first."
+        });
+      }
+    }
+    const updatedPlan = await Plan.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+    if (!updatedPlan) {
+      return res.status(404).json({ message: "Plan not found" });
+    }
+    res.status(200).json({
+      message: "Plan status updated successfully",
+      plan: updatedPlan
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error updating plan status",
+      error: error.message
+    });
+  }
+};
