@@ -58,7 +58,13 @@ const userSchema = new mongoose.Schema(
     plan: {
       type: String,
       enum: ["Trial", "Plus", "Access", "Premiere"],
-      required: true,
+      validate: {
+        validator: function (value) {
+          // If the role is not 'SalesPartner', the plan field is required
+          return this.role === "SalesPartner" || !!value;
+        },
+        message: "Plan is required unless the role is 'SalesPartner'.",
+      },
     },
     planPrice: { type: Number, default: 0 },
     planStartDate: { type: String },
