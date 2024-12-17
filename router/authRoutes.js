@@ -1,9 +1,25 @@
 const express = require("express");
 const router = express.Router();
-const { register, login, getAllUser, getSingleUser, changepassword, updateUser, resetPassword, forgetPassword, deleteUser, updateUserImage, updateUserStatus, updateUserPlan, manageUserRole } = require("../controller/authController");
+const {
+  register,
+  login,
+  getAllUser,
+  getSingleUser,
+  changepassword,
+  updateUser,
+  resetPassword,
+  forgetPassword,
+  deleteUser,
+  updateUserImage,
+  updateUserStatus,
+  updateUserPlan,
+  manageUserRole,
+  getAllSalesPartners,
+} = require("../controller/authController");
 
 // all user
 router.get("/users", getAllUser);
+router.get("/users/sales-partners", getAllSalesPartners);
 
 // all user
 router.get("/users/:id", getSingleUser);
