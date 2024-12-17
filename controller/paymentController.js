@@ -265,7 +265,9 @@ async function paymentRefund(req, res) {
   const { transactionId, userId } = req.body;
 
   if (!transactionId || !userId) {
-    return res.status(400).json({ error: "Transaction ID and User ID are required." });
+    return res
+      .status(400)
+      .json({ error: "Transaction ID and User ID are required." });
   }
 
   try {
@@ -275,18 +277,21 @@ async function paymentRefund(req, res) {
     }
     const payment = await Payment.findOne({ transactionId, userId });
     if (!payment) {
-      return res.status(404).json({ error: "Payment record not found for this transaction." });
+      return res
+        .status(404)
+        .json({ error: "Payment record not found for this transaction." });
     }
 
     // Check if the payment date is within the last 7 days
     const currentDate = new Date();
     const paymentDate = new Date(payment.paymentDate);
-    const timeDifference = currentDate - paymentDate; 
+    const timeDifference = currentDate - paymentDate;
     const daysDifference = timeDifference / (1000 * 3600 * 24);
     if (daysDifference > 7) {
       return res.status(400).json({
         success: false,
-        message: "Refund cannot be processed. Payment date is more than 7 days ago.",
+        message:
+          "Refund cannot be processed. Payment date is more than 7 days ago.",
       });
     }
 
@@ -318,14 +323,56 @@ async function paymentRefund(req, res) {
     );
 
     const refundResult = response.data;
-    if (
-      refundResult?.transactionResponse?.responseCode === "1" &&
-      refundResult?.transactionResponse?.transId
-    ) {
+    if (refundResult?.transactionResponse?.transId !== "0") {
       payment.isRefunded = true;
       payment.transactionId = refundResult.transactionResponse.transId;
       payment.paymentDate = new Date();
       await payment.save();
+
+      // lyrics implementation
+      const cenSusloginData = new FormData();
+      cenSusloginData.append("email", "mtmstgopt01@mytelemedicine.com");
+      cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+
+      const cenSusloginResponse = await axios.post(
+        "https://staging.getlyric.com/go/api/login",
+        cenSusloginData
+      );
+      const cenSusauthToken = cenSusloginResponse.headers["authorization"];
+      if (!cenSusauthToken) {
+        return res
+          .status(401)
+          .json({ error: "Authorization token missing for GetLyric." });
+      }
+      let terminationDate, memberActive, getLyricUrl;
+      terminationDate = moment().format("MM/DD/YYYY");
+      memberActive = "0";
+      getLyricUrl =
+        "https://staging.getlyric.com/go/api/census/updateTerminationDate";
+
+      const getLyricFormData = new FormData();
+      getLyricFormData.append("primaryExternalId", user._id);
+      getLyricFormData.append("groupCode", "MTMSTGOPT01");
+      getLyricFormData.append("terminationDate", terminationDate);
+      const lyricResp = await axios.post(getLyricUrl, getLyricFormData, {
+        headers: { Authorization: cenSusauthToken },
+      });
+      console.log("get lyrics account status resp: ", lyricResp.data);
+
+      // rxvalet implementation
+      const rxValetHeaders = {
+        api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
+      };
+      const rxValetFormData = new FormData();
+      rxValetFormData.append("MemberGUID", user.PrimaryMemberGUID);
+      rxValetFormData.append("MemberActive", memberActive);
+
+      const rxResp = await axios.post(
+        "https://rxvaletapi.com/api/omdrx/member_deactivate_or_reactivate.php",
+        rxValetFormData,
+        { headers: rxValetHeaders }
+      );
+      console.log("get rxvalet account status resp: ", rxResp.data);
 
       return res.status(200).json({
         success: true,
@@ -336,7 +383,8 @@ async function paymentRefund(req, res) {
       return res.status(500).json({
         success: false,
         message: "Refund failed.",
-        details: refundResult?.messages?.message[0]?.text || "Unknown error occurred.",
+        details:
+          refundResult?.messages?.message[0]?.text || "Unknown error occurred.",
       });
     }
   } catch (error) {
@@ -349,7 +397,6 @@ async function paymentRefund(req, res) {
   }
 }
 
-
 module.exports = {
   processPayment,
   getAllPayment,
@@ -357,5 +404,5 @@ module.exports = {
   searchByEmail,
   searchByInvoice,
   filterByDateRange,
-  paymentRefund
+  paymentRefund,
 };
