@@ -91,10 +91,19 @@ async function getSingleUser(req, res) {
   }
 }
 
+// Get all sales partners
+async function getAllSalesPartners(req, res) {
+  // Fetch all users with role SalesPartner
+  const salesPartners = await User.find({ role: "SalesPartner" });
+  console.log("sales partners: ", salesPartners);
+  // Respond with the newly created user and all SalesPartners
+  return res.json(salesPartners);
+}
 // Register a new user
 async function register(req, res) {
   try {
-    const { plan, dob, cardNumber, cvc, expiration, ...userData } = req.body;
+    const { plan, dob, cardNumber, cvc, expiration, role, ...userData } =
+      req.body;
 
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
@@ -108,7 +117,38 @@ async function register(req, res) {
     // Generate random password and hash it
     const defaultPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+    if (role === "SalesPartner") {
+      const user = new User({
+        ...userData,
+        dob: dob,
+        password: hashedPassword,
+        cardNumber: cardNumber,
+        cvc: cvc,
+        expiration: expiration,
+        role: role,
+      });
+      const newUser = await user.save();
+      // Send Email Notification
+      const emailResponse = await axios.post(
+        "https://services.leadconnectorhq.com/hooks/c4HwDVSDzA4oeLOnUvdK/webhook-trigger/d5158a62-4e43-440b-bb4a-f6ee715e97bc",
+        {
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          email: newUser.email,
+          password: defaultPassword,
+          phone: newUser.phone,
+        }
+      );
+      if (emailResponse.status !== 200) throw new Error("Failed to send email");
+      // Fetch all users with role SalesPartner
+      const salesPartners = await User.find({ role: "SalesPartner" });
 
+      // Respond with the newly created user and all SalesPartners
+      return res.status(201).json({
+        newUser,
+        salesPartners,
+      });
+    }
     // Plan and amount setup
     const planStartDate = moment().format("MM/DD/YYYY");
     let planEndDate, amount;
@@ -831,10 +871,7 @@ async function updateUserStatus(req, res) {
       await user.save();
 
       // Populate dependents and paymentHistory
-      await user.populate([
-        { path: "dependents" },
-        { path: "paymentHistory" },
-      ]);
+      await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
 
       // Remove sensitive data before responding
       const { password, ...userWithoutSensitiveData } = user.toObject();
@@ -945,8 +982,9 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("GetLyric API Error:", err);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on GetLyric API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on GetLyric API.`,
           error: err,
         });
       }
@@ -969,8 +1007,9 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("RxValet API Error:", err.message);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on RxValet API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on RxValet API.`,
           error: err.message,
         });
       }
@@ -982,10 +1021,7 @@ async function updateUserStatus(req, res) {
       await user.save();
 
       // Populate dependents and paymentHistory
-      await user.populate([
-        { path: "dependents" },
-        { path: "paymentHistory" },
-      ]);
+      await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
 
       // Remove sensitive data before responding
       const { password, ...userWithoutSensitiveData } = user.toObject();
@@ -995,7 +1031,6 @@ async function updateUserStatus(req, res) {
         user: userWithoutSensitiveData,
       });
     }
-
   } catch (error) {
     console.error(error);
     res
@@ -1047,6 +1082,7 @@ module.exports = {
   login,
   getAllUser,
   getSingleUser,
+  getAllSalesPartners,
   changepassword,
   updateUser,
   resetPassword,
