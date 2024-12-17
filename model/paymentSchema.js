@@ -10,6 +10,7 @@ const paymentSchema = new mongoose.Schema({
   },
   transactionId: { type: String },
   paymentDate: { type: Date, default: Date.now },
+  isRefunded: { type: Boolean, default: false },
 });
 
 module.exports = mongoose.model("Payment", paymentSchema);

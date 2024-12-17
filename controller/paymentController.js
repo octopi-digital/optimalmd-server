@@ -1,5 +1,7 @@
 const axios = require("axios");
 const Payment = require("../model/paymentSchema");
+const User = require("../model/userSchema");
+const { customDecrypt } = require("../hash");
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 
@@ -258,6 +260,96 @@ const filterByDateRange = async (req, res) => {
   }
 };
 
+// payment refund
+async function paymentRefund(req, res) {
+  const { transactionId, userId } = req.body;
+
+  if (!transactionId || !userId) {
+    return res.status(400).json({ error: "Transaction ID and User ID are required." });
+  }
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+    const payment = await Payment.findOne({ transactionId, userId });
+    if (!payment) {
+      return res.status(404).json({ error: "Payment record not found for this transaction." });
+    }
+
+    // Check if the payment date is within the last 7 days
+    const currentDate = new Date();
+    const paymentDate = new Date(payment.paymentDate);
+    const timeDifference = currentDate - paymentDate; 
+    const daysDifference = timeDifference / (1000 * 3600 * 24);
+    if (daysDifference > 7) {
+      return res.status(400).json({
+        success: false,
+        message: "Refund cannot be processed. Payment date is more than 7 days ago.",
+      });
+    }
+
+    const cardNumber = customDecrypt(user.cardNumber);
+    const expirationDate = user.expiration;
+    const refundRequest = {
+      createTransactionRequest: {
+        merchantAuthentication: {
+          name: API_LOGIN_ID,
+          transactionKey: TRANSACTION_KEY,
+        },
+        transactionRequest: {
+          transactionType: "refundTransaction",
+          amount: payment.amount,
+          payment: {
+            creditCard: {
+              cardNumber: cardNumber.slice(12),
+              expirationDate: expirationDate,
+            },
+          },
+          refTransId: transactionId,
+        },
+      },
+    };
+    const response = await axios.post(
+      "https://apitest.authorize.net/xml/v1/request.api",
+      refundRequest,
+      { headers: { "Content-Type": "application/json" } }
+    );
+
+    const refundResult = response.data;
+    if (
+      refundResult?.transactionResponse?.responseCode === "1" &&
+      refundResult?.transactionResponse?.transId
+    ) {
+      payment.isRefunded = true;
+      payment.transactionId = refundResult.transactionResponse.transId;
+      payment.paymentDate = new Date();
+      await payment.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Refund processed successfully.",
+        refundTransactionId: refundResult.transactionResponse.transId,
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        message: "Refund failed.",
+        details: refundResult?.messages?.message[0]?.text || "Unknown error occurred.",
+      });
+    }
+  } catch (error) {
+    console.error("Refund Error:", error.message);
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error.",
+      details: error.message,
+    });
+  }
+}
+
+
 module.exports = {
   processPayment,
   getAllPayment,
@@ -265,4 +357,5 @@ module.exports = {
   searchByEmail,
   searchByInvoice,
   filterByDateRange,
+  paymentRefund
 };
