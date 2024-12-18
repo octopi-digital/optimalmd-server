@@ -324,12 +324,15 @@ async function paymentRefund(req, res) {
     );
 
     const refundResult = response.data;
-    if (refundResult?.transactionResponse?.transId !== "0") {
+    if (refundResult?.transactionResponse?.transId !== "0" && user?.lyricsUserId && user?.PrimaryMemberGUID) {
       payment.isRefunded = true;
       payment.transactionId = refundResult.transactionResponse.transId;
       payment.paymentDate = new Date();
+      user.status = "Canceled"
       await payment.save();
+      await user.save();
 
+      
       // lyrics implementation
       const cenSusloginData = new FormData();
       cenSusloginData.append("email", "mtmstgopt01@mytelemedicine.com");
@@ -380,7 +383,22 @@ async function paymentRefund(req, res) {
         message: "Refund processed successfully.",
         refundTransactionId: refundResult.transactionResponse.transId,
       });
-    } else {
+    }
+    else if (refundResult?.transactionResponse?.transId !== "0" && !user?.lyricsUserId && !user?.PrimaryMemberGUID) {
+      payment.isRefunded = true;
+      payment.transactionId = refundResult.transactionResponse.transId;
+      payment.paymentDate = new Date();
+      user.status = "Canceled"
+      await payment.save();
+      await user.save();
+      return res.status(200).json({
+        success: true,
+        message: "Refund processed successfully.",
+        refundTransactionId: refundResult.transactionResponse.transId,
+      });
+    }
+
+    else {
       return res.status(500).json({
         success: false,
         message: "Refund failed.",
