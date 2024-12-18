@@ -1,3 +1,4 @@
+const { lyricURL, authorizedDotNetURL } = require("../baseURL");
 const Dependent = require("../model/dependentSchema");
 const Payment = require("../model/paymentSchema");
 const User = require("../model/userSchema");
@@ -130,7 +131,7 @@ async function updateDependent(req, res) {
 
     //   // Process payment
     //   const paymentResponse = await axios.post(
-    //     "https://apitest.authorize.net/xml/v1/request.api",
+    // `${authorizedDotNetURL}/xml/v1/request.api`,
     //     {
     //       createTransactionRequest: {
     //         merchantAuthentication: {
@@ -177,10 +178,7 @@ async function updateDependent(req, res) {
     loginData.append("email", "mtmstgopt01@mytelemedicine.com");
     loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
 
-    const loginResponse = await axios.post(
-      "https://staging.getlyric.com/go/api/login",
-      loginData
-    );
+    const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
 
     const authToken = loginResponse.headers["authorization"];
     if (!authToken) {
@@ -222,7 +220,7 @@ async function updateDependent(req, res) {
 
     if (!lyricDependentId) {
       const createDependentResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/census/createMemberDependent",
+        `${lyricURL}/census/createMemberDependent`,
         createDependentData,
         { headers: { Authorization: authToken } }
       );
@@ -241,7 +239,7 @@ async function updateDependent(req, res) {
     } else {
       // Update dependent on get lyric
       const updateDependentGetLyricResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/census/updateMemberDependent",
+        `${lyricURL}/census/updateMemberDependent`,
         createDependentData,
         { headers: { Authorization: authToken } }
       );

@@ -35,6 +35,7 @@ const paymentRoutes = require("./router/paymentRoutes");
 const planRoutes = require("./router/planRoutes");
 const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 const orgRoutes = require("./router/orgRoutes");
+const { lyricURL, authorizedDotNetURL } = require("./baseURL");
 
 
 app.use("/api/auth", authRoutes);
@@ -76,14 +77,14 @@ cron.schedule("0 0 * * *", async () => {
     const terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
     const memberActive = "1";
     const getLyricUrl =
-      "https://staging.getlyric.com/go/api/census/updateEffectiveDate";
+      `${lyricURL}/census/updateEffectiveDate`;
     const amount = 97;
 
     for (const user of usersToUpdate) {
       console.log("email: ", user.email);
 
       const cenSusloginResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/login",
+        `${lyricURL}/login`,
         cenSusloginData
       );
       const cenSusauthToken = cenSusloginResponse.headers["authorization"];
@@ -96,7 +97,7 @@ cron.schedule("0 0 * * *", async () => {
       try {
         // Payment processing logic
         const paymentResponse = await axios.post(
-          "https://apitest.authorize.net/xml/v1/request.api",
+          `${authorizedDotNetURL}/xml/v1/request.api`,
           {
             createTransactionRequest: {
               merchantAuthentication: {

@@ -8,6 +8,7 @@ const Payment = require("../model/paymentSchema");
 const moment = require("moment");
 const { log } = require("console");
 const { customDecrypt } = require("../hash");
+const { lyricURL, production, authorizedDotNetURL } = require("../baseURL");
 
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
@@ -136,7 +137,7 @@ async function register(req, res) {
 
     // Process Payment
     const paymentResponse = await axios.post(
-      "https://apitest.authorize.net/xml/v1/request.api",
+      `${authorizedDotNetURL}/xml/v1/request.api`,
       {
         createTransactionRequest: {
           merchantAuthentication: {
@@ -241,10 +242,7 @@ async function updateUser(req, res) {
     const loginData = new FormData();
     loginData.append("email", "mtmstgopt01@mytelemedicine.com");
     loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
-    const loginResponse = await axios.post(
-      "https://staging.getlyric.com/go/api/login",
-      loginData
-    );
+    const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
     const authToken = loginResponse.headers["authorization"];
 
     if (!authToken) {
@@ -285,7 +283,7 @@ async function updateUser(req, res) {
     // If successful, proceed to RxValet integration
     const rxvaletUserInfo = {
       CompanyID: "12212",
-      Testing: "1",
+      Testing: production ? "0" : "1",
       GroupID: user.plan === "Trial" ? "OPT125" : "OPT800",
       MemberID: user?._id,
       PersonCode: "1",
@@ -316,7 +314,7 @@ async function updateUser(req, res) {
     if (!lyricsUserId) {
       // Create Lyric member
       const createMemberResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/census/createMember",
+        `${lyricURL}/census/createMember`,
         createMemberData,
         { headers: { Authorization: authToken } }
       );
@@ -332,7 +330,7 @@ async function updateUser(req, res) {
     } else {
       // Update Lyric member
       const resp = await axios.post(
-        "https://staging.getlyric.com/go/api/census/updateMember",
+        `${lyricURL}/census/updateMember`,
         createMemberData,
         { headers: { Authorization: authToken } }
       );
@@ -450,7 +448,7 @@ async function updateUserPlan(req, res) {
     // Process Payment
     const amount = 97;
     const paymentResponse = await axios.post(
-      "https://apitest.authorize.net/xml/v1/request.api",
+      `${authorizedDotNetURL}/xml/v1/request.api`,
       {
         createTransactionRequest: {
           merchantAuthentication: {
@@ -505,10 +503,7 @@ async function updateUserPlan(req, res) {
     loginData.append("email", "mtmstgopt01@mytelemedicine.com");
     loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
 
-    const loginResponse = await axios.post(
-      "https://staging.getlyric.com/go/api/login",
-      loginData
-    );
+    const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
     const authToken = loginResponse.headers["authorization"];
 
     if (!authToken) {
@@ -568,7 +563,7 @@ async function updateUserPlan(req, res) {
 
     // Update user in Lyric
     const response = await axios.post(
-      "https://staging.getlyric.com/go/api/census/updateMember",
+      `${lyricURL}/census/updateMember`,
       updateMemberData,
       { headers: { Authorization: authToken } }
     );
@@ -831,10 +826,7 @@ async function updateUserStatus(req, res) {
       await user.save();
 
       // Populate dependents and paymentHistory
-      await user.populate([
-        { path: "dependents" },
-        { path: "paymentHistory" },
-      ]);
+      await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
 
       // Remove sensitive data before responding
       const { password, ...userWithoutSensitiveData } = user.toObject();
@@ -850,7 +842,7 @@ async function updateUserStatus(req, res) {
       cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
 
       const cenSusloginResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/login",
+        `${lyricURL}/login`,
         cenSusloginData
       );
       const cenSusauthToken = cenSusloginResponse.headers["authorization"];
@@ -864,19 +856,17 @@ async function updateUserStatus(req, res) {
       if (status === "Canceled") {
         terminationDate = moment().format("MM/DD/YYYY");
         memberActive = "0";
-        getLyricUrl =
-          "https://staging.getlyric.com/go/api/census/updateTerminationDate";
+        getLyricUrl = `${lyricURL}/census/updateTerminationDate`;
       } else if (status === "Active") {
         terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
         memberActive = "1";
         effectiveDate = moment().format("MM/DD/YYYY");
-        getLyricUrl =
-          "https://staging.getlyric.com/go/api/census/updateEffectiveDate";
+        getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
         // Process Payment
         const amount = 97;
         try {
           const paymentResponse = await axios.post(
-            "https://apitest.authorize.net/xml/v1/request.api",
+            `${authorizedDotNetURL}/xml/v1/request.api`,
             {
               createTransactionRequest: {
                 merchantAuthentication: {
@@ -945,8 +935,9 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("GetLyric API Error:", err);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on GetLyric API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on GetLyric API.`,
           error: err,
         });
       }
@@ -969,8 +960,9 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("RxValet API Error:", err.message);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on RxValet API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on RxValet API.`,
           error: err.message,
         });
       }
@@ -982,10 +974,7 @@ async function updateUserStatus(req, res) {
       await user.save();
 
       // Populate dependents and paymentHistory
-      await user.populate([
-        { path: "dependents" },
-        { path: "paymentHistory" },
-      ]);
+      await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
 
       // Remove sensitive data before responding
       const { password, ...userWithoutSensitiveData } = user.toObject();
@@ -995,7 +984,6 @@ async function updateUserStatus(req, res) {
         user: userWithoutSensitiveData,
       });
     }
-
   } catch (error) {
     console.error(error);
     res
