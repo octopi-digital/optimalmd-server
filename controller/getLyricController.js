@@ -57,7 +57,7 @@ async function login(req, res) {
   } catch (error) {
     console.error("Error calling the external API:", error);
     res.status(error.response?.status || 500).json({
-      message: error.response.data,
+      message: error?.response?.data,
       error: error,
     });
   }
