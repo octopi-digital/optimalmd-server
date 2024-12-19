@@ -5,13 +5,14 @@ const { customDecrypt } = require("../hash");
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 const moment = require("moment");
+const { lyricURL, authorizedDotNetURL } = require("../baseURL");
 
 const processPayment = async (req, res) => {
   const { cardNumber, expirationDate, cardCode, amount } = req.body;
 
   try {
     const response = await axios.post(
-      "https://apitest.authorize.net/xml/v1/request.api",
+      `${authorizedDotNetURL}/xml/v1/request.api`,
       {
         createTransactionRequest: {
           merchantAuthentication: {
@@ -318,7 +319,7 @@ async function paymentRefund(req, res) {
       },
     };
     const response = await axios.post(
-      "https://apitest.authorize.net/xml/v1/request.api",
+      `${authorizedDotNetURL}/xml/v1/request.api`,
       refundRequest,
       { headers: { "Content-Type": "application/json" } }
     );
@@ -339,7 +340,7 @@ async function paymentRefund(req, res) {
         cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
 
         const cenSusloginResponse = await axios.post(
-          "https://staging.getlyric.com/go/api/login",
+          `${lyricURL}/login`,
           cenSusloginData
         );
         const cenSusauthToken = cenSusloginResponse.headers["authorization"];
@@ -351,8 +352,7 @@ async function paymentRefund(req, res) {
         let terminationDate, memberActive, getLyricUrl;
         terminationDate = moment().format("MM/DD/YYYY");
         memberActive = "0";
-        getLyricUrl =
-          "https://staging.getlyric.com/go/api/census/updateTerminationDate";
+        getLyricUrl = `${lyricURL}/census/updateTerminationDate`;
 
         const getLyricFormData = new FormData();
         getLyricFormData.append("primaryExternalId", user._id);
@@ -380,18 +380,20 @@ async function paymentRefund(req, res) {
         );
         console.log("get rxvalet account status resp: ", rxResp.data);
       }
+      // Sending email
+      await axios.post(
+        "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/52a052d3-26d7-4203-b580-1731d7fe9154",
+        {
+          firstName: user.firstName,
+          email: user.email,
+          transactionId: refundResult.transactionResponse.transId,
+        }
+      );
 
       return res.status(200).json({
         success: true,
         message: "Refund processed successfully.",
         refundTransactionId: refundResult.transactionResponse.transId,
-      });
-    } else {
-      return res.status(500).json({
-        success: false,
-        message: "Refund failed.",
-        details:
-          refundResult?.messages?.message[0]?.text || "Unknown error occurred.",
       });
     }
   } catch (error) {

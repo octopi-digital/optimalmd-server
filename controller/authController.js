@@ -8,6 +8,12 @@ const Payment = require("../model/paymentSchema");
 const moment = require("moment");
 const { log } = require("console");
 const { customDecrypt } = require("../hash");
+const {
+  lyricURL,
+  production,
+  authorizedDotNetURL,
+  frontendBaseURL,
+} = require("../baseURL");
 
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
@@ -91,10 +97,19 @@ async function getSingleUser(req, res) {
   }
 }
 
+// Get all sales partners
+async function getAllSalesPartners(req, res) {
+  // Fetch all users with role SalesPartner
+  const salesPartners = await User.find({ role: "SalesPartner" });
+  console.log("sales partners: ", salesPartners);
+  // Respond with the newly created user and all SalesPartners
+  return res.json(salesPartners);
+}
 // Register a new user
 async function register(req, res) {
   try {
-    const { plan, dob, cardNumber, cvc, expiration, ...userData } = req.body;
+    const { plan, dob, cardNumber, cvc, expiration, role, ...userData } =
+      req.body;
 
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
@@ -108,7 +123,38 @@ async function register(req, res) {
     // Generate random password and hash it
     const defaultPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+    if (role === "SalesPartner") {
+      const user = new User({
+        ...userData,
+        dob: dob,
+        password: hashedPassword,
+        cardNumber: cardNumber,
+        cvc: cvc,
+        expiration: expiration,
+        role: role,
+      });
+      const newUser = await user.save();
+      // Send Email Notification
+      const emailResponse = await axios.post(
+        "https://services.leadconnectorhq.com/hooks/c4HwDVSDzA4oeLOnUvdK/webhook-trigger/d5158a62-4e43-440b-bb4a-f6ee715e97bc",
+        {
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          email: newUser.email,
+          password: defaultPassword,
+          phone: newUser.phone,
+        }
+      );
+      if (emailResponse.status !== 200) throw new Error("Failed to send email");
+      // Fetch all users with role SalesPartner
+      const salesPartners = await User.find({ role: "SalesPartner" });
 
+      // Respond with the newly created user and all SalesPartners
+      return res.status(201).json({
+        newUser,
+        salesPartners,
+      });
+    }
     // Plan and amount setup
     const planStartDate = moment().format("MM/DD/YYYY");
     let planEndDate, amount;
@@ -136,7 +182,7 @@ async function register(req, res) {
 
     // Process Payment
     const paymentResponse = await axios.post(
-      "https://apitest.authorize.net/xml/v1/request.api",
+      `${authorizedDotNetURL}/xml/v1/request.api`,
       {
         createTransactionRequest: {
           merchantAuthentication: {
@@ -193,18 +239,17 @@ async function register(req, res) {
     await newUser.save();
 
     // Send Email Notification
-    const emailResponse = await axios.post(
-      "https://services.leadconnectorhq.com/hooks/c4HwDVSDzA4oeLOnUvdK/webhook-trigger/d5158a62-4e43-440b-bb4a-f6ee715e97bc",
+    await axios.post(
+      "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/95797806-5633-4fbf-8cf7-74c8140e29e9",
       {
         firstName: newUser.firstName,
         lastName: newUser.lastName,
         email: newUser.email,
         password: defaultPassword,
-        phone: newUser.phone,
+        transactionId,
+        loginUrl: `${frontendBaseURL}/login`,
       }
     );
-
-    if (emailResponse.status !== 200) throw new Error("Failed to send email");
 
     res.status(201).json({
       message: "User created successfully, payment recorded, and email sent",
@@ -241,10 +286,7 @@ async function updateUser(req, res) {
     const loginData = new FormData();
     loginData.append("email", "mtmstgopt01@mytelemedicine.com");
     loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
-    const loginResponse = await axios.post(
-      "https://staging.getlyric.com/go/api/login",
-      loginData
-    );
+    const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
     const authToken = loginResponse.headers["authorization"];
 
     if (!authToken) {
@@ -256,7 +298,7 @@ async function updateUser(req, res) {
     if (loginResponse.status === 403) {
       return res.status(403).json({ message: loginResponse.data });
     }
-    console.log("lyric login reponse: ", loginResponse);
+    console.log("lyric login reponse: ", loginResponse.data);
 
     // Prepare `createMember` API payload
     const createMemberData = new FormData();
@@ -285,7 +327,7 @@ async function updateUser(req, res) {
     // If successful, proceed to RxValet integration
     const rxvaletUserInfo = {
       CompanyID: "12212",
-      Testing: "1",
+      Testing: production ? "0" : "1",
       GroupID: user.plan === "Trial" ? "OPT125" : "OPT800",
       MemberID: user?._id,
       PersonCode: "1",
@@ -316,7 +358,7 @@ async function updateUser(req, res) {
     if (!lyricsUserId) {
       // Create Lyric member
       const createMemberResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/census/createMember",
+        `${lyricURL}/census/createMember`,
         createMemberData,
         { headers: { Authorization: authToken } }
       );
@@ -332,7 +374,7 @@ async function updateUser(req, res) {
     } else {
       // Update Lyric member
       const resp = await axios.post(
-        "https://staging.getlyric.com/go/api/census/updateMember",
+        `${lyricURL}/census/updateMember`,
         createMemberData,
         { headers: { Authorization: authToken } }
       );
@@ -390,7 +432,6 @@ async function updateUser(req, res) {
         rxvaletUpdateFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-      console.log("rx: ", resp);
       console.log("update response rx: ", resp.data);
       if (resp.data.StatusCode !== "1") {
         return res
@@ -419,7 +460,7 @@ async function updateUser(req, res) {
       user: userWithoutSensitiveData,
     });
   } catch (error) {
-    console.error("Error updating user:", error.response.data);
+    console.error("Error updating user:", error);
     res
       .status(error.status)
       .json({ error: error, message: error.response.data });
@@ -450,7 +491,7 @@ async function updateUserPlan(req, res) {
     // Process Payment
     const amount = 97;
     const paymentResponse = await axios.post(
-      "https://apitest.authorize.net/xml/v1/request.api",
+      `${authorizedDotNetURL}/xml/v1/request.api`,
       {
         createTransactionRequest: {
           merchantAuthentication: {
@@ -505,10 +546,7 @@ async function updateUserPlan(req, res) {
     loginData.append("email", "mtmstgopt01@mytelemedicine.com");
     loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
 
-    const loginResponse = await axios.post(
-      "https://staging.getlyric.com/go/api/login",
-      loginData
-    );
+    const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
     const authToken = loginResponse.headers["authorization"];
 
     if (!authToken) {
@@ -568,7 +606,7 @@ async function updateUserPlan(req, res) {
 
     // Update user in Lyric
     const response = await axios.post(
-      "https://staging.getlyric.com/go/api/census/updateMember",
+      `${lyricURL}/census/updateMember`,
       updateMemberData,
       { headers: { Authorization: authToken } }
     );
@@ -594,7 +632,15 @@ async function updateUserPlan(req, res) {
     ).populate(["dependents", "paymentHistory"]);
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
-
+    // Sending email
+    await axios.post(
+      "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/f5976b27-57b1-4d11-b024-8742f854e2e9",
+      {
+        firstName: updatedUser.firstName,
+        email: updatedUser.email,
+        transactionId: paymentResponse?.data?.transactionResponse?.transId,
+      }
+    );
     res.status(200).json({
       message: "User Plan updated successfully",
       user: userWithoutSensitiveData,
@@ -825,20 +871,92 @@ async function updateUserStatus(req, res) {
       return res.status(404).json({ error: "User not found." });
     }
 
+    const formattedDob = moment(user.dob).format("MM/DD/YYYY");
+
     if (!user.PrimaryMemberGUID && !user.lyricsUserId) {
       // Update user status and plan in the database
       user.status = status;
       await user.save();
 
       // Populate dependents and paymentHistory
-      await user.populate([
-        { path: "dependents" },
-        { path: "paymentHistory" },
-      ]);
+      await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
 
       // Remove sensitive data before responding
       const { password, ...userWithoutSensitiveData } = user.toObject();
 
+      // sending email
+      if (status === "Active") {
+        try {
+          const amount = 97;
+          const paymentResponse = await axios.post(
+            `${authorizedDotNetURL}/xml/v1/request.api`,
+            {
+              createTransactionRequest: {
+                merchantAuthentication: {
+                  name: process.env.AUTHORIZE_NET_API_LOGIN_ID,
+                  transactionKey: process.env.AUTHORIZE_NET_TRANSACTION_KEY,
+                },
+                transactionRequest: {
+                  transactionType: "authCaptureTransaction",
+                  amount: amount,
+                  payment: {
+                    creditCard: {
+                      cardNumber: customDecrypt(user.cardNumber),
+                      expirationDate: user.expiration,
+                      cardCode: customDecrypt(user.cvc),
+                    },
+                  },
+                },
+              },
+            },
+            {
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+          if (paymentResponse.data?.transactionResponse?.transId === "0") {
+            return res.status(500).json({
+              success: false,
+              error: "Payment Failed!",
+            });
+          }
+
+          // Save Payment to the Payment Schema
+          const payment = new Payment({
+            userId: user._id,
+            amount: amount,
+            plan: "Plus",
+            transactionId: paymentResponse?.data.transactionResponse.transId,
+          });
+          await payment.save();
+
+          await axios.post(
+            "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/698a9213-ee99-4676-a8cb-8bea390e1bf1",
+            {
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              transactionId: paymentResponse?.data.transactionResponse.transId,
+            }
+          );
+
+          // Add payment to user's payment history
+          user.paymentHistory.push(payment._id);
+          await user.save();
+        } catch (err) {
+          console.log("payment failed while active: ", err);
+        }
+      } else if (status === "Canceled") {
+        await axios.post(
+          "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/fe37f248-01c3-49a4-b157-5179696d1f36",
+          {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phone: user.phone,
+            ActivePageURL: `${frontendBaseURL}/upgrade-plan`,
+          }
+        );
+      }
       res.json({
         message: `User status successfully updated to ${status}.`,
         user: userWithoutSensitiveData,
@@ -850,7 +968,7 @@ async function updateUserStatus(req, res) {
       cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
 
       const cenSusloginResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/login",
+        `${lyricURL}/login`,
         cenSusloginData
       );
       const cenSusauthToken = cenSusloginResponse.headers["authorization"];
@@ -864,19 +982,18 @@ async function updateUserStatus(req, res) {
       if (status === "Canceled") {
         terminationDate = moment().format("MM/DD/YYYY");
         memberActive = "0";
-        getLyricUrl =
-          "https://staging.getlyric.com/go/api/census/updateTerminationDate";
+        getLyricUrl = `${lyricURL}/census/updateTerminationDate`;
       } else if (status === "Active") {
         terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
         memberActive = "1";
         effectiveDate = moment().format("MM/DD/YYYY");
-        getLyricUrl =
-          "https://staging.getlyric.com/go/api/census/updateEffectiveDate";
+        getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
+        UpdatePlanGetLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
         // Process Payment
         const amount = 97;
         try {
           const paymentResponse = await axios.post(
-            "https://apitest.authorize.net/xml/v1/request.api",
+            `${authorizedDotNetURL}/xml/v1/request.api`,
             {
               createTransactionRequest: {
                 merchantAuthentication: {
@@ -945,13 +1062,14 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("GetLyric API Error:", err);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on GetLyric API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on GetLyric API.`,
           error: err,
         });
       }
 
-      // Update RxValet API
+      // Update RxValet API to reactive and update the plan also.
       try {
         const rxValetHeaders = {
           api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
@@ -969,10 +1087,87 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("RxValet API Error:", err.message);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on RxValet API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on RxValet API.`,
           error: err.message,
         });
+      }
+
+      if (status === "Active") {
+        // update getlyric to plus plan
+        const updateMemberData = new FormData();
+        updateMemberData.append("primaryExternalId", user?._id);
+        updateMemberData.append("groupCode", "MTMSTGOPT01");
+        updateMemberData.append("planId", "2322");
+        updateMemberData.append("planDetailsId", "3");
+        updateMemberData.append("effectiveDate", effectiveDate);
+        updateMemberData.append("terminationDate", terminationDate);
+        updateMemberData.append("firstName", user.firstName);
+        updateMemberData.append("lastName", user.lastName);
+        updateMemberData.append("dob", formattedDob);
+        updateMemberData.append("email", user.email);
+        updateMemberData.append("primaryPhone", user.phone);
+        updateMemberData.append("gender", user.sex === "Male" ? "m" : "f");
+        updateMemberData.append("heightFeet", "0");
+        updateMemberData.append("heightInches", "0");
+        updateMemberData.append("weight", "0");
+        updateMemberData.append("address", user.shipingAddress1);
+        updateMemberData.append("address2", user.shipingAddress2 || "");
+        updateMemberData.append("city", user.shipingCity);
+        updateMemberData.append("stateId", user.shipingStateId);
+        updateMemberData.append("timezoneId", "");
+        updateMemberData.append("zipCode", user.shipingZip);
+        updateMemberData.append("sendRegistrationNotification", "0");
+
+        // Update user in Lyric
+        const response = await axios.post(
+          `${lyricURL}/census/updateMember`,
+          updateMemberData,
+          { headers: { Authorization: cenSusauthToken } }
+        );
+        console.log("lyrics data-: ", response.data);
+        if (!response.data.success) {
+          return res.status(500).json({
+            error: "Failed to update user in Lyric system",
+            data: response.data,
+          });
+        }
+
+        // update rxvalet to plus plan
+        const rxvaletUserInfo = {
+          GroupID: "OPT800",
+          MemberGUID: user?.PrimaryMemberGUID,
+        };
+
+        const rxvaletFormData = new FormData();
+        Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
+          rxvaletFormData.append(key, value);
+        });
+
+        const rxRespose = await axios.post(
+          "https://rxvaletapi.com/api/omdrx/member_change_plan.php",
+          rxvaletFormData,
+          { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
+        );
+        console.log("rxvalet data update plan: ", rxRespose.data);
+        if (rxRespose.data.StatusCode !== "1") {
+          return res.status(500).json({
+            error: "Failed to update user plan in RxValet system",
+            data: rxRespose.data,
+          });
+        }
+      }else{
+        await axios.post(
+          "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/fe37f248-01c3-49a4-b157-5179696d1f36",
+          {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phone: user.phone,
+            ActivePageURL: `${frontendBaseURL}/upgrade-plan`,
+          }
+        );
       }
 
       // Update user status and plan in the database
@@ -982,20 +1177,12 @@ async function updateUserStatus(req, res) {
       await user.save();
 
       // Populate dependents and paymentHistory
-      await user.populate([
-        { path: "dependents" },
-        { path: "paymentHistory" },
-      ]);
-
-      // Remove sensitive data before responding
-      const { password, ...userWithoutSensitiveData } = user.toObject();
-
+      await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
       res.json({
         message: `User status successfully updated to ${status}.`,
         user: userWithoutSensitiveData,
       });
     }
-
   } catch (error) {
     console.error(error);
     res
@@ -1047,6 +1234,7 @@ module.exports = {
   login,
   getAllUser,
   getSingleUser,
+  getAllSalesPartners,
   changepassword,
   updateUser,
   resetPassword,
