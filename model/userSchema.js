@@ -70,15 +70,15 @@ const userSchema = new mongoose.Schema(
     planStartDate: { type: String },
     planEndDate: { type: String },
 
-  // Payment details
-  paymentOption: { type: String, enum: ["Card", "Bank"], default: "Card" },
-  bankName: { type: String, default: "" },
-  accountName: { type: String, default: "" },
-  accountNumber: { type: String, default: "" },
-  routingNumber: { type: String, default: "" },
-  cardNumber: { type: String, default: "" },
-  expiration: { type: String, default: "" },
-  cvc: { type: String, default: "" },
+    // Payment details
+    paymentOption: { type: String, enum: ["Card", "Bank"], default: "Card" },
+    bankName: { type: String, default: "" },
+    accountName: { type: String, default: "" },
+    accountNumber: { type: String, default: "" },
+    routingNumber: { type: String, default: "" },
+    cardNumber: { type: String, default: "" },
+    expiration: { type: String, default: "" },
+    cvc: { type: String, default: "" },
 
     // coupon
     couponCode: { type: String, default: "" },
