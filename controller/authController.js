@@ -199,14 +199,13 @@ async function register(req, res) {
     await newUser.save();
 
     // Send Email Notification
-    const emailResponse = await axios.post(
+    await axios.post(
       "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/95797806-5633-4fbf-8cf7-74c8140e29e9",
       {
         firstName: newUser.firstName,
         lastName: newUser.lastName,
         email: newUser.email,
         password: defaultPassword,
-        phone: newUser.phone,
         transactionId,
         loginUrl: `${frontendBaseURL}/login`,
       }
@@ -594,7 +593,7 @@ async function updateUserPlan(req, res) {
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
     // Sending email
-    const planUpgradeEmailResponse = await axios.post(
+    await axios.post(
       "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/f5976b27-57b1-4d11-b024-8742f854e2e9",
       {
         firstName: updatedUser.firstName,
@@ -602,11 +601,6 @@ async function updateUserPlan(req, res) {
         transactionId: paymentResponse?.data?.transactionResponse?.transId,
       }
     );
-
-    if (planUpgradeEmailResponse.status !== 200) {
-      console.error("Email sending failed");
-      throw new Error("Failed to send email");
-    }
     res.status(200).json({
       message: "User Plan updated successfully",
       user: userWithoutSensitiveData,
@@ -853,7 +847,7 @@ async function updateUserStatus(req, res) {
       // sending email
       if (status === "Active") {
         try {
-          const amount=97;
+          const amount = 97;
           const paymentResponse = await axios.post(
             `${authorizedDotNetURL}/xml/v1/request.api`,
             {
@@ -895,24 +889,22 @@ async function updateUserStatus(req, res) {
           });
           await payment.save();
 
+          await axios.post(
+            "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/698a9213-ee99-4676-a8cb-8bea390e1bf1",
+            {
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              transactionId: paymentResponse?.data.transactionResponse.transId,
+            }
+          );
+
           // Add payment to user's payment history
           user.paymentHistory.push(payment._id);
-          user.plan = "Plus";
-
+          await user.save();
         } catch (err) {
-          console.log("payment failed while active: ",err);
+          console.log("payment failed while active: ", err);
         }
-
-        await axios.post(
-          "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/698a9213-ee99-4676-a8cb-8bea390e1bf1",
-          {
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            phone: user.phone,
-            transactionId: result.transactionResponse.transId,
-          }
-        );
       } else if (status === "Canceled") {
         await axios.post(
           "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/fe37f248-01c3-49a4-b157-5179696d1f36",
@@ -1125,6 +1117,17 @@ async function updateUserStatus(req, res) {
             data: rxRespose.data,
           });
         }
+      }else{
+        await axios.post(
+          "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/fe37f248-01c3-49a4-b157-5179696d1f36",
+          {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phone: user.phone,
+            ActivePageURL: `${frontendBaseURL}/upgrade-plan`,
+          }
+        );
       }
 
       // Update user status and plan in the database
@@ -1135,38 +1138,6 @@ async function updateUserStatus(req, res) {
 
       // Populate dependents and paymentHistory
       await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
-
-      // sending email
-      if (status === "Active") {
-        const { password, ...userWithoutSensitiveData } = user.toObject();
-        const acEmailResponse = await axios.post(
-          "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/698a9213-ee99-4676-a8cb-8bea390e1bf1",
-          {
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            phone: user.phone,
-            transactionId: result.transactionResponse.transId,
-          }
-        );
-
-        if (acEmailResponse.status !== 200)
-          throw new Error("Failed to send email");
-      } else if (status === "Canceled") {
-        const deEmailResponse = await axios.post(
-          "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/fe37f248-01c3-49a4-b157-5179696d1f36",
-          {
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            phone: user.phone,
-            ActivePageURL: `${frontendBaseURL}/upgrade-plan`,
-          }
-        );
-
-        if (deEmailResponse.status !== 200)
-          throw new Error("Failed to send email");
-      }
       res.json({
         message: `User status successfully updated to ${status}.`,
         user: userWithoutSensitiveData,

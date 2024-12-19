@@ -140,8 +140,22 @@ cron.schedule("0 0 * * *", async () => {
         const result = paymentResponse.data;
         console.log(result);
 
-        if (paymentResponse.data?.transactionResponse?.errors) {
+        if (paymentResponse?.data?.transactionResponse?.transId === "0") {
           // return res.status(500).json({ error: paymentResponse.data.transactionResponse.errors, message: paymentResponse.data.messages.message});
+          
+          user.status = "Canceled";
+          await user.save();
+
+          await axios.post(
+            "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/dcd0045a-9de0-410a-b968-120b1169562f",
+            {
+              firstName: user.firstName,
+              email: user.email,
+              reason: paymentResponse.data?.transactionResponse?.errors || "Payment Failed !",
+            }
+          );
+
+          // for now we are not disableing the user from rx and lyric
           continue;
         }
 
@@ -272,16 +286,7 @@ cron.schedule("0 0 * * *", async () => {
           }
         );
       } catch (err) {
-
-        console.error(`Error processing user ${user._id}:`, err);
-        await axios.post(
-          "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/dcd0045a-9de0-410a-b968-120b1169562f",
-          {
-            firstName: user.firstName,
-            email: user.email,
-            reason: err,
-          }
-        );
+        console.error(`Error processing user`, err);
       }
     }
   } catch (error) {
