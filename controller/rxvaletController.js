@@ -18,7 +18,6 @@ async function login(req, res) {
         },
       }
     );
-    
 
     res.status(response.status).json(response.data);
   } catch (error) {
@@ -137,7 +136,7 @@ async function updateDependent(req, res) {
     console.error("Error calling the external API:", error.message);
     res.status(error.response?.status || 500).json({
       message: "Error calling the external API",
-      error: error.message,
+      error: error,
     });
   }
 }
@@ -205,5 +204,5 @@ module.exports = {
   updateMember,
   updateDependent,
   memberActivateOrDeactivate,
-  memberChangePlan
+  memberChangePlan,
 };
