@@ -5,7 +5,9 @@ const mongoose = require("mongoose");
 const cron = require("node-cron");
 const moment = require("moment");
 const axios = require("axios");
+const bodyParser = require("body-parser");
 const { customEncrypt } = require("./hash");
+const { lyricURL, authorizedDotNetURL } = require("./baseURL");
 
 require("dotenv").config();
 const port = process.env.PORT || 5000;
@@ -35,7 +37,8 @@ const paymentRoutes = require("./router/paymentRoutes");
 const planRoutes = require("./router/planRoutes");
 const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 const orgRoutes = require("./router/orgRoutes");
-const { lyricURL, authorizedDotNetURL } = require("./baseURL");
+const blogRoutes = require("./router/blogRoutes");
+
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
@@ -45,6 +48,7 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/admin/stats", adminStatisticsRoutes);
 app.use("/api/org", orgRoutes);
+app.use("/api/blogs", blogRoutes);
 
 cron.schedule("0 0 * * *", async () => {
   try {
