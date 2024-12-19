@@ -246,7 +246,7 @@ cron.schedule("0 0 * * *", async () => {
         await user.save();
 
         await axios.post(
-          "https://services.leadconnectorhq.com/hooks/c4HwDVSDzA4oeLOnUvdK/webhook-trigger/80cb87cf-f703-4942-8269-5abc2fcfea95",
+          "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/f5976b27-57b1-4d11-b024-8742f854e2e9",
           {
             firstName: user.firstName,
             email: user.email,
@@ -254,7 +254,16 @@ cron.schedule("0 0 * * *", async () => {
           }
         );
       } catch (err) {
+
         console.error(`Error processing user ${user._id}:`, err);
+        await axios.post(
+          "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/dcd0045a-9de0-410a-b968-120b1169562f",
+          {
+            firstName: user.firstName,
+            email: user.email,
+            reason: err,
+          }
+        );
       }
     }
   } catch (error) {
