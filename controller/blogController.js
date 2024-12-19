@@ -40,6 +40,26 @@ exports.getAllBlogs = async (req, res) => {
   }
 };
 
+// Fetch blogs that are visible (show: 1)
+exports.getVisibleBlogs = async (req, res) => {
+  try {
+    // Find blogs where 'show' is 1 (visible)
+    const blogs = await Blog.find({ show: 1 });
+
+    // If no blogs are found, return a 404 error
+    if (!blogs || blogs.length === 0) {
+      return res.status(404).json({ message: "No visible blogs found" });
+    }
+
+    // Return the visible blogs
+    return res.status(200).json(blogs);
+  } catch (error) {
+    console.error("Error fetching visible blogs:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 // Read a single blog
 exports.getBlogById = async (req, res) => {
   try {
