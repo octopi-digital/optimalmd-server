@@ -3,14 +3,23 @@ const mongoose = require("mongoose");
 
 // Create a blog
 exports.createBlog = async (req, res) => {
-  const { title, description, url } = req.body;
-  const image = req.file?.path;
+  const { title, description, url, image, show, publishDate } = req.body;
 
   try {
-    if (!title || !description || !url) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!title || !description || !url || !image) {
+      return res.status(400).json({ message: "Title, Description, URL, and Image are required" });
     }
-    const blog = new Blog({ title, description, url, image });
+
+    // Set default values for 'show' and 'publishDate' if not provided
+    const blog = new Blog({
+      title,
+      description,
+      url,
+      image,
+      show: show !== undefined ? show : 1,  // default to 1 (visible) if not provided
+      publishDate: publishDate || Date.now(), // default to current date if not provided
+    });
+
     await blog.save();
     res.status(201).json(blog);
   } catch (error) {
@@ -46,8 +55,8 @@ exports.getBlogById = async (req, res) => {
 
 // Update a blog
 exports.updateBlog = async (req, res) => {
-  const { title, description, url } = req.body;
-  const image = req.file?.path;
+  console.log(req.body);
+  const { title, description, url, image, show, publishDate } = req.body;
 
   try {
     // Validate ObjectId
@@ -59,7 +68,14 @@ exports.updateBlog = async (req, res) => {
     // Find and update the blog
     const updatedBlog = await Blog.findByIdAndUpdate(
       id,
-      { title, description, url, image },
+      {
+        title,
+        description,
+        url,
+        image,
+        show: show !== undefined ? show : 1,  // default to 1 (visible) if not provided
+        publishDate: publishDate || Date.now(),  // default to current date if not provided
+      },
       { new: true, runValidators: true } // Ensures validation
     );
 
@@ -75,8 +91,6 @@ exports.updateBlog = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-
 
 // Delete a blog
 exports.deleteBlog = async (req, res) => {
