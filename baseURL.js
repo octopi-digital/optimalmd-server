@@ -9,7 +9,8 @@ const authorizedDotNetURL = production
   ? "https://api.authorize.net"
   : "https://apitest.authorize.net";
 
-const frontendBaseURL = production ?  "https://optimalmd.vercel.app" : "http://localhost:5173"
+// const frontendBaseURL = production ?  "https://optimalmd.vercel.app" : "http://localhost:5173"
+const frontendBaseURL =  "https://optimalmd.vercel.app"
 
 module.exports = {
   production,
