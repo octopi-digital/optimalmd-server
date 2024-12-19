@@ -71,7 +71,7 @@ const userSchema = new mongoose.Schema(
     planEndDate: { type: String },
 
     // Payment details
-    paymentOption: { type: String, default: "" },
+    paymentOption: { type: String, enum: ["Card", "Bank"], default: "Card" },
     bankName: { type: String, default: "" },
     accountName: { type: String, default: "" },
     accountNumber: { type: String, default: "" },

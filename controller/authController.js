@@ -8,7 +8,12 @@ const Payment = require("../model/paymentSchema");
 const moment = require("moment");
 const { log } = require("console");
 const { customDecrypt } = require("../hash");
-const { lyricURL, production, authorizedDotNetURL } = require("../baseURL");
+const {
+  lyricURL,
+  production,
+  authorizedDotNetURL,
+  frontendBaseURL,
+} = require("../baseURL");
 
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
@@ -234,18 +239,17 @@ async function register(req, res) {
     await newUser.save();
 
     // Send Email Notification
-    const emailResponse = await axios.post(
-      "https://services.leadconnectorhq.com/hooks/c4HwDVSDzA4oeLOnUvdK/webhook-trigger/d5158a62-4e43-440b-bb4a-f6ee715e97bc",
+    await axios.post(
+      "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/95797806-5633-4fbf-8cf7-74c8140e29e9",
       {
         firstName: newUser.firstName,
         lastName: newUser.lastName,
         email: newUser.email,
         password: defaultPassword,
-        phone: newUser.phone,
+        transactionId,
+        loginUrl: `${frontendBaseURL}/login`,
       }
     );
-
-    if (emailResponse.status !== 200) throw new Error("Failed to send email");
 
     res.status(201).json({
       message: "User created successfully, payment recorded, and email sent",
@@ -628,7 +632,15 @@ async function updateUserPlan(req, res) {
     ).populate(["dependents", "paymentHistory"]);
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
-
+    // Sending email
+    await axios.post(
+      "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/f5976b27-57b1-4d11-b024-8742f854e2e9",
+      {
+        firstName: updatedUser.firstName,
+        email: updatedUser.email,
+        transactionId: paymentResponse?.data?.transactionResponse?.transId,
+      }
+    );
     res.status(200).json({
       message: "User Plan updated successfully",
       user: userWithoutSensitiveData,
@@ -872,6 +884,79 @@ async function updateUserStatus(req, res) {
       // Remove sensitive data before responding
       const { password, ...userWithoutSensitiveData } = user.toObject();
 
+      // sending email
+      if (status === "Active") {
+        try {
+          const amount = 97;
+          const paymentResponse = await axios.post(
+            `${authorizedDotNetURL}/xml/v1/request.api`,
+            {
+              createTransactionRequest: {
+                merchantAuthentication: {
+                  name: process.env.AUTHORIZE_NET_API_LOGIN_ID,
+                  transactionKey: process.env.AUTHORIZE_NET_TRANSACTION_KEY,
+                },
+                transactionRequest: {
+                  transactionType: "authCaptureTransaction",
+                  amount: amount,
+                  payment: {
+                    creditCard: {
+                      cardNumber: customDecrypt(user.cardNumber),
+                      expirationDate: user.expiration,
+                      cardCode: customDecrypt(user.cvc),
+                    },
+                  },
+                },
+              },
+            },
+            {
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+          if (paymentResponse.data?.transactionResponse?.transId === "0") {
+            return res.status(500).json({
+              success: false,
+              error: "Payment Failed!",
+            });
+          }
+
+          // Save Payment to the Payment Schema
+          const payment = new Payment({
+            userId: user._id,
+            amount: amount,
+            plan: "Plus",
+            transactionId: paymentResponse?.data.transactionResponse.transId,
+          });
+          await payment.save();
+
+          await axios.post(
+            "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/698a9213-ee99-4676-a8cb-8bea390e1bf1",
+            {
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              transactionId: paymentResponse?.data.transactionResponse.transId,
+            }
+          );
+
+          // Add payment to user's payment history
+          user.paymentHistory.push(payment._id);
+          await user.save();
+        } catch (err) {
+          console.log("payment failed while active: ", err);
+        }
+      } else if (status === "Canceled") {
+        await axios.post(
+          "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/fe37f248-01c3-49a4-b157-5179696d1f36",
+          {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phone: user.phone,
+            ActivePageURL: `${frontendBaseURL}/upgrade-plan`,
+          }
+        );
+      }
       res.json({
         message: `User status successfully updated to ${status}.`,
         user: userWithoutSensitiveData,
@@ -1072,6 +1157,17 @@ async function updateUserStatus(req, res) {
             data: rxRespose.data,
           });
         }
+      }else{
+        await axios.post(
+          "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/fe37f248-01c3-49a4-b157-5179696d1f36",
+          {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phone: user.phone,
+            ActivePageURL: `${frontendBaseURL}/upgrade-plan`,
+          }
+        );
       }
 
       // Update user status and plan in the database
@@ -1082,10 +1178,6 @@ async function updateUserStatus(req, res) {
 
       // Populate dependents and paymentHistory
       await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
-
-      // Remove sensitive data before responding
-      const { password, ...userWithoutSensitiveData } = user.toObject();
-
       res.json({
         message: `User status successfully updated to ${status}.`,
         user: userWithoutSensitiveData,
