@@ -7,6 +7,7 @@ const moment = require("moment");
 const axios = require("axios");
 const bodyParser = require("body-parser");
 const { customEncrypt } = require("./hash");
+const { lyricURL, authorizedDotNetURL } = require("./baseURL");
 
 require("dotenv").config();
 const port = process.env.PORT || 5000;
@@ -36,10 +37,8 @@ const paymentRoutes = require("./router/paymentRoutes");
 const planRoutes = require("./router/planRoutes");
 const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 const orgRoutes = require("./router/orgRoutes");
-const { lyricURL, authorizedDotNetURL } = require("./baseURL");
 const blogRoutes = require("./router/blogRoutes");
 
-app.use(bodyParser.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
