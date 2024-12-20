@@ -5,13 +5,14 @@ const { customDecrypt } = require("../hash");
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 const moment = require("moment");
+const { lyricURL, authorizedDotNetURL } = require("../baseURL");
 
 const processPayment = async (req, res) => {
   const { cardNumber, expirationDate, cardCode, amount } = req.body;
 
   try {
     const response = await axios.post(
-      "https://apitest.authorize.net/xml/v1/request.api",
+      `${authorizedDotNetURL}/xml/v1/request.api`,
       {
         createTransactionRequest: {
           merchantAuthentication: {
@@ -263,7 +264,7 @@ const filterByDateRange = async (req, res) => {
 
 // payment refund
 async function paymentRefund(req, res) {
-  const { transactionId, userId } = req.body;
+  const { transactionId, userId, percentage } = req.body;
 
   if (!transactionId || !userId) {
     return res
@@ -306,7 +307,7 @@ async function paymentRefund(req, res) {
         },
         transactionRequest: {
           transactionType: "refundTransaction",
-          amount: payment.amount,
+          amount: payment.amount * percentage,
           payment: {
             creditCard: {
               cardNumber: cardNumber.slice(12),
@@ -318,7 +319,7 @@ async function paymentRefund(req, res) {
       },
     };
     const response = await axios.post(
-      "https://apitest.authorize.net/xml/v1/request.api",
+      `${authorizedDotNetURL}/xml/v1/request.api`,
       refundRequest,
       { headers: { "Content-Type": "application/json" } }
     );
@@ -328,52 +329,57 @@ async function paymentRefund(req, res) {
       payment.isRefunded = true;
       payment.transactionId = refundResult.transactionResponse.transId;
       payment.paymentDate = new Date();
+      user.status = "Canceled";
       await payment.save();
+      await user.save();
 
-      // lyrics implementation
-      const cenSusloginData = new FormData();
-      cenSusloginData.append("email", "mtmstgopt01@mytelemedicine.com");
-      cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+      if (user?.lyricsUserId) {
+        // lyrics implementation
+        const cenSusloginData = new FormData();
+        cenSusloginData.append("email", "mtmstgopt01@mytelemedicine.com");
+        cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
 
-      const cenSusloginResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/login",
-        cenSusloginData
-      );
-      const cenSusauthToken = cenSusloginResponse.headers["authorization"];
-      if (!cenSusauthToken) {
-        return res
-          .status(401)
-          .json({ error: "Authorization token missing for GetLyric." });
+        const cenSusloginResponse = await axios.post(
+          `${lyricURL}/login`,
+          cenSusloginData
+        );
+        const cenSusauthToken = cenSusloginResponse.headers["authorization"];
+        if (!cenSusauthToken) {
+          return res
+            .status(401)
+            .json({ error: "Authorization token missing for GetLyric." });
+        }
+        let terminationDate, memberActive, getLyricUrl;
+        terminationDate = moment().format("MM/DD/YYYY");
+        memberActive = "0";
+        getLyricUrl = `${lyricURL}/census/updateTerminationDate`;
+
+        const getLyricFormData = new FormData();
+        getLyricFormData.append("primaryExternalId", user._id);
+        getLyricFormData.append("groupCode", "MTMSTGOPT01");
+        getLyricFormData.append("terminationDate", terminationDate);
+        const lyricResp = await axios.post(getLyricUrl, getLyricFormData, {
+          headers: { Authorization: cenSusauthToken },
+        });
+        console.log("get lyrics account status resp: ", lyricResp.data);
       }
-      let terminationDate, memberActive, getLyricUrl;
-      terminationDate = moment().format("MM/DD/YYYY");
-      memberActive = "0";
-      getLyricUrl =
-        "https://staging.getlyric.com/go/api/census/updateTerminationDate";
 
-      const getLyricFormData = new FormData();
-      getLyricFormData.append("primaryExternalId", user._id);
-      getLyricFormData.append("groupCode", "MTMSTGOPT01");
-      getLyricFormData.append("terminationDate", terminationDate);
-      const lyricResp = await axios.post(getLyricUrl, getLyricFormData, {
-        headers: { Authorization: cenSusauthToken },
-      });
-      console.log("get lyrics account status resp: ", lyricResp.data);
+      if (user?.PrimaryMemberGUID) {
+        // rxvalet implementation
+        const rxValetHeaders = {
+          api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
+        };
+        const rxValetFormData = new FormData();
+        rxValetFormData.append("MemberGUID", user.PrimaryMemberGUID);
+        rxValetFormData.append("MemberActive", memberActive);
 
-      // rxvalet implementation
-      const rxValetHeaders = {
-        api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
-      };
-      const rxValetFormData = new FormData();
-      rxValetFormData.append("MemberGUID", user.PrimaryMemberGUID);
-      rxValetFormData.append("MemberActive", memberActive);
-
-      const rxResp = await axios.post(
-        "https://rxvaletapi.com/api/omdrx/member_deactivate_or_reactivate.php",
-        rxValetFormData,
-        { headers: rxValetHeaders }
-      );
-      console.log("get rxvalet account status resp: ", rxResp.data);
+        const rxResp = await axios.post(
+          "https://rxvaletapi.com/api/omdrx/member_deactivate_or_reactivate.php",
+          rxValetFormData,
+          { headers: rxValetHeaders }
+        );
+        console.log("get rxvalet account status resp: ", rxResp.data);
+      }
 
       return res.status(200).json({
         success: true,

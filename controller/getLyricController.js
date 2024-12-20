@@ -2,16 +2,14 @@ const axios = require("axios");
 const FormData = require("form-data");
 const User = require("../model/userSchema");
 const moment = require("moment");
+const { lyricURL, production } = require("../baseURL");
 async function login(req, res) {
   try {
     // Step 1: Login and get the authorization token
     const ssoAdminFormData = new FormData();
     ssoAdminFormData.append("email", "MTMSTGOPT01SSO@mytelemedicine.com");
     ssoAdminFormData.append("password", "CWlex;2hTdoaDmZj?L0a");
-    const sssResponse = await axios.post(
-      "https://staging.getlyric.com/go/api/login",
-      ssoAdminFormData
-    );
+    const sssResponse = await axios.post(`${lyricURL}/login`, ssoAdminFormData);
 
     const authToken = sssResponse.headers["authorization"];
 
@@ -28,7 +26,7 @@ async function login(req, res) {
     createAccessTokenFormData.append("groupCode", req.body.groupCode);
 
     const createAccessTokenResponse = await axios.post(
-      "https://staging.getlyric.com/go/api/sso/createAccessTokenWithGroupCode",
+      `${lyricURL}/sso/createAccessTokenWithGroupCode`,
       createAccessTokenFormData,
       {
         headers: {
@@ -50,9 +48,11 @@ async function login(req, res) {
       throw new Error("User not found");
     }
 
+    const redirectURL = production ? `https://clinic.optimal.md/opmd/login/sso/${accessToken}` : `https://staging.mytelemedicine.com/opmd/login/sso/${accessToken}`
+
     // Return the redirect URL
     res.status(200).json({
-      redirectURL: `https://staging.mytelemedicine.com/opmd/login/sso/${accessToken}`,
+      redirectURL: redirectURL,
     });
   } catch (error) {
     console.error("Error calling the external API:", error);
@@ -89,7 +89,7 @@ const terminateUser = async (req, res) => {
     // Call the external API using Axios
     const requestOptions = {
       method: "POST",
-      url: "https://staging.getlyric.com/go/api/census/updateTerminationDate",
+      url: `${lyricURL}/census/updateTerminationDate`,
       data: formdata,
       headers: {
         ...formdata.getHeaders(), // Ensure proper headers for multipart/form-data

@@ -20,8 +20,6 @@ async function getAllStats(req, res) {
     last7DaysStart.setDate(last7DaysStart.getDate() - 7);
     const last7DaysEnd = new Date(); // End of last 7 days (today)
 
-    console.log('Last 7 Days Range:', last7DaysStart, 'to', last7DaysEnd);
-
     // Aggregate revenue for the last 7 days
     const weeklyRevenue = await Payment.aggregate([
       {
@@ -65,8 +63,6 @@ async function getAllStats(req, res) {
       },
       { $sort: { _id: 1 } }, // Sorting by day
     ]);
-
-    console.log('Weekly Users:', weeklyUsers);
 
     // Mapping dayOfWeek to actual day names and combining revenue with user count
     const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

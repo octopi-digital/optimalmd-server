@@ -35,7 +35,7 @@ const paymentRoutes = require("./router/paymentRoutes");
 const planRoutes = require("./router/planRoutes");
 const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 const orgRoutes = require("./router/orgRoutes");
-
+const { lyricURL, authorizedDotNetURL } = require("./baseURL");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
@@ -75,15 +75,14 @@ cron.schedule("0 0 * * *", async () => {
     const effectiveDate = moment().format("MM/DD/YYYY");
     const terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
     const memberActive = "1";
-    const getLyricUrl =
-      "https://staging.getlyric.com/go/api/census/updateEffectiveDate";
+    const getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
     const amount = 97;
 
     for (const user of usersToUpdate) {
       console.log("email: ", user.email);
 
       const cenSusloginResponse = await axios.post(
-        "https://staging.getlyric.com/go/api/login",
+        `${lyricURL}/login`,
         cenSusloginData
       );
       const cenSusauthToken = cenSusloginResponse.headers["authorization"];
@@ -96,7 +95,7 @@ cron.schedule("0 0 * * *", async () => {
       try {
         // Payment processing logic
         const paymentResponse = await axios.post(
-          "https://apitest.authorize.net/xml/v1/request.api",
+          `${authorizedDotNetURL}/xml/v1/request.api`,
           {
             createTransactionRequest: {
               merchantAuthentication: {
@@ -121,6 +120,7 @@ cron.schedule("0 0 * * *", async () => {
           }
         );
         const result = paymentResponse.data;
+        console.log(result);
 
         if (paymentResponse.data?.transactionResponse?.errors) {
           // return res.status(500).json({ error: paymentResponse.data.transactionResponse.errors, message: paymentResponse.data.messages.message});
@@ -141,6 +141,8 @@ cron.schedule("0 0 * * *", async () => {
         user.plan = "Plus";
         await user.save();
 
+        const formattedDob = moment(user.dob).format("MM/DD/YYYY");
+
         // Update GetLyric API
         try {
           const getLyricFormData = new FormData();
@@ -151,7 +153,7 @@ cron.schedule("0 0 * * *", async () => {
           const resp = await axios.post(getLyricUrl, getLyricFormData, {
             headers: { Authorization: cenSusauthToken },
           });
-          console.log("lyric response: ", resp);
+          console.log("lyric response: ", resp.data);
         } catch (err) {
           console.error("GetLyric API Error:", err);
         }
@@ -170,9 +172,72 @@ cron.schedule("0 0 * * *", async () => {
             rxValetFormData,
             { headers: rxValetHeaders }
           );
-          console.log("rxvalet resp: ", resp);
+          console.log("rxvalet resp: ", resp.data);
         } catch (err) {
-          console.error("RxValet API Error:", err.message);
+          console.error("RxValet API Error:", err);
+        }
+
+        // update getlyric to plus plan
+        const updateMemberData = new FormData();
+        updateMemberData.append("primaryExternalId", user?._id);
+        updateMemberData.append("groupCode", "MTMSTGOPT01");
+        updateMemberData.append("planId", "2322");
+        updateMemberData.append("planDetailsId", "3");
+        updateMemberData.append("effectiveDate", effectiveDate);
+        updateMemberData.append("terminationDate", terminationDate);
+        updateMemberData.append("firstName", user.firstName);
+        updateMemberData.append("lastName", user.lastName);
+        updateMemberData.append("dob", formattedDob);
+        updateMemberData.append("email", user.email);
+        updateMemberData.append("primaryPhone", user.phone);
+        updateMemberData.append("gender", user.sex === "Male" ? "m" : "f");
+        updateMemberData.append("heightFeet", "0");
+        updateMemberData.append("heightInches", "0");
+        updateMemberData.append("weight", "0");
+        updateMemberData.append("address", user.shipingAddress1);
+        updateMemberData.append("address2", user.shipingAddress2 || "");
+        updateMemberData.append("city", user.shipingCity);
+        updateMemberData.append("stateId", user.shipingStateId);
+        updateMemberData.append("timezoneId", "");
+        updateMemberData.append("zipCode", user.shipingZip);
+        updateMemberData.append("sendRegistrationNotification", "0");
+
+        // Update user in Lyric
+        const response = await axios.post(
+          `${lyricURL}/census/updateMember`,
+          updateMemberData,
+          { headers: { Authorization: cenSusauthToken } }
+        );
+        console.log("lyrics data-: ", response.data);
+        if (!response.data.success) {
+          return res.status(500).json({
+            error: "Failed to update user in Lyric system",
+            data: response.data,
+          });
+        }
+
+        // update rxvalet to plus plan
+        const rxvaletUserInfo = {
+          GroupID: "OPT800",
+          MemberGUID: user?.PrimaryMemberGUID,
+        };
+
+        const rxvaletFormData = new FormData();
+        Object.entries(rxvaletUserInfo).forEach(([key, value]) => {
+          rxvaletFormData.append(key, value);
+        });
+
+        const rxRespose = await axios.post(
+          "https://rxvaletapi.com/api/omdrx/member_change_plan.php",
+          rxvaletFormData,
+          { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
+        );
+        console.log("rxvalet data update plan: ", rxRespose.data);
+        if (rxRespose.data.StatusCode !== "1") {
+          return res.status(500).json({
+            error: "Failed to update user plan in RxValet system",
+            data: rxRespose.data,
+          });
         }
 
         user.status = "Active";
