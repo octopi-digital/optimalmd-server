@@ -258,6 +258,7 @@ async function register(req, res) {
       amount,
       plan,
       transactionId,
+      paymentReason:"Plan Purchase(Registration)"
     });
     const savedPaymentRecord = await paymentRecord.save();
 
@@ -581,6 +582,7 @@ async function updateUserPlan(req, res) {
       amount: amount,
       plan: plan,
       transactionId: paymentResponse?.data?.transactionResponse?.transId,
+      paymentReason:"Update Plan"
     });
     const paymentResp = await payment.save();
 
@@ -963,10 +965,6 @@ async function updateUserStatus(req, res) {
       // Remove sensitive data before responding
       const { password, ...userWithoutSensitiveData } = user.toObject();
 
-
-
-
-
       // sending email
       if (status === "Active") {
         try {
@@ -1002,7 +1000,8 @@ async function updateUserStatus(req, res) {
             userId: user._id,
             amount: amount,
             plan: "Plus",
-            transactionId: paymentResponse?.data.transactionResponse.transId,
+            transactionId: paymentResponse?.data?.transactionResponse?.transId,
+            paymentReason:"Account Activated And using Access Plus Plan"
           });
           await payment.save();
 
@@ -1103,6 +1102,7 @@ async function updateUserStatus(req, res) {
             amount: amount,
             plan: "Plus",
             transactionId: result.transactionResponse.transId,
+            paymentReason:"Account Activated And using Access Plus Plan"
           });
           await payment.save();
 

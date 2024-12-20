@@ -5,7 +5,6 @@ const mongoose = require("mongoose");
 const cron = require("node-cron");
 const moment = require("moment");
 const axios = require("axios");
-const bodyParser = require("body-parser");
 const { customEncrypt, customDecrypt } = require("./hash");
 const { lyricURL, authorizedDotNetURL } = require("./baseURL");
 
@@ -191,6 +190,7 @@ cron.schedule("0 0 * * *", async () => {
           amount: amount,
           plan: "Plus",
           transactionId: result.transactionResponse.transId,
+          paymentReason:"User plan upgraded/Renew to Access Plus"
         });
         await payment.save();
 
