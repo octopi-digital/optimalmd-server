@@ -133,7 +133,7 @@ cron.schedule("0 0 * * *", async () => {
               accountType: "checking",
               routingNumber: customDecrypt(user.routingNumber),
               accountNumber: customDecrypt(user.accountNumber),
-              nameOnAccount: customDecrypt(user.accountName),
+              nameOnAccount: user.accountName,
             },
           };
         }

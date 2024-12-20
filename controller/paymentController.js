@@ -6,9 +6,10 @@ const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 const moment = require("moment");
 const { lyricURL, authorizedDotNetURL, production } = require("../baseURL");
+const { decrypt } = require("dotenv");
 
 const processPayment = async (req, res) => {
-  const { cardNumber, paymentOption, expirationDate, cardCode, amount, accountType, routingNumber, accountNumber, accountName } = req.body;
+  const { cardNumber, paymentOption, expirationDate, cvc, amount, accountType, routingNumber, accountNumber, accountName } = req.body;
 
   if (!amount) {
     return res.status(400).json({ success: false, error: "Amount is required." });
@@ -20,9 +21,9 @@ const processPayment = async (req, res) => {
     // Use credit card payment
     paymentMethod = {
       creditCard: {
-        cardNumber: cardNumber,
+        cardNumber: decrypt(cardNumber),
         expirationDate: expirationDate,
-        cardCode: cardCode,
+        cardCode: decrypt(cvc),
       },
     };
   } else if (paymentOption === "Bank") {
@@ -30,8 +31,8 @@ const processPayment = async (req, res) => {
     paymentMethod = {
       bankAccount: {
         accountType: "checking",
-        routingNumber: routingNumber,
-        accountNumber: accountNumber,
+        routingNumber: decrypt(routingNumber),
+        accountNumber: decrypt(accountNumber),
         nameOnAccount: accountName,
       },
     };
@@ -340,8 +341,8 @@ async function paymentRefund(req, res) {
           accountType: "checking",
           routingNumber: customDecrypt(user.routingNumber),
           accountNumber: customDecrypt(user.accountNumber),
-          nameOnAccount: customDecrypt(user.accountName),
-          bankName : customDecrypt(user.bankName),
+          nameOnAccount: user.accountName,
+          bankName : user.bankName,
         },
       };
     }

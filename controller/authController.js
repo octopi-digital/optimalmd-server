@@ -115,7 +115,7 @@ async function register(req, res) {
     const rawCvc = customDecrypt(cvc);
     const rawRoutingNumber = customDecrypt(routingNumber);
     const rawAccountNumber = customDecrypt(accountNumber);
-    const rawAccountName = customDecrypt(accountName);
+    const rawAccountName = accountName;
 
     // Check if the email already exists
     const existingUser = await User.findOne({ email: userData.email });
@@ -135,6 +135,9 @@ async function register(req, res) {
         cvc: cvc,
         expiration: expiration,
         role: role,
+        accountName: accountName,
+        accountNumber: accountNumber,
+        routingNumber: routingNumber,
       });
       const newUser = await user.save();
       // Send Email Notification
@@ -233,6 +236,9 @@ async function register(req, res) {
     );
 
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
+    console.log(paymentMethod);
+    console.log(paymentResponse.data.messages.message);
+    
 
     if (!transactionId || transactionId == "0") {
       return res.status(400).json({ error: "Payment failed" });
@@ -249,6 +255,9 @@ async function register(req, res) {
       cardNumber: cardNumber,
       cvc: cvc,
       expiration: expiration,
+      accountName: accountName,
+      accountNumber: accountNumber,
+      routingNumber: routingNumber,
     });
     const newUser = await user.save();
 
@@ -539,7 +548,7 @@ async function updateUserPlan(req, res) {
           accountType: "checking",
           routingNumber: customDecrypt(user.routingNumber),
           accountNumber: customDecrypt(user.accountNumber),
-          nameOnAccount: customDecrypt(user.accountName),
+          nameOnAccount: user.accountName,
         },
       };
     }
@@ -950,7 +959,7 @@ async function updateUserStatus(req, res) {
           accountType: "checking",
           routingNumber: customDecrypt(user.routingNumber),
           accountNumber: customDecrypt(user.accountNumber),
-          nameOnAccount: customDecrypt(user.accountName),
+          nameOnAccount: user.accountName,
         },
       };
     }
