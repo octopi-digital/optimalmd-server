@@ -108,11 +108,14 @@ async function getAllSalesPartners(req, res) {
 // Register a new user
 async function register(req, res) {
   try {
-    const { plan, dob, cardNumber, cvc, expiration, role, ...userData } =
+    const { plan, dob, cardNumber, cvc, expiration, paymentOption, routingNumber, accountNumber, accountName, role, ...userData } =
       req.body;
 
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
+    const rawRoutingNumber = customDecrypt(routingNumber);
+    const rawAccountNumber = customDecrypt(accountNumber);
+    const rawAccountName = customDecrypt(accountName);
 
     // Check if the email already exists
     const existingUser = await User.findOne({ email: userData.email });
@@ -181,6 +184,36 @@ async function register(req, res) {
     }
 
     // Process Payment
+
+    let paymentMethod;
+
+    if (paymentOption === "Card") {
+      // Use credit card payment
+      paymentMethod = {
+        creditCard: {
+          cardNumber: rawCardNumber,
+          expirationDate: expiration,
+          cardCode: rawCvc,
+        },
+      };
+    } else if (paymentOption === "Bank") {
+      // Use bank account payment
+      paymentMethod = {
+        bankAccount: {
+          accountType: "checking",
+          routingNumber: rawRoutingNumber,
+          accountNumber: rawAccountNumber,
+          nameOnAccount: rawAccountName,
+        },
+      };
+    }
+    else {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid payment details. Provide either card or bank account information.",
+      });
+    }
+
     const paymentResponse = await axios.post(
       `${authorizedDotNetURL}/xml/v1/request.api`,
       {
@@ -192,13 +225,7 @@ async function register(req, res) {
           transactionRequest: {
             transactionType: "authCaptureTransaction",
             amount: amount,
-            payment: {
-              creditCard: {
-                cardNumber: rawCardNumber,
-                expirationDate: expiration,
-                cardCode: rawCvc,
-              },
-            },
+            payment: paymentMethod,
           },
         },
       },
@@ -490,6 +517,37 @@ async function updateUserPlan(req, res) {
 
     // Process Payment
     const amount = 97;
+    let paymentMethod;
+
+    if (user.paymentOption === "Card") {
+      // Use credit card payment
+      paymentMethod = {
+        creditCard: {
+          cardNumber: customDecrypt(user.cardNumber),
+          expirationDate: user.expiration,
+          cardCode: customDecrypt(user.cvc),
+        },
+      };
+    } else if (user.paymentOption === "Bank") {
+      // Use bank account payment
+      paymentMethod = {
+        bankAccount: {
+          accountType: "checking",
+          routingNumber: customDecrypt(user.routingNumber),
+          accountNumber: customDecrypt(user.accountNumber),
+          nameOnAccount: customDecrypt(user.accountName),
+        },
+      };
+    }
+    else {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid payment details. Provide either card or bank account information.",
+      });
+    }
+
+
+
     const paymentResponse = await axios.post(
       `${authorizedDotNetURL}/xml/v1/request.api`,
       {
@@ -501,13 +559,7 @@ async function updateUserPlan(req, res) {
           transactionRequest: {
             transactionType: "authCaptureTransaction",
             amount: amount,
-            payment: {
-              creditCard: {
-                cardNumber: customDecrypt(user.cardNumber),
-                expirationDate: user.expiration,
-                cardCode: customDecrypt(user.cvc),
-              },
-            },
+            payment: paymentMethod,
           },
         },
       },
@@ -872,7 +924,34 @@ async function updateUserStatus(req, res) {
     }
 
     const formattedDob = moment(user.dob).format("MM/DD/YYYY");
-
+    // payment method method condition
+    let paymentMethod;
+    if (user.paymentOption === "Card") {
+      // Use credit card payment
+      paymentMethod = {
+        creditCard: {
+          cardNumber: customDecrypt(user.cardNumber),
+          expirationDate: user.expiration,
+          cardCode: customDecrypt(user.cvc),
+        },
+      };
+    } else if (user.paymentOption === "Bank") {
+      // Use bank account payment
+      paymentMethod = {
+        bankAccount: {
+          accountType: "checking",
+          routingNumber: customDecrypt(user.routingNumber),
+          accountNumber: customDecrypt(user.accountNumber),
+          nameOnAccount: customDecrypt(user.accountName),
+        },
+      };
+    }
+    else {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid payment details. Provide either card or bank account information.",
+      });
+    }
     if (!user.PrimaryMemberGUID && !user.lyricsUserId) {
       // Update user status and plan in the database
       user.status = status;
@@ -883,6 +962,10 @@ async function updateUserStatus(req, res) {
 
       // Remove sensitive data before responding
       const { password, ...userWithoutSensitiveData } = user.toObject();
+
+
+
+
 
       // sending email
       if (status === "Active") {
@@ -899,13 +982,7 @@ async function updateUserStatus(req, res) {
                 transactionRequest: {
                   transactionType: "authCaptureTransaction",
                   amount: amount,
-                  payment: {
-                    creditCard: {
-                      cardNumber: customDecrypt(user.cardNumber),
-                      expirationDate: user.expiration,
-                      cardCode: customDecrypt(user.cvc),
-                    },
-                  },
+                  payment: paymentMethod,
                 },
               },
             },
@@ -1003,13 +1080,7 @@ async function updateUserStatus(req, res) {
                 transactionRequest: {
                   transactionType: "authCaptureTransaction",
                   amount: amount,
-                  payment: {
-                    creditCard: {
-                      cardNumber: customDecrypt(user.cardNumber),
-                      expirationDate: user.expiration,
-                      cardCode: customDecrypt(user.cvc),
-                    },
-                  },
+                  payment: paymentMethod,
                 },
               },
             },
@@ -1062,9 +1133,8 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("GetLyric API Error:", err);
         return res.status(500).json({
-          message: `Failed to ${
-            status === "Active" ? "reactivate" : "terminate"
-          } user on GetLyric API.`,
+          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
+            } user on GetLyric API.`,
           error: err,
         });
       }
@@ -1087,9 +1157,8 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("RxValet API Error:", err.message);
         return res.status(500).json({
-          message: `Failed to ${
-            status === "Active" ? "reactivate" : "terminate"
-          } user on RxValet API.`,
+          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
+            } user on RxValet API.`,
           error: err.message,
         });
       }
@@ -1157,7 +1226,7 @@ async function updateUserStatus(req, res) {
             data: rxRespose.data,
           });
         }
-      }else{
+      } else {
         await axios.post(
           "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/fe37f248-01c3-49a4-b157-5179696d1f36",
           {
@@ -1175,6 +1244,7 @@ async function updateUserStatus(req, res) {
       user.planStartDate = effectiveDate || user.planStartDate;
       user.planEndDate = terminationDate;
       await user.save();
+      const { password, ...userWithoutSensitiveData } = user.toObject();
 
       // Populate dependents and paymentHistory
       await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
