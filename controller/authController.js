@@ -84,7 +84,7 @@ async function getSingleUser(req, res) {
   try {
     const user = await User.findById(req.params.id)
       .select("-password")
-      .populate("dependents");
+      .populate(["dependents", "paymentHistory"]);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -108,8 +108,19 @@ async function getAllSalesPartners(req, res) {
 // Register a new user
 async function register(req, res) {
   try {
-    const { plan, dob, cardNumber, cvc, expiration, paymentOption, routingNumber, accountNumber, accountName, role, ...userData } =
-      req.body;
+    const {
+      plan,
+      dob,
+      cardNumber,
+      cvc,
+      expiration,
+      paymentOption,
+      routingNumber,
+      accountNumber,
+      accountName,
+      role,
+      ...userData
+    } = req.body;
 
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
@@ -209,11 +220,11 @@ async function register(req, res) {
           nameOnAccount: rawAccountName,
         },
       };
-    }
-    else {
+    } else {
       return res.status(400).json({
         success: false,
-        error: "Invalid payment details. Provide either card or bank account information.",
+        error:
+          "Invalid payment details. Provide either card or bank account information.",
       });
     }
 
@@ -238,7 +249,6 @@ async function register(req, res) {
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
     console.log(paymentMethod);
     console.log(paymentResponse.data.messages.message);
-    
 
     if (!transactionId || transactionId == "0") {
       return res.status(400).json({ error: "Payment failed" });
@@ -267,7 +277,7 @@ async function register(req, res) {
       amount,
       plan,
       transactionId,
-      paymentReason:"Plan Purchase(Registration)"
+      paymentReason: "Plan Purchase(Registration)",
     });
     const savedPaymentRecord = await paymentRecord.save();
 
@@ -321,8 +331,18 @@ async function updateUser(req, res) {
 
     // Authenticate with Lyric to get the token
     const loginData = new FormData();
-    loginData.append("email", `${production ? "mtmoptim01@mytelemedicine.com" : "mtmstgopt01@mytelemedicine.com"}`);
-    loginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
+    loginData.append(
+      "email",
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
+      }`
+    );
+    loginData.append(
+      "password",
+      `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`
+    );
     const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
     const authToken = loginResponse.headers["authorization"];
 
@@ -337,13 +357,16 @@ async function updateUser(req, res) {
     }
     console.log("lyric login reponse: ", loginResponse.data);
 
-    const stagingPlanId = user.plan === "Trial" ?  "2322" : "2323";
+    const stagingPlanId = user.plan === "Trial" ? "2322" : "2323";
     const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
 
     // Prepare `createMember` API payload
     const createMemberData = new FormData();
     createMemberData.append("primaryExternalId", user?._id);
-    createMemberData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
+    createMemberData.append(
+      "groupCode",
+      `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
+    );
     createMemberData.append("planId", production ? prodPlanId : stagingPlanId);
     createMemberData.append("planDetailsId", user.plan === "Trial" ? "1" : "3");
     createMemberData.append("firstName", userInfo.firstName);
@@ -551,15 +574,13 @@ async function updateUserPlan(req, res) {
           nameOnAccount: user.accountName,
         },
       };
-    }
-    else {
+    } else {
       return res.status(400).json({
         success: false,
-        error: "Invalid payment details. Provide either card or bank account information.",
+        error:
+          "Invalid payment details. Provide either card or bank account information.",
       });
     }
-
-
 
     const paymentResponse = await axios.post(
       `${authorizedDotNetURL}/xml/v1/request.api`,
@@ -594,7 +615,7 @@ async function updateUserPlan(req, res) {
       amount: amount,
       plan: plan,
       transactionId: paymentResponse?.data?.transactionResponse?.transId,
-      paymentReason:"Update Plan"
+      paymentReason: "Update Plan",
     });
     const paymentResp = await payment.save();
 
@@ -609,8 +630,18 @@ async function updateUserPlan(req, res) {
 
     // Authenticate with Lyric to get the token
     const loginData = new FormData();
-    loginData.append("email", `${production ? "mtmoptim01@mytelemedicine.com" : "mtmstgopt01@mytelemedicine.com"}`);
-    loginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
+    loginData.append(
+      "email",
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
+      }`
+    );
+    loginData.append(
+      "password",
+      `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`
+    );
 
     const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
     const authToken = loginResponse.headers["authorization"];
@@ -645,13 +676,16 @@ async function updateUserPlan(req, res) {
       });
     }
 
-    const stagingPlanId = user.plan === "Trial" ?  "2322" : "2323";
+    const stagingPlanId = user.plan === "Trial" ? "2322" : "2323";
     const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
 
     // Prepare `updateMember` API payload
     const updateMemberData = new FormData();
     updateMemberData.append("primaryExternalId", user?._id);
-    updateMemberData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
+    updateMemberData.append(
+      "groupCode",
+      `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
+    );
     updateMemberData.append("planId", production ? prodPlanId : stagingPlanId);
     updateMemberData.append("planDetailsId", plan === "Trial" ? "1" : "3");
     updateMemberData.append("effectiveDate", planStartDate);
@@ -962,11 +996,11 @@ async function updateUserStatus(req, res) {
           nameOnAccount: user.accountName,
         },
       };
-    }
-    else {
+    } else {
       return res.status(400).json({
         success: false,
-        error: "Invalid payment details. Provide either card or bank account information.",
+        error:
+          "Invalid payment details. Provide either card or bank account information.",
       });
     }
     if (!user.PrimaryMemberGUID && !user.lyricsUserId) {
@@ -1016,7 +1050,7 @@ async function updateUserStatus(req, res) {
             amount: amount,
             plan: "Plus",
             transactionId: paymentResponse?.data?.transactionResponse?.transId,
-            paymentReason:"Account Activated And using Access Plus Plan"
+            paymentReason: "Account Activated And using Access Plus Plan",
           });
           await payment.save();
 
@@ -1056,8 +1090,18 @@ async function updateUserStatus(req, res) {
     } else {
       // Login to GetLyric API
       const cenSusloginData = new FormData();
-      cenSusloginData.append("email", `${production ? "mtmoptim01@mytelemedicine.com" : "mtmstgopt01@mytelemedicine.com"}`);
-      cenSusloginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
+      cenSusloginData.append(
+        "email",
+        `${
+          production
+            ? "mtmoptim01@mytelemedicine.com"
+            : "mtmstgopt01@mytelemedicine.com"
+        }`
+      );
+      cenSusloginData.append(
+        "password",
+        `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`
+      );
 
       const cenSusloginResponse = await axios.post(
         `${lyricURL}/login`,
@@ -1129,7 +1173,7 @@ async function updateUserStatus(req, res) {
             amount: amount,
             plan: "Plus",
             transactionId: result.transactionResponse.transId,
-            paymentReason:"Account Activated And using Access Plus Plan"
+            paymentReason: "Account Activated And using Access Plus Plan",
           });
           await payment.save();
 
@@ -1148,7 +1192,10 @@ async function updateUserStatus(req, res) {
       try {
         const getLyricFormData = new FormData();
         getLyricFormData.append("primaryExternalId", user._id);
-        getLyricFormData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
+        getLyricFormData.append(
+          "groupCode",
+          `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
+        );
         getLyricFormData.append("terminationDate", terminationDate);
         if (status === "Active") {
           getLyricFormData.append("effectiveDate", effectiveDate);
@@ -1160,8 +1207,9 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("GetLyric API Error:", err);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on GetLyric API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on GetLyric API.`,
           error: err,
         });
       }
@@ -1184,21 +1232,28 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("RxValet API Error:", err.message);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on RxValet API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on RxValet API.`,
           error: err.message,
         });
       }
 
-      const stagingPlanId = user.plan === "Trial" ?  "2322" : "2323";
+      const stagingPlanId = user.plan === "Trial" ? "2322" : "2323";
       const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
 
       if (status === "Active") {
         // update getlyric to plus plan
         const updateMemberData = new FormData();
         updateMemberData.append("primaryExternalId", user?._id);
-        updateMemberData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
-        updateMemberData.append("planId", production ? prodPlanId : stagingPlanId);
+        updateMemberData.append(
+          "groupCode",
+          `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
+        );
+        updateMemberData.append(
+          "planId",
+          production ? prodPlanId : stagingPlanId
+        );
         updateMemberData.append("planDetailsId", "3");
         updateMemberData.append("effectiveDate", effectiveDate);
         updateMemberData.append("terminationDate", terminationDate);
