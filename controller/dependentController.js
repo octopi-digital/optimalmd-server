@@ -1,4 +1,4 @@
-const { lyricURL, authorizedDotNetURL } = require("../baseURL");
+const { lyricURL, authorizedDotNetURL, production } = require("../baseURL");
 const Dependent = require("../model/dependentSchema");
 const Payment = require("../model/paymentSchema");
 const User = require("../model/userSchema");
@@ -175,8 +175,8 @@ async function updateDependent(req, res) {
     // }
 
     const loginData = new FormData();
-    loginData.append("email", "mtmstgopt01@mytelemedicine.com");
-    loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+    loginData.append("email", `${production ? "mtmoptim01@mytelemedicine.com" : "mtmstgopt01@mytelemedicine.com"}`);
+    loginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
 
     const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
 
@@ -198,11 +198,14 @@ async function updateDependent(req, res) {
       relationShipId = "4";
     }
 
+    const stagingPlanId = user.plan === "Trial" ?  "2322" : "2323";
+    const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
+
     const createDependentData = new FormData();
     createDependentData.append("primaryExternalId", primaryUserId);
     createDependentData.append("dependentExternalId", dependentId);
-    createDependentData.append("groupCode", "MTMSTGOPT01");
-    createDependentData.append("planId", "2322");
+    createDependentData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
+    createDependentData.append("planId", production ? prodPlanId : stagingPlanId);
     createDependentData.append("firstName", userInfo.firstName);
     createDependentData.append("lastName", userInfo.lastName);
     createDependentData.append("dob", formattedDob);

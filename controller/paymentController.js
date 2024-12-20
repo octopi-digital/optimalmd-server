@@ -5,7 +5,7 @@ const { customDecrypt } = require("../hash");
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 const moment = require("moment");
-const { lyricURL, authorizedDotNetURL } = require("../baseURL");
+const { lyricURL, authorizedDotNetURL, production } = require("../baseURL");
 
 const processPayment = async (req, res) => {
   const { cardNumber, paymentOption, expirationDate, cardCode, amount, accountType, routingNumber, accountNumber, accountName } = req.body;
@@ -384,8 +384,8 @@ async function paymentRefund(req, res) {
       if (user?.lyricsUserId) {
         // lyrics implementation
         const cenSusloginData = new FormData();
-        cenSusloginData.append("email", "mtmstgopt01@mytelemedicine.com");
-        cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+        cenSusloginData.append("email", `${production ? "mtmoptim01@mytelemedicine.com" : "mtmstgopt01@mytelemedicine.com"}`);
+        cenSusloginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
 
         const cenSusloginResponse = await axios.post(
           `${lyricURL}/login`,
@@ -404,7 +404,7 @@ async function paymentRefund(req, res) {
 
         const getLyricFormData = new FormData();
         getLyricFormData.append("primaryExternalId", user._id);
-        getLyricFormData.append("groupCode", "MTMSTGOPT01");
+        getLyricFormData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
         getLyricFormData.append("terminationDate", terminationDate);
         const lyricResp = await axios.post(getLyricUrl, getLyricFormData, {
           headers: { Authorization: cenSusauthToken },

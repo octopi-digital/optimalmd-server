@@ -312,8 +312,8 @@ async function updateUser(req, res) {
 
     // Authenticate with Lyric to get the token
     const loginData = new FormData();
-    loginData.append("email", "mtmstgopt01@mytelemedicine.com");
-    loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+    loginData.append("email", `${production ? "mtmoptim01@mytelemedicine.com" : "mtmstgopt01@mytelemedicine.com"}`);
+    loginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
     const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
     const authToken = loginResponse.headers["authorization"];
 
@@ -328,11 +328,14 @@ async function updateUser(req, res) {
     }
     console.log("lyric login reponse: ", loginResponse.data);
 
+    const stagingPlanId = user.plan === "Trial" ?  "2322" : "2323";
+    const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
+
     // Prepare `createMember` API payload
     const createMemberData = new FormData();
     createMemberData.append("primaryExternalId", user?._id);
-    createMemberData.append("groupCode", "MTMSTGOPT01");
-    createMemberData.append("planId", "2322");
+    createMemberData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
+    createMemberData.append("planId", production ? prodPlanId : stagingPlanId);
     createMemberData.append("planDetailsId", user.plan === "Trial" ? "1" : "3");
     createMemberData.append("firstName", userInfo.firstName);
     createMemberData.append("lastName", userInfo.lastName);
@@ -597,8 +600,8 @@ async function updateUserPlan(req, res) {
 
     // Authenticate with Lyric to get the token
     const loginData = new FormData();
-    loginData.append("email", "mtmstgopt01@mytelemedicine.com");
-    loginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+    loginData.append("email", `${production ? "mtmoptim01@mytelemedicine.com" : "mtmstgopt01@mytelemedicine.com"}`);
+    loginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
 
     const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
     const authToken = loginResponse.headers["authorization"];
@@ -633,11 +636,14 @@ async function updateUserPlan(req, res) {
       });
     }
 
+    const stagingPlanId = user.plan === "Trial" ?  "2322" : "2323";
+    const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
+
     // Prepare `updateMember` API payload
     const updateMemberData = new FormData();
     updateMemberData.append("primaryExternalId", user?._id);
-    updateMemberData.append("groupCode", "MTMSTGOPT01");
-    updateMemberData.append("planId", "2322");
+    updateMemberData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
+    updateMemberData.append("planId", production ? prodPlanId : stagingPlanId);
     updateMemberData.append("planDetailsId", plan === "Trial" ? "1" : "3");
     updateMemberData.append("effectiveDate", planStartDate);
     updateMemberData.append("terminationDate", planEndDate);
@@ -1005,7 +1011,7 @@ async function updateUserStatus(req, res) {
           });
           await payment.save();
 
-          await axios.post(
+          const resp = await axios.post(
             "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/698a9213-ee99-4676-a8cb-8bea390e1bf1",
             {
               firstName: user.firstName,
@@ -1014,6 +1020,7 @@ async function updateUserStatus(req, res) {
               transactionId: paymentResponse?.data.transactionResponse.transId,
             }
           );
+          console.log(resp.data);
 
           // Add payment to user's payment history
           user.paymentHistory.push(payment._id);
@@ -1040,8 +1047,8 @@ async function updateUserStatus(req, res) {
     } else {
       // Login to GetLyric API
       const cenSusloginData = new FormData();
-      cenSusloginData.append("email", "mtmstgopt01@mytelemedicine.com");
-      cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+      cenSusloginData.append("email", `${production ? "mtmoptim01@mytelemedicine.com" : "mtmstgopt01@mytelemedicine.com"}`);
+      cenSusloginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
 
       const cenSusloginResponse = await axios.post(
         `${lyricURL}/login`,
@@ -1096,6 +1103,17 @@ async function updateUserStatus(req, res) {
             });
           }
 
+          const resp = await axios.post(
+            "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/698a9213-ee99-4676-a8cb-8bea390e1bf1",
+            {
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              transactionId: paymentResponse?.data.transactionResponse.transId,
+            }
+          );
+          console.log(resp.data);
+
           // Save Payment to the Payment Schema
           const payment = new Payment({
             userId: user._id,
@@ -1121,7 +1139,7 @@ async function updateUserStatus(req, res) {
       try {
         const getLyricFormData = new FormData();
         getLyricFormData.append("primaryExternalId", user._id);
-        getLyricFormData.append("groupCode", "MTMSTGOPT01");
+        getLyricFormData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
         getLyricFormData.append("terminationDate", terminationDate);
         if (status === "Active") {
           getLyricFormData.append("effectiveDate", effectiveDate);
@@ -1163,12 +1181,15 @@ async function updateUserStatus(req, res) {
         });
       }
 
+      const stagingPlanId = user.plan === "Trial" ?  "2322" : "2323";
+      const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
+
       if (status === "Active") {
         // update getlyric to plus plan
         const updateMemberData = new FormData();
         updateMemberData.append("primaryExternalId", user?._id);
-        updateMemberData.append("groupCode", "MTMSTGOPT01");
-        updateMemberData.append("planId", "2322");
+        updateMemberData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
+        updateMemberData.append("planId", production ? prodPlanId : stagingPlanId);
         updateMemberData.append("planDetailsId", "3");
         updateMemberData.append("effectiveDate", effectiveDate);
         updateMemberData.append("terminationDate", terminationDate);
