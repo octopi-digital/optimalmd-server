@@ -8,7 +8,39 @@ const moment = require("moment");
 const { lyricURL, authorizedDotNetURL } = require("../baseURL");
 
 const processPayment = async (req, res) => {
-  const { cardNumber, expirationDate, cardCode, amount } = req.body;
+  const { cardNumber, paymentOption, expirationDate, cardCode, amount, accountType, routingNumber, accountNumber, accountName } = req.body;
+
+  if (!amount) {
+    return res.status(400).json({ success: false, error: "Amount is required." });
+  }
+
+  let paymentMethod;
+
+  if (paymentOption === "Card") {
+    // Use credit card payment
+    paymentMethod = {
+      creditCard: {
+        cardNumber: cardNumber,
+        expirationDate: expirationDate,
+        cardCode: cardCode,
+      },
+    };
+  } else if (paymentOption === "Bank") {
+    // Use bank account payment
+    paymentMethod = {
+      bankAccount: {
+        accountType: "checking",
+        routingNumber: routingNumber,
+        accountNumber: accountNumber,
+        nameOnAccount: accountName,
+      },
+    };
+  } else {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid payment details. Provide either card or bank account information.",
+    });
+  }
 
   try {
     const response = await axios.post(
@@ -22,13 +54,7 @@ const processPayment = async (req, res) => {
           transactionRequest: {
             transactionType: "authCaptureTransaction",
             amount: amount,
-            payment: {
-              creditCard: {
-                cardNumber: cardNumber,
-                expirationDate: expirationDate,
-                cardCode: cardCode,
-              },
-            },
+            payment: paymentMethod,
           },
         },
       },
@@ -49,7 +75,7 @@ const processPayment = async (req, res) => {
       res.json({ success: false, error: result.messages.message[0].text });
     }
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error:", error.message);
     res
       .status(500)
       .json({ success: false, error: "Payment processing failed." });
