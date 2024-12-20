@@ -5,7 +5,9 @@ const mongoose = require("mongoose");
 const cron = require("node-cron");
 const moment = require("moment");
 const axios = require("axios");
+const bodyParser = require("body-parser");
 const { customEncrypt } = require("./hash");
+const { lyricURL, authorizedDotNetURL } = require("./baseURL");
 
 require("dotenv").config();
 const port = process.env.PORT || 5000;
@@ -35,7 +37,8 @@ const paymentRoutes = require("./router/paymentRoutes");
 const planRoutes = require("./router/planRoutes");
 const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 const orgRoutes = require("./router/orgRoutes");
-const { lyricURL, authorizedDotNetURL } = require("./baseURL");
+const blogRoutes = require("./router/blogRoutes");
+
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
@@ -45,6 +48,7 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/admin/stats", adminStatisticsRoutes);
 app.use("/api/org", orgRoutes);
+app.use("/api/blogs", blogRoutes);
 
 cron.schedule("0 0 * * *", async () => {
   try {
@@ -80,7 +84,25 @@ cron.schedule("0 0 * * *", async () => {
 
     for (const user of usersToUpdate) {
       console.log("email: ", user.email);
-
+      const planEndDate = moment(user.planEndDate, "MM/DD/YYYY");
+      const daysRemaining = planEndDate.diff(moment(currentDate, "MM/DD/YYYY"), "days");
+    
+      // Send follow-up emails based on days remaining
+      if (daysRemaining === 5 || daysRemaining === 2 || daysRemaining === 1) {
+        try {
+          await axios.post(
+            "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/7bf736c7-e9cc-499a-8156-5d4edf5b0136",
+            {
+              firstName: user.firstName,
+              email: user.email,
+              message: `Your plan will expire in ${daysRemaining} day${daysRemaining > 1 ? "s" : ""}. We will automatically update your plan. If you don't want to update your plan, you can simply deactivate your account.`,
+            }
+          );
+          console.log(`Follow-up email sent to ${user.email} for ${daysRemaining} day(s) remaining.`);
+        } catch (err) {
+          console.error(`Error sending follow-up email to ${user.email}:`, err);
+        }
+      }
       const cenSusloginResponse = await axios.post(
         `${lyricURL}/login`,
         cenSusloginData
@@ -122,8 +144,22 @@ cron.schedule("0 0 * * *", async () => {
         const result = paymentResponse.data;
         console.log(result);
 
-        if (paymentResponse.data?.transactionResponse?.errors) {
+        if (paymentResponse?.data?.transactionResponse?.transId === "0") {
           // return res.status(500).json({ error: paymentResponse.data.transactionResponse.errors, message: paymentResponse.data.messages.message});
+          
+          user.status = "Canceled";
+          await user.save();
+
+          await axios.post(
+            "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/dcd0045a-9de0-410a-b968-120b1169562f",
+            {
+              firstName: user.firstName,
+              email: user.email,
+              reason: paymentResponse.data?.transactionResponse?.errors || "Payment Failed !",
+            }
+          );
+
+          // for now we are not disableing the user from rx and lyric
           continue;
         }
 
@@ -246,7 +282,7 @@ cron.schedule("0 0 * * *", async () => {
         await user.save();
 
         await axios.post(
-          "https://services.leadconnectorhq.com/hooks/c4HwDVSDzA4oeLOnUvdK/webhook-trigger/80cb87cf-f703-4942-8269-5abc2fcfea95",
+          "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/f5976b27-57b1-4d11-b024-8742f854e2e9",
           {
             firstName: user.firstName,
             email: user.email,
@@ -254,7 +290,7 @@ cron.schedule("0 0 * * *", async () => {
           }
         );
       } catch (err) {
-        console.error(`Error processing user ${user._id}:`, err);
+        console.error(`Error processing user`, err);
       }
     }
   } catch (error) {

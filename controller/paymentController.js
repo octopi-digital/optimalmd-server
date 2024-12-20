@@ -380,18 +380,20 @@ async function paymentRefund(req, res) {
         );
         console.log("get rxvalet account status resp: ", rxResp.data);
       }
+      // Sending email
+      await axios.post(
+        "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/52a052d3-26d7-4203-b580-1731d7fe9154",
+        {
+          firstName: user.firstName,
+          email: user.email,
+          transactionId: refundResult.transactionResponse.transId,
+        }
+      );
 
       return res.status(200).json({
         success: true,
         message: "Refund processed successfully.",
         refundTransactionId: refundResult.transactionResponse.transId,
-      });
-    } else {
-      return res.status(500).json({
-        success: false,
-        message: "Refund failed.",
-        details:
-          refundResult?.messages?.message[0]?.text || "Unknown error occurred.",
       });
     }
   } catch (error) {
