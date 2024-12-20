@@ -1244,6 +1244,7 @@ async function updateUserStatus(req, res) {
       user.planStartDate = effectiveDate || user.planStartDate;
       user.planEndDate = terminationDate;
       await user.save();
+      const { password, ...userWithoutSensitiveData } = user.toObject();
 
       // Populate dependents and paymentHistory
       await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
