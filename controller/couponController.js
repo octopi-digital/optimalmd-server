@@ -1,4 +1,30 @@
 const Coupon = require('../model/couponSchema');
+const cron = require('node-cron');
+
+// Cron job to automatically update coupon statuses every minute
+cron.schedule('* * * * *', async () => {
+    try {
+        // Get current date and time
+        const currentDateTime = new Date();
+
+        // Find and update expired coupons
+        const expiredCoupons = await Coupon.updateMany(
+            {
+                endDate: { $lt: currentDateTime },
+                status: { $ne: 'Expired' },
+            },
+            { $set: { status: 'Expired' } }
+        );
+
+        if (expiredCoupons.nModified > 0) {
+            console.log(`${expiredCoupons.nModified} coupons have been marked as expired.`);
+        }
+    } catch (error) {
+        console.error('Error updating coupon statuses:', error);
+    }
+});
+
+
 
 // Create a new coupon
 exports.createCoupon = async (req, res) => {
@@ -111,18 +137,31 @@ exports.createCoupon = async (req, res) => {
     }
 };
 
-// Get all coupons
+// Get all coupons and update expired ones
 exports.getAllCoupons = async (req, res) => {
     try {
-        const coupons = await Coupon.find().sort({ createdAt: -1 }); // Sort by createdAt in descending order
-        if (coupons.length === 0) {
-            return res.status(404).json({ message: 'No coupons found' });
-        }
-        res.status(200).json(coupons);
+      // Get current date and time
+      const currentDateTime = new Date();
+  
+      // Find and update expired coupons
+      await Coupon.updateMany(
+        { endDate: { $lt: currentDateTime }, status: { $ne: 'Expired' } },
+        { $set: { status: 'Expired' } }
+      );
+  
+      // Fetch all coupons
+      const coupons = await Coupon.find().sort({ createdAt: -1 }); // Sort by most recent
+  
+      if (coupons.length === 0) {
+        return res.status(404).json({ message: 'No coupons found' });
+      }
+  
+      // Return the updated list of coupons
+      res.status(200).json(coupons);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+      res.status(500).json({ message: error.message });
     }
-};
+  };
 
 
 // Get a single coupon by ID
