@@ -6,7 +6,7 @@ const cron = require("node-cron");
 const moment = require("moment");
 const axios = require("axios");
 const bodyParser = require("body-parser");
-const { customEncrypt } = require("./hash");
+const { customEncrypt, customDecrypt } = require("./hash");
 const { lyricURL, authorizedDotNetURL } = require("./baseURL");
 
 require("dotenv").config();
@@ -116,6 +116,34 @@ cron.schedule("0 0 * * *", async () => {
 
       try {
         // Payment processing logic
+        let paymentMethod;
+
+        if (user.paymentOption === "Card") {
+          // Use credit card payment
+          paymentMethod = {
+            creditCard: {
+              cardNumber: customDecrypt(user.cardNumber),
+              expirationDate: user.expiration,
+              cardCode: customDecrypt(user.cvc),
+            },
+          };
+        } else if (user.paymentOption === "Bank") {
+          // Use bank account payment
+          paymentMethod = {
+            bankAccount: {
+              accountType: "checking",
+              routingNumber: customDecrypt(user.routingNumber),
+              accountNumber: customDecrypt(user.accountNumber),
+              nameOnAccount: customDecrypt(user.accountName),
+            },
+          };
+        }
+        else {
+          return res.status(400).json({
+            success: false,
+            error: "Invalid payment details. Provide either card or bank account information.",
+          });
+        }
         const paymentResponse = await axios.post(
           `${authorizedDotNetURL}/xml/v1/request.api`,
           {
@@ -127,13 +155,7 @@ cron.schedule("0 0 * * *", async () => {
               transactionRequest: {
                 transactionType: "authCaptureTransaction",
                 amount: amount,
-                payment: {
-                  creditCard: {
-                    cardNumber: user.cardNumber,
-                    expirationDate: user.expiration,
-                    cardCode: user.cvc,
-                  },
-                },
+                payment: paymentMethod,
               },
             },
           },
