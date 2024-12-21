@@ -1,16 +1,25 @@
 const Coupon = require('../model/couponSchema');
 const cron = require('node-cron');
+const moment = require('moment');
 
 // Cron job to automatically update coupon statuses every minute
 cron.schedule('* * * * *', async () => {
     try {
-        // Get current date and time
-        const currentDateTime = new Date();
+        // Get current date and time in your desired timezone (e.g., 'Asia/Dhaka')
+        const currentDateTime = moment(); // Local time
+        const currentDate = currentDateTime.format('YYYY-MM-DD'); // Date part only
+        const currentTime = currentDateTime.format('HH:mm:ss'); // Time part only
 
-        // Find and update expired coupons
+        // Update expired coupons
         const expiredCoupons = await Coupon.updateMany(
             {
-                endDate: { $lt: currentDateTime },
+                $or: [
+                    { endDate: { $lt: currentDate } }, // End date is in the past
+                    {
+                        endDate: { $eq: currentDate }, // Same date
+                        endTime: { $lt: currentTime }, // Time is in the past
+                    },
+                ],
                 status: { $ne: 'Expired' },
             },
             { $set: { status: 'Expired' } }
@@ -19,10 +28,46 @@ cron.schedule('* * * * *', async () => {
         if (expiredCoupons.nModified > 0) {
             console.log(`${expiredCoupons.nModified} coupons have been marked as expired.`);
         }
+
+        // Update active coupons
+        const activeCoupons = await Coupon.updateMany(
+            {
+                startDate: { $lte: currentDate }, // Start date is today or earlier
+                endDate: { $gte: currentDate }, // End date is today or later
+                status: { $ne: 'Active' },
+                $and: [
+                    {
+                        $or: [
+                            { startDate: { $lt: currentDate } }, // Start date is in the past
+                            {
+                                startDate: { $eq: currentDate }, // Same date
+                                startTime: { $lte: currentTime }, // Start time is in the past or now
+                            },
+                        ],
+                    },
+                    {
+                        $or: [
+                            { endDate: { $gt: currentDate } }, // End date is in the future
+                            {
+                                endDate: { $eq: currentDate }, // Same date
+                                endTime: { $gte: currentTime }, // End time is in the future or now
+                            },
+                        ],
+                    },
+                ],
+            },
+            { $set: { status: 'Active' } }
+        );
+
+        if (activeCoupons.nModified > 0) {
+            console.log(`${activeCoupons.nModified} coupons have been marked as active.`);
+        }
+
     } catch (error) {
         console.error('Error updating coupon statuses:', error);
     }
 });
+
 
 
 
@@ -41,8 +86,7 @@ exports.createCoupon = async (req, res) => {
             numberOfRedeem,
             selectedPlans,
             useLimit,
-            recurringOrFuturePayments,
-            redemptionCount // Optional field
+            recurringOrFuturePayments
         } = req.body;
 
         // Check required fields one by one
@@ -52,6 +96,13 @@ exports.createCoupon = async (req, res) => {
         if (!couponCode) {
             return res.status(400).json({ message: 'Coupon code is required.' });
         }
+
+        // Validate uniqueness of couponCode
+        const existingCoupon = await Coupon.findOne({ couponCode });
+        if (existingCoupon) {
+            return res.status(400).json({ message: 'Coupon code must be unique.' });
+        }
+
         if (!couponType || !['Percentage', 'Fixed Amount'].includes(couponType)) {
             return res
                 .status(400)
@@ -109,8 +160,6 @@ exports.createCoupon = async (req, res) => {
         } else {
             couponStatus = 'Expired'; // Coupon is expired
         }
-        // Default values for optional fields
-        const couponRedemptionCount = redemptionCount || 0; // Default to 0
 
         // If all checks pass, save the coupon
         const newCoupon = new Coupon({
@@ -126,8 +175,7 @@ exports.createCoupon = async (req, res) => {
             selectedPlans,
             useLimit,
             recurringOrFuturePayments,
-            status: couponStatus,
-            redemptionCount: couponRedemptionCount
+            status: couponStatus
         });
 
         const savedCoupon = await newCoupon.save();
@@ -140,28 +188,69 @@ exports.createCoupon = async (req, res) => {
 // Get all coupons and update expired ones
 exports.getAllCoupons = async (req, res) => {
     try {
-      // Get current date and time
-      const currentDateTime = new Date();
-  
-      // Find and update expired coupons
-      await Coupon.updateMany(
-        { endDate: { $lt: currentDateTime }, status: { $ne: 'Expired' } },
-        { $set: { status: 'Expired' } }
-      );
-  
-      // Fetch all coupons
-      const coupons = await Coupon.find().sort({ createdAt: -1 }); // Sort by most recent
-  
-      if (coupons.length === 0) {
-        return res.status(404).json({ message: 'No coupons found' });
-      }
-  
-      // Return the updated list of coupons
-      res.status(200).json(coupons);
+        const currentDateTime = moment(); // Local time
+        const currentDate = currentDateTime.format('YYYY-MM-DD'); // Date part only
+        const currentTime = currentDateTime.format('HH:mm:ss'); // Time part only
+
+        // Update expired coupons
+        await Coupon.updateMany(
+            {
+                $or: [
+                    { endDate: { $lt: currentDate } }, // End date is in the past
+                    {
+                        endDate: { $eq: currentDate }, // Same date
+                        endTime: { $lt: currentTime }, // Time is in the past
+                    },
+                ],
+                status: { $ne: 'Expired' },
+            },
+            { $set: { status: 'Expired' } }
+        );
+
+        // Update active coupons
+        await Coupon.updateMany(
+            {
+                startDate: { $lte: currentDate }, // Start date is today or earlier
+                endDate: { $gte: currentDate }, // End date is today or later
+                status: { $ne: 'Active' },
+                $and: [
+                    {
+                        $or: [
+                            { startDate: { $lt: currentDate } }, // Start date is in the past
+                            {
+                                startDate: { $eq: currentDate }, // Same date
+                                startTime: { $lte: currentTime }, // Start time is in the past or now
+                            },
+                        ],
+                    },
+                    {
+                        $or: [
+                            { endDate: { $gt: currentDate } }, // End date is in the future
+                            {
+                                endDate: { $eq: currentDate }, // Same date
+                                endTime: { $gte: currentTime }, // End time is in the future or now
+                            },
+                        ],
+                    },
+                ],
+            },
+            { $set: { status: 'Active' } }
+        );
+
+        
+        // Fetch all coupons
+        const coupons = await Coupon.find().sort({ createdAt: -1 }); // Sort by most recent
+
+        if (coupons.length === 0) {
+            return res.status(404).json({ message: 'No coupons found' });
+        }
+
+        // Return the updated list of coupons
+        res.status(200).json(coupons);
     } catch (error) {
-      res.status(500).json({ message: error.message });
+        res.status(500).json({ message: error.message });
     }
-  };
+};
 
 
 // Get a single coupon by ID
