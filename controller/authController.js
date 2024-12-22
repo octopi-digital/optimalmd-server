@@ -265,6 +265,7 @@ async function register(req, res) {
       cardNumber: cardNumber,
       cvc: cvc,
       expiration: expiration,
+      paymentOption: paymentOption,
       accountName: accountName,
       accountNumber: accountNumber,
       routingNumber: routingNumber,
@@ -526,7 +527,7 @@ async function updateUser(req, res) {
     console.error("Error updating user:", error);
     res
       .status(error.status)
-      .json({ error: error, message: error.response.data });
+      .json({ error: error, message: error.response.data || error });
   }
 }
 
