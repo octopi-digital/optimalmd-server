@@ -12,7 +12,7 @@ const port = process.env.PORT || 5000;
 
 // middle ware:
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "50mb" })); // Increase required size
 
 const dbUser = process.env.DB_USER;
 const dbPass = process.env.DB_PASS;
@@ -35,7 +35,6 @@ const paymentRoutes = require("./router/paymentRoutes");
 const planRoutes = require("./router/planRoutes");
 const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 const orgRoutes = require("./router/orgRoutes");
-
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
