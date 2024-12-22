@@ -12,6 +12,7 @@ const couponSchema = new mongoose.Schema(
     endTime: { type: String, required: true }, // Format: "HH:mm:ss"
     numberOfRedeem: { type: Number, default: -1 }, // Number of times the coupon can be redeemed
     selectedPlans: { type: [String] }, // Array of plan IDs
+    appliedBy: { type: [String], default: [] }, // Array of user IDs
     useLimit: { type: Boolean, default: false }, // Use limit flag (true = one-time use one customer)
     recurringOrFuturePayments: { type: Boolean, default: false }, // Recurring or future payments flag
     status: { 
