@@ -7,8 +7,8 @@ async function login(req, res) {
   try {
     // Step 1: Login and get the authorization token
     const ssoAdminFormData = new FormData();
-    ssoAdminFormData.append("email", "MTMSTGOPT01SSO@mytelemedicine.com");
-    ssoAdminFormData.append("password", "CWlex;2hTdoaDmZj?L0a");
+    ssoAdminFormData.append("email", `${production ? "MTMOPTIM01SSO@mytelemedicine.com" : "MTMSTGOPT01SSO@mytelemedicine.com"}`);
+    ssoAdminFormData.append("password", `${production ? "S75Oi]M0z{.lm+pzo@7)" : "CWlex;2hTdoaDmZj?L0a"}`);
     const sssResponse = await axios.post(`${lyricURL}/login`, ssoAdminFormData);
 
     const authToken = sssResponse.headers["authorization"];

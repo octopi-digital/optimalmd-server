@@ -9,6 +9,7 @@ const paymentSchema = new mongoose.Schema({
     // required: true,
   },
   transactionId: { type: String },
+  paymentReason: { type: String, default: "" },
   paymentDate: { type: Date, default: Date.now },
   isRefunded: { type: Boolean, default: false },
 });

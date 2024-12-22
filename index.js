@@ -5,9 +5,8 @@ const mongoose = require("mongoose");
 const cron = require("node-cron");
 const moment = require("moment");
 const axios = require("axios");
-const bodyParser = require("body-parser");
 const { customEncrypt, customDecrypt } = require("./hash");
-const { lyricURL, authorizedDotNetURL } = require("./baseURL");
+const { lyricURL, authorizedDotNetURL, production } = require("./baseURL");
 
 require("dotenv").config();
 const port = process.env.PORT || 5000;
@@ -75,8 +74,8 @@ cron.schedule("0 0 * * *", async () => {
 
     // Login to GetLyric API
     const cenSusloginData = new FormData();
-    cenSusloginData.append("email", "mtmstgopt01@mytelemedicine.com");
-    cenSusloginData.append("password", "xQnIq|TH=*}To(JX&B1r");
+    cenSusloginData.append("email", `${production ? "mtmoptim01@mytelemedicine.com" : "mtmstgopt01@mytelemedicine.com"}`);
+    cenSusloginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
 
     const effectiveDate = moment().format("MM/DD/YYYY");
     const terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
@@ -136,7 +135,7 @@ cron.schedule("0 0 * * *", async () => {
               accountType: "checking",
               routingNumber: customDecrypt(user.routingNumber),
               accountNumber: customDecrypt(user.accountNumber),
-              nameOnAccount: customDecrypt(user.accountName),
+              nameOnAccount: user.accountName,
             },
           };
         }
@@ -193,6 +192,7 @@ cron.schedule("0 0 * * *", async () => {
           amount: amount,
           plan: "Plus",
           transactionId: result.transactionResponse.transId,
+          paymentReason:"User plan upgraded/Renew to Access Plus"
         });
         await payment.save();
 
@@ -207,7 +207,7 @@ cron.schedule("0 0 * * *", async () => {
         try {
           const getLyricFormData = new FormData();
           getLyricFormData.append("primaryExternalId", user._id);
-          getLyricFormData.append("groupCode", "MTMSTGOPT01");
+          getLyricFormData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
           getLyricFormData.append("terminationDate", terminationDate);
           getLyricFormData.append("effectiveDate", effectiveDate);
           const resp = await axios.post(getLyricUrl, getLyricFormData, {
@@ -237,11 +237,14 @@ cron.schedule("0 0 * * *", async () => {
           console.error("RxValet API Error:", err);
         }
 
+        const stagingPlanId = user.plan === "Trial" ?  "2322" : "2323";
+        const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
+
         // update getlyric to plus plan
         const updateMemberData = new FormData();
         updateMemberData.append("primaryExternalId", user?._id);
-        updateMemberData.append("groupCode", "MTMSTGOPT01");
-        updateMemberData.append("planId", "2322");
+        updateMemberData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
+        updateMemberData.append("planId", production ? prodPlanId : stagingPlanId);
         updateMemberData.append("planDetailsId", "3");
         updateMemberData.append("effectiveDate", effectiveDate);
         updateMemberData.append("terminationDate", terminationDate);
