@@ -17,4 +17,7 @@ router.put('/:id', couponController.updateCoupon);
 // Delete a coupon by ID
 router.delete('/:id', couponController.deleteCoupon);
 
+// Apply a coupon to a user
+router.post('/apply', couponController.applyCoupon);
+
 module.exports = router;

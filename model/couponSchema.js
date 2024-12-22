@@ -6,12 +6,13 @@ const couponSchema = new mongoose.Schema(
     couponCode: { type: String, required: true, unique: true },
     couponType: { type: String, enum: ['Percentage', 'Fixed Amount'], required: true },
     discountOffered: { type: Number, required: true },
-    startDate: { type: Date, required: true },
+    startDate: { type: String, required: true },
     startTime: { type: String, required: true }, // Format: "HH:mm:ss"
-    endDate: { type: Date, required: true },
+    endDate: { type: String, required: true },
     endTime: { type: String, required: true }, // Format: "HH:mm:ss"
-    numberOfRedeem: { type: Number },
+    numberOfRedeem: { type: Number, default: -1 }, // Number of times the coupon can be redeemed
     selectedPlans: { type: [String] }, // Array of plan IDs
+    appliedBy: { type: [String], default: [] }, // Array of user IDs
     useLimit: { type: Boolean, default: false }, // Use limit flag (true = one-time use one customer)
     recurringOrFuturePayments: { type: Boolean, default: false }, // Recurring or future payments flag
     status: { 

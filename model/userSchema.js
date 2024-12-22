@@ -81,7 +81,7 @@ const userSchema = new mongoose.Schema(
     cvc: { type: String, default: "" },
 
     // coupon
-    couponCode: { type: String, default: "" },
+    appliedCoupon: { type: [String], default: [] },
 
     // rx-valet
     PrimaryMemberGUID: { type: String, default: "" },
