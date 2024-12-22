@@ -121,6 +121,7 @@ async function register(req, res) {
       role,
       ...userData
     } = req.body;
+    console.log(req.body);
 
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
