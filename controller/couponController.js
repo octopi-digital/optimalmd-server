@@ -1,4 +1,5 @@
 const Coupon = require('../model/couponSchema');
+const User = require('../model/userSchema');
 const cron = require('node-cron');
 const moment = require('moment');
 
@@ -381,11 +382,11 @@ exports.deleteCoupon = async (req, res) => {
 // Function to apply a coupon code
 exports.applyCoupon = async (req, res) => {
     try {
-        const { couponCode, userId, planId } = req.body;
+        const { couponCode, userId, planId, amount } = req.body;
 
         // Validate request data
-        if (!couponCode || !userId || !planId) {
-            return res.status(400).json({ message: 'Coupon code, user ID, and plan ID are required.' });
+        if (!couponCode || !userId || !planId || amount === undefined || amount === null) {
+            return res.status(400).json({ message: 'Coupon code, user ID, plan ID, and amount are required.' });
         }
 
         // Find the coupon by code
@@ -402,6 +403,7 @@ exports.applyCoupon = async (req, res) => {
             return res.status(400).json({ message: 'Coupon has expired.' });
         }
 
+
         // Check if the coupon is applicable to the selected plan
         if (coupon.selectedPlans.length > 0 && !coupon.selectedPlans.includes(planId)) {
             return res.status(400).json({ message: 'Coupon is not applicable for the selected plan.' });
@@ -417,6 +419,21 @@ exports.applyCoupon = async (req, res) => {
             return res.status(400).json({ message: 'Coupon redemption limit has been reached.' });
         }
 
+        // Calculate the discount and grand total
+        let discount = 0;
+        if (coupon.couponType === 'Percentage') {
+            discount = (amount * coupon.discountOffered) / 100;
+        } else if (coupon.couponType === 'Fixed Amount') {
+            discount = coupon.discountOffered;
+        }
+
+        // Check if the discount exceeds the original amount
+        if (discount > amount) {
+            return res.status(400).json({ message: 'This coupon cannot be execute to this plan' });
+        }
+
+        const grandTotal = amount - discount;
+
         // Add the user to the appliedBy array and increment redemption count
         coupon.appliedBy.push(userId);
         coupon.redemptionCount += 1;
@@ -424,13 +441,23 @@ exports.applyCoupon = async (req, res) => {
         // Save the updated coupon
         await coupon.save();
 
-        // Respond with success and discount details
+        // Update the user's `appliedCoupon` field
+        await User.findByIdAndUpdate(
+            userId,
+            { $addToSet: { appliedCoupon: couponCode } }, // Add coupon code to the array
+            { new: true }
+        );
+
+        // Respond with success, discount details, and the grand total
         return res.status(200).json({
             message: 'Coupon applied successfully.',
-            discount: coupon.discountOffered,
+            discount,
+            grandTotal,
+            discountOffered: coupon.discountOffered,
             couponType: coupon.couponType,
         });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error });
     }
 };
+
