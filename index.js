@@ -37,6 +37,7 @@ const planRoutes = require("./router/planRoutes");
 const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 const orgRoutes = require("./router/orgRoutes");
 const blogRoutes = require("./router/blogRoutes");
+const couponRoutes = require('./router/couponRoutes');
 
 
 app.use("/api/auth", authRoutes);
@@ -48,6 +49,7 @@ app.use("/api/plans", planRoutes);
 app.use("/api/admin/stats", adminStatisticsRoutes);
 app.use("/api/org", orgRoutes);
 app.use("/api/blogs", blogRoutes);
+app.use('/api/coupons', couponRoutes);
 
 cron.schedule("0 0 * * *", async () => {
   try {
