@@ -199,7 +199,7 @@ async function register(req, res) {
       default:
         return res.status(400).json({ error: "Invalid plan type" });
     }
-
+    let discount = 0;
 
     // Process Coupon Apply
     if (couponCode) {
@@ -228,7 +228,6 @@ async function register(req, res) {
       }
 
       // Calculate the discount and grand total
-      let discount = 0;
       if (coupon.couponType === 'Percentage') {
         discount = (amount * coupon.discountOffered) / 100;
       } else if (coupon.couponType === 'Fixed Amount') {
@@ -240,7 +239,8 @@ async function register(req, res) {
         return res.status(400).json({ message: 'This coupon cannot be execute to this plan' });
       }
 
-      amount = amount - discount;
+      // Adjust amount
+      amount -= discount;
 
     }
 
@@ -321,12 +321,12 @@ async function register(req, res) {
     const newUser = await user.save();
 
     // Save Coupon Redemption
-    if( discount > 0 ) {
+    if (discount > 0) {
       await Coupon.updateOne(
         { couponCode },
         { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: newUser._id } }
       );
-      
+
     }
 
     // Save Payment Record
@@ -391,10 +391,9 @@ async function updateUser(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${
-        production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+      `${production
+        ? "mtmoptim01@mytelemedicine.com"
+        : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -690,10 +689,9 @@ async function updateUserPlan(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${
-        production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+      `${production
+        ? "mtmoptim01@mytelemedicine.com"
+        : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -1150,10 +1148,9 @@ async function updateUserStatus(req, res) {
       const cenSusloginData = new FormData();
       cenSusloginData.append(
         "email",
-        `${
-          production
-            ? "mtmoptim01@mytelemedicine.com"
-            : "mtmstgopt01@mytelemedicine.com"
+        `${production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
         }`
       );
       cenSusloginData.append(
@@ -1265,9 +1262,8 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("GetLyric API Error:", err);
         return res.status(500).json({
-          message: `Failed to ${
-            status === "Active" ? "reactivate" : "terminate"
-          } user on GetLyric API.`,
+          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
+            } user on GetLyric API.`,
           error: err,
         });
       }
@@ -1290,9 +1286,8 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("RxValet API Error:", err.message);
         return res.status(500).json({
-          message: `Failed to ${
-            status === "Active" ? "reactivate" : "terminate"
-          } user on RxValet API.`,
+          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
+            } user on RxValet API.`,
           error: err.message,
         });
       }
