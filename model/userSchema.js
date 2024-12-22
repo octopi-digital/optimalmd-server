@@ -32,8 +32,8 @@ const userSchema = new mongoose.Schema(
     secondaryZip: { type: String, default: "" },
 
     dependents: {
-      // type: [mongoose.Schema.Types.ObjectId],
-      // ref: "Dependent",
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "Dependent",
       default: [],
     },
     paymentHistory: {
