@@ -289,6 +289,36 @@ exports.updateCoupon = async (req, res) => {
             return res.status(404).json({ message: 'Coupon not found.' });
         }
 
+        // Check if the couponCode is being changed and ensure it's unique
+        if (couponCode !== existingCoupon.couponCode) {
+            const couponExists = await Coupon.findOne({ couponCode });
+            if (couponExists) {
+                return res.status(400).json({ message: 'Coupon code must be unique.' });
+            }
+        }
+
+        if (!couponType || !['Percentage', 'Fixed Amount'].includes(couponType)) {
+            return res
+                .status(400)
+                .json({ message: 'Coupon type is required and must be either "Percentage" or "Fixed Amount".' });
+        }
+
+
+        // Validate discountOffered based on couponType
+        if (couponType === 'Percentage') {
+            if (discountOffered === undefined || discountOffered === null || discountOffered < 0 || discountOffered > 100) {
+                return res
+                    .status(400)
+                    .json({ message: 'For "Percentage" coupon type, discount must be between 0 and 100.' });
+            }
+        } else if (couponType === 'Fixed Amount') {
+            if (discountOffered === undefined || discountOffered === null || discountOffered < 0) {
+                return res
+                    .status(400)
+                    .json({ message: 'For "Fixed Amount" coupon type, discount must be greater than or equal to 0.' });
+            }
+        }
+
         // Validate start date/time only if modified
         if (startDate && startTime) {
             const existingStartDateTime = new Date(`${existingCoupon.startDate}T${existingCoupon.startTime}`);
