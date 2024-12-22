@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema(
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    phone: { type: String, required: true },
+    phone: { type: String },
     dob: { type: String, required: true },
     image: { type: String, default: "" },
     password: { type: String },
@@ -32,8 +32,8 @@ const userSchema = new mongoose.Schema(
     secondaryZip: { type: String, default: "" },
 
     dependents: {
-      type: [mongoose.Schema.Types.ObjectId],
-      ref: "Dependent",
+      // type: [mongoose.Schema.Types.ObjectId],
+      // ref: "Dependent",
       default: [],
     },
     paymentHistory: {
@@ -57,7 +57,7 @@ const userSchema = new mongoose.Schema(
     },
     plan: {
       type: String,
-      enum: ["Trial", "Plus", "Access", "Premiere"],
+      // enum: ["Trial", "Plus", "Access", "Premiere"],
       validate: {
         validator: function (value) {
           // If the role is not 'SalesPartner', the plan field is required
