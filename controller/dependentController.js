@@ -1,12 +1,65 @@
 const { lyricURL, authorizedDotNetURL, production } = require("../baseURL");
 const Dependent = require("../model/dependentSchema");
 const Payment = require("../model/paymentSchema");
+const bcrypt = require("bcryptjs");
 const User = require("../model/userSchema");
 const axios = require("axios");
 const moment = require("moment");
 
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
+
+// login dependent
+async function addDependent(req, res) {
+  try {
+    const { primaryUser, relation } = req.body;
+
+    // Validate input
+    if (!primaryUser || !relation) {
+      return res
+        .status(400)
+        .json({ message: "primaryUser and relation are required." });
+    }
+
+    // Check if primary user exists
+    const userExists = await User.findById(primaryUser);
+    if (!userExists) {
+      return res.status(404).json({ message: "Primary user not found." });
+    }
+
+    // Create new dependent
+    const newDependent = new Dependent({
+      primaryUser,
+      relation,
+    });
+    const savedDependent = await newDependent.save();
+
+    // Update the user to include this dependent in their `dependents` array
+    const updatedUser = await User.findByIdAndUpdate(
+      primaryUser,
+      { $push: { dependents: savedDependent._id } },
+      { new: true }
+    ).populate(["dependents", "paymentHistory"]);
+
+    if (!updatedUser) {
+      return res
+        .status(500)
+        .json({ message: "Failed to update user dependents." });
+    }
+
+    // Remove sensitive fields before sending response
+    const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
+
+    res.status(201).json({
+      message: "Dependent added successfully",
+      user: userWithoutSensitiveData,
+      dependent: savedDependent,
+    });
+  } catch (error) {
+    console.error("Error adding dependent:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
 
 // Add a new dependent
 async function addDependent(req, res) {
@@ -92,7 +145,6 @@ async function deleteDependent(req, res) {
 async function updateDependent(req, res) {
   try {
     const { primaryUserId, dependentId, ...userInfo } = req.body;
-    console.log(req.body);
 
     if (!primaryUserId) {
       return res.status(400).json({ message: "User Id Is Required" });
@@ -112,6 +164,9 @@ async function updateDependent(req, res) {
 
     let updateData = { ...userInfo };
     let { lyricDependentId, rxvaletDependentId } = dependent;
+    let newRxvaletDependentId, newLyricDependentId;
+    const defaultPassword = Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
     const formattedDob = moment(userInfo.dob).format("MM/DD/YYYY");
 
@@ -229,16 +284,10 @@ async function updateDependent(req, res) {
       );
       console.log(createDependentResponse.data);
 
-      if (!createDependentResponse.data.success) {
-        return res.status(500).json({
-          message: createDependentResponse.data.Message,
-          error: createDependentResponse.data,
-        });
-      }
-
-      lyricDependentId = createDependentResponse.data.dependentUserId;
-      updateData.lyricDependentId = lyricDependentId;
+      newLyricDependentId = createDependentResponse.data.dependentUserId;
+      updateData.lyricDependentId = newLyricDependentId;
       await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
+
     } else {
       // Update dependent on get lyric
       const updateDependentGetLyricResponse = await axios.post(
@@ -246,12 +295,6 @@ async function updateDependent(req, res) {
         createDependentData,
         { headers: { Authorization: authToken } }
       );
-      if (!updateDependentGetLyricResponse.data.success) {
-        return res.status(500).json({
-          message: "Failed to update dependent in Lyric system",
-          data: updateDependentGetLyricResponse.data,
-        });
-      }
     }
 
     // Handle RxValet integration
@@ -281,14 +324,9 @@ async function updateDependent(req, res) {
         rxvaletDependentFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-      if (rxvaletResponse.data.StatusCode !== "1") {
-        return res.status(500).json({
-          message: rxvaletResponse.data.Message,
-          data: rxvaletResponse.data,
-        });
-      }
-      rxvaletDependentId = rxvaletResponse.data.Result.DependentGUID;
-      updateData.rxvaletDependentId = rxvaletDependentId;
+      newRxvaletDependentId = rxvaletResponse.data.Result.DependentGUID;
+      updateData.rxvaletDependentId = newRxvaletDependentId;
+      updateData.password = hashedPassword;
       await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
     } else {
       // Update dependent on rx valet
@@ -296,17 +334,11 @@ async function updateDependent(req, res) {
         "DependentGUID",
         dependent.rxvaletDependentId
       );
-      const rxvaletUpdateResponse = await axios.post(
+      await axios.post(
         "https://rxvaletapi.com/api/omdrx/update_dependent.php",
         rxvaletDependentFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
-      if (rxvaletUpdateResponse.data.StatusCode !== "1") {
-        return res.status(500).json({
-          message: rxvaletUpdateResponse.data.Message,
-          error: rxvaletUpdateResponse.data,
-        });
-      }
     }
     updateData.status = "Active";
     // update dependent on our db
@@ -318,13 +350,28 @@ async function updateDependent(req, res) {
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
 
+    if(newLyricDependentId && newRxvaletDependentId) {
+      
+      const emailResponse = await axios.post(
+        "https://services.leadconnectorhq.com/hooks/c4HwDVSDzA4oeLOnUvdK/webhook-trigger/ff7069b4-e1b6-467d-99fa-c89759fd6093",
+        {
+          firstName: userInfo?.firstName,
+          lastName: userInfo?.lastName,
+          email: userInfo?.email,
+          password: defaultPassword,
+          phone: userInfo?.phone,
+        }
+      );
+      console.log(emailResponse?.data);
+    }
+
     res.status(200).json({
       message: "Dependent updated successfully",
       user: userWithoutSensitiveData,
     });
   } catch (error) {
-    console.error("Error updating dependent:", error.response);
-    res.status(500).json({ message: error.response.data, error: error });
+    console.error("Error updating dependent:", error);
+    res.status(500).json({ message: error?.response?.data, error: error });
   }
 }
 

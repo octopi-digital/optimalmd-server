@@ -828,12 +828,14 @@ async function deleteUser(req, res) {
 // Login a user
 async function login(req, res) {
   try {
+    // Find user by email
     const user = await User.findOne({ email: req.body.email }).populate([
       "dependents",
       "paymentHistory",
     ]);
 
     if (user) {
+      // Check if password matches for the user
       const isPasswordMatch = await bcrypt.compare(
         req.body.password,
         user.password
@@ -845,12 +847,30 @@ async function login(req, res) {
           message: "User logged in successfully",
           user: userWithoutSensitiveData,
         });
-      } else {
-        return res.status(401).json({ error: "Invalid email or password" });
       }
-    } else {
-      return res.status(401).json({ error: "Invalid email or password" });
     }
+
+    // If not a user, check the Dependent schema
+    const dependent = await Dependent.findOne({ email: req.body.email });
+
+    if (dependent && dependent.status === "Active") {
+      // Check if password matches for the dependent
+      const isDependentPasswordMatch = await bcrypt.compare(
+        req.body.password,
+        dependent.password
+      );
+
+      if (isDependentPasswordMatch) {
+        const { password, ...dependentWithoutSensitiveData } = dependent.toObject();
+        return res.status(200).json({
+          message: "Dependent logged in successfully",
+          user: {...dependentWithoutSensitiveData, isDependentLogin: true, role:"User"},
+        });
+      }
+    }
+
+    // If no match found
+    return res.status(401).json({ error: "Invalid email or password" });
   } catch (error) {
     console.error("Error during login:", error.message);
     res

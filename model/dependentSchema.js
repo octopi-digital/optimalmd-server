@@ -6,6 +6,7 @@ const dependentSchema = new mongoose.Schema({
   sex: { type: String, default: "" },
   relation: { type: String, enum: ["Parents", "Children", "Spouse", "Other"], required: true },
   email: { type: String, default: "" },
+  password: { type: String, default: "" },
   phone: { type: String, default: "" },
   dob: { type: String, default: "" },
   image: { type: String, default: "" },
