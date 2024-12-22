@@ -16,7 +16,7 @@ const {
   manageUserRole,
   getAllSalesPartners,
 } = require("../controller/authController");
-const { addMultipleUsers } = require("../utils/addManyUsers");
+const { addMultipleUsers } = require("../utils/users");
 
 // all user
 router.get("/users", getAllUser);
