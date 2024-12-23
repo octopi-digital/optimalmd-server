@@ -144,7 +144,7 @@ async function deleteDependent(req, res) {
 // Update a dependent by ID
 async function updateDependent(req, res) {
   try {
-    const { primaryUserId, dependentId, ...userInfo } = req.body;
+    const { primaryUserId, dependentId, role, ...userInfo } = req.body;
 
     if (!primaryUserId) {
       return res.status(400).json({ message: "User Id Is Required" });
@@ -156,7 +156,11 @@ async function updateDependent(req, res) {
 
     // Find the primary user and dependent in the database
     const user = await User.findById(primaryUserId).populate("dependents");
-    const dependent = await Dependent.findById(dependentId).populate("primaryUser", "plan");
+    const dependent = await Dependent.findById(dependentId).populate(
+      "primaryUser",
+      "plan"
+    );
+    console.log(dependent);
 
     if (!user) return res.status(404).json({ message: "User not found" });
     if (!dependent)
@@ -229,9 +233,23 @@ async function updateDependent(req, res) {
     //   await user.save();
     // }
 
+    if(role==="Dependent"){
+      updateData.relation = dependent.relation;
+    }
+
     const loginData = new FormData();
-    loginData.append("email", `${production ? "mtmoptim01@mytelemedicine.com" : "mtmstgopt01@mytelemedicine.com"}`);
-    loginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
+    loginData.append(
+      "email",
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
+      }`
+    );
+    loginData.append(
+      "password",
+      `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`
+    );
 
     const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
 
@@ -243,24 +261,43 @@ async function updateDependent(req, res) {
     }
 
     let relationShipId = "";
-    if (userInfo.relation === "Spouse") {
-      relationShipId = "1";
-    } else if (userInfo.relation === "Children") {
-      relationShipId = "2";
-    } else if (userInfo.relation === "Other") {
-      relationShipId = "3";
-    } else if (userInfo.relation === "Parents") {
-      relationShipId = "4";
+    if (role === "Dependent") {
+      if (dependent?.relation === "Spouse") {
+        relationShipId = "1";
+      } else if (dependent?.relation === "Children") {
+        relationShipId = "2";
+      } else if (dependent?.relation === "Other") {
+        relationShipId = "3";
+      } else if (dependent?.relation === "Parents") {
+        relationShipId = "4";
+      }
+    } else {
+      if (userInfo.relation === "Spouse") {
+        relationShipId = "1";
+      } else if (userInfo.relation === "Children") {
+        relationShipId = "2";
+      } else if (userInfo.relation === "Other") {
+        relationShipId = "3";
+      } else if (userInfo.relation === "Parents") {
+        relationShipId = "4";
+      }
     }
+    console.log(relationShipId);
 
-    const stagingPlanId = user.plan === "Trial" ?  "2322" : "2323";
+    const stagingPlanId = user.plan === "Trial" ? "2322" : "2323";
     const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
 
     const createDependentData = new FormData();
     createDependentData.append("primaryExternalId", primaryUserId);
     createDependentData.append("dependentExternalId", dependentId);
-    createDependentData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
-    createDependentData.append("planId", production ? prodPlanId : stagingPlanId);
+    createDependentData.append(
+      "groupCode",
+      `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
+    );
+    createDependentData.append(
+      "planId",
+      production ? prodPlanId : stagingPlanId
+    );
     createDependentData.append("firstName", userInfo.firstName);
     createDependentData.append("lastName", userInfo.lastName);
     createDependentData.append("dob", formattedDob);
@@ -272,7 +309,7 @@ async function updateDependent(req, res) {
     createDependentData.append("city", userInfo.shipingCity);
     createDependentData.append("stateId", userInfo.shipingStateId || "44");
     createDependentData.append("zipCode", userInfo.shipingZip);
-    createDependentData.append("relationShipId", relationShipId);
+    createDependentData.append("relationShipId", relationShipId || "2");
     createDependentData.append("timezoneId", "");
     createDependentData.append("sendRegistrationNotification", "0");
 
@@ -287,7 +324,6 @@ async function updateDependent(req, res) {
       newLyricDependentId = createDependentResponse.data.dependentUserId;
       updateData.lyricDependentId = newLyricDependentId;
       await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
-
     } else {
       // Update dependent on get lyric
       const updateDependentGetLyricResponse = await axios.post(
@@ -295,6 +331,7 @@ async function updateDependent(req, res) {
         createDependentData,
         { headers: { Authorization: authToken } }
       );
+      console.log(updateDependentGetLyricResponse.data);
     }
 
     // Handle RxValet integration
@@ -349,9 +386,12 @@ async function updateDependent(req, res) {
     ]);
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
+    const updatedDependent = await Dependent.findById(dependentId).populate(
+      "primaryUser",
+      "plan"
+    );
 
-    if(newLyricDependentId && newRxvaletDependentId) {
-      
+    if (newLyricDependentId && newRxvaletDependentId) {
       const emailResponse = await axios.post(
         "https://services.leadconnectorhq.com/hooks/c4HwDVSDzA4oeLOnUvdK/webhook-trigger/ff7069b4-e1b6-467d-99fa-c89759fd6093",
         {
@@ -367,12 +407,13 @@ async function updateDependent(req, res) {
 
     res.status(200).json({
       message: "Dependent updated successfully",
-      user: userWithoutSensitiveData,
-      dependent: dependent
+      user: role === "Dependent" ? updatedDependent : userWithoutSensitiveData,
     });
   } catch (error) {
     console.error("Error updating dependent:", error);
-    res.status(500).json({ message: error?.response?.data, error: error });
+    res
+      .status(500)
+      .json({ message: error?.response?.data || error.message, error: error });
   }
 }
 
