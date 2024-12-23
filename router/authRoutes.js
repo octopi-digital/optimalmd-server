@@ -16,7 +16,7 @@ const {
   manageUserRole,
   getAllSalesPartners,
 } = require("../controller/authController");
-const { addMultipleUsers } = require("../utils/users");
+const { addMultipleUsers, deleteUsers } = require("../utils/users");
 
 // all user
 router.get("/users", getAllUser);
@@ -59,6 +59,7 @@ router.patch("/update-plan", updateUserPlan);
 router.patch("/manage-role/:id", manageUserRole);
 
 // add users in bulk
-router.post("/add-users", addMultipleUsers    );
+router.post("/users/delete", deleteUsers);
+router.post("/add-users", addMultipleUsers);
 
 module.exports = router;
