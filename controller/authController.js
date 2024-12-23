@@ -851,7 +851,8 @@ async function login(req, res) {
     }
 
     // If not a user, check the Dependent schema
-    const dependent = await Dependent.findOne({ email: req.body.email });
+    const dependent = await Dependent.findOne({ email: req.body.email })
+      .populate("primaryUser", "plan"); // Populate the primaryUser field to access the plan
 
     if (dependent && dependent.status === "Active") {
       // Check if password matches for the dependent
@@ -864,7 +865,12 @@ async function login(req, res) {
         const { password, ...dependentWithoutSensitiveData } = dependent.toObject();
         return res.status(200).json({
           message: "Dependent logged in successfully",
-          user: {...dependentWithoutSensitiveData, isDependentLogin: true, role:"User"},
+          user: {
+            ...dependentWithoutSensitiveData,
+            isDependentLogin: true,
+            role: "Dependent",
+            plan: dependent.primaryUser?.plan || "No plan assigned", // Access the plan safely
+          },
         });
       }
     }
@@ -879,23 +885,39 @@ async function login(req, res) {
   }
 }
 
+
 // Change password
 async function changepassword(req, res) {
   try {
-    const { userId, currentPassword, newPassword } = req.body;
+    const { userId, currentPassword, newPassword, role } = req.body;
 
-    const user = await User.findById(userId);
+    if (!userId || !currentPassword || !newPassword || !role) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    let user;
+    if (role === "Dependent") {
+      // Check in Dependent schema
+      user = await Dependent.findById(userId);
+    } else {
+      // Check in User schema
+      user = await User.findById(userId);
+    }
+
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Check if the current password matches
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(401).json({ error: "Current password is incorrect" });
     }
 
+    // Hash the new password
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
+    // Update the password
     user.password = hashedNewPassword;
     await user.save();
 
@@ -907,6 +929,7 @@ async function changepassword(req, res) {
       .json({ detail: "Internal Server Error", error: error.message });
   }
 }
+
 
 // forget Password password
 async function forgetPassword(req, res) {

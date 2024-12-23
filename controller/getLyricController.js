@@ -37,17 +37,6 @@ async function login(req, res) {
 
     const accessToken = createAccessTokenResponse.data.accessToken;
 
-    // Step 3: Save the accessToken in the database
-    const updatedUser = await User.findByIdAndUpdate(
-      req.body.memberExternalId,
-      { ssoAccessToken: accessToken },
-      { new: true }
-    );
-
-    if (!updatedUser) {
-      throw new Error("User not found");
-    }
-
     const redirectURL = production ? `https://clinic.optimal.md/opmd/login/sso/${accessToken}` : `https://staging.mytelemedicine.com/opmd/login/sso/${accessToken}`
 
     // Return the redirect URL
