@@ -867,9 +867,6 @@ async function login(req, res) {
           message: "Dependent logged in successfully",
           user: {
             ...dependentWithoutSensitiveData,
-            isDependentLogin: true,
-            role: "Dependent",
-            plan: dependent.primaryUser?.plan || "No plan assigned", // Access the plan safely
           },
         });
       }

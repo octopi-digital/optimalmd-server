@@ -156,7 +156,7 @@ async function updateDependent(req, res) {
 
     // Find the primary user and dependent in the database
     const user = await User.findById(primaryUserId).populate("dependents");
-    const dependent = await Dependent.findById(dependentId);
+    const dependent = await Dependent.findById(dependentId).populate("primaryUser", "plan");
 
     if (!user) return res.status(404).json({ message: "User not found" });
     if (!dependent)
@@ -368,6 +368,7 @@ async function updateDependent(req, res) {
     res.status(200).json({
       message: "Dependent updated successfully",
       user: userWithoutSensitiveData,
+      dependent: dependent
     });
   } catch (error) {
     console.error("Error updating dependent:", error);
