@@ -206,25 +206,25 @@ async function register(req, res) {
       const coupon = await Coupon.findOne({ couponCode });
 
       if (!coupon) {
-        return res.status(404).json({ message: 'Invalid coupon code.' });
+        return res.status(404).json({ error: 'Invalid coupon code.' });
       }
 
       // Check if the coupon is active
       if (coupon.status.toLowerCase() === 'scheduled') {
-        return res.status(400).json({ message: 'Coupon is not active yet.' });
+        return res.status(400).json({ error: 'Coupon is not active yet.' });
       }
       if (coupon.status.toLowerCase() === 'expired') {
-        return res.status(400).json({ message: 'Coupon has expired.' });
+        return res.status(400).json({ error: 'Coupon has expired.' });
       }
 
       // Check if the coupon is applicable to the selected plan
       if (coupon.selectedPlans.length > 0 && !coupon.selectedPlans.includes(plan)) {
-        return res.status(400).json({ message: 'Coupon is not applicable for the selected plan.' });
+        return res.status(400).json({ error: 'Coupon is not applicable for the selected plan.' });
       }
 
       // Check if the coupon has redemption limits
       if (coupon.redemptionCount >= coupon.numberOfRedeem && coupon.numberOfRedeem !== -1) {
-        return res.status(400).json({ message: 'Coupon redemption limit has been reached.' });
+        return res.status(400).json({ error: 'Coupon redemption limit has been reached.' });
       }
 
       // Calculate the discount and grand total
@@ -236,7 +236,7 @@ async function register(req, res) {
 
       // Check if the discount exceeds the original amount
       if (discount > amount) {
-        return res.status(400).json({ message: 'This coupon cannot be execute to this plan' });
+        return res.status(400).json({ error: 'This coupon cannot be execute to this plan' });
       }
 
       // Adjust amount

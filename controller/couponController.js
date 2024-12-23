@@ -90,62 +90,62 @@ exports.createCoupon = async (req, res) => {
 
         // Check required fields one by one
         if (!couponName) {
-            return res.status(400).json({ message: 'Coupon name is required.' });
+            return res.status(400).json({ error: 'Coupon name is required.' });
         }
         if (!couponCode) {
-            return res.status(400).json({ message: 'Coupon code is required.' });
+            return res.status(400).json({ error: 'Coupon code is required.' });
         }
 
         // Validate uniqueness of couponCode
         const existingCoupon = await Coupon.findOne({ couponCode });
         if (existingCoupon) {
-            return res.status(400).json({ message: 'Coupon code must be unique.' });
+            return res.status(400).json({ error: 'Coupon code must be unique.' });
         }
 
         if (!couponType || !['Percentage', 'Fixed Amount'].includes(couponType)) {
             return res
                 .status(400)
-                .json({ message: 'Coupon type is required and must be either "Percentage" or "Fixed Amount".' });
+                .json({ error: 'Coupon type is required and must be either "Percentage" or "Fixed Amount".' });
         }
         // Validate discountOffered based on couponType
         if (couponType === 'Percentage') {
             if (discountOffered === undefined || discountOffered === null || discountOffered < 0 || discountOffered > 100) {
                 return res
                     .status(400)
-                    .json({ message: 'For "Percentage" coupon type, discount must be between 0 and 100.' });
+                    .json({ error: 'For "Percentage" coupon type, discount must be between 0 and 100.' });
             }
         } else if (couponType === 'Fixed Amount') {
             if (discountOffered === undefined || discountOffered === null || discountOffered < 0) {
                 return res
                     .status(400)
-                    .json({ message: 'For "Fixed Amount" coupon type, discount must be greater than or equal to 0.' });
+                    .json({ error: 'For "Fixed Amount" coupon type, discount must be greater than or equal to 0.' });
             }
         }
 
 
         // Validate start date and time
         if (!startDate || !startTime) {
-            return res.status(400).json({ message: 'Start date and time are required.' });
+            return res.status(400).json({ error: 'Start date and time are required.' });
         }
 
         const startDateTime = new Date(`${startDate}T${startTime}`);
         if (startDateTime < new Date()) {
-            return res.status(400).json({ message: 'Start date and time cannot be in the past.' });
+            return res.status(400).json({ error: 'Start date and time cannot be in the past.' });
         }
 
         // Validate end date and time
         if (!endDate || !endTime) {
-            return res.status(400).json({ message: 'End date and time are required.' });
+            return res.status(400).json({ error: 'End date and time are required.' });
         }
 
         const endDateTime = new Date(`${endDate}T${endTime}`);
         if (endDateTime < new Date()) {
-            return res.status(400).json({ message: 'End date and time cannot be in the past.' });
+            return res.status(400).json({ error: 'End date and time cannot be in the past.' });
         }
 
         // Ensure end date/time is after start date/time
         if (endDateTime <= startDateTime) {
-            return res.status(400).json({ message: 'End date and time must be after the start date and time.' });
+            return res.status(400).json({ error: 'End date and time must be after the start date and time.' });
         }
 
         // Determine coupon status based on dates
@@ -180,7 +180,7 @@ exports.createCoupon = async (req, res) => {
         const savedCoupon = await newCoupon.save();
         res.status(201).json(savedCoupon);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ error: error.message });
     }
 };
 
@@ -241,13 +241,13 @@ exports.getAllCoupons = async (req, res) => {
         const coupons = await Coupon.find().sort({ createdAt: -1 }); // Sort by most recent
 
         if (coupons.length === 0) {
-            return res.status(404).json({ message: 'No coupons found' });
+            return res.status(404).json({ error: 'No coupons found' });
         }
 
         // Return the updated list of coupons
         res.status(200).json(coupons);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ error: error.message });
     }
 };
 
@@ -257,11 +257,11 @@ exports.getCouponById = async (req, res) => {
     try {
         const coupon = await Coupon.findById(req.params.id);
         if (!coupon) {
-            return res.status(404).json({ message: 'Coupon not found' });
+            return res.status(404).json({ error: 'Coupon not found' });
         }
         res.status(200).json(coupon);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ error: error.message });
     }
 };
 
@@ -286,21 +286,21 @@ exports.updateCoupon = async (req, res) => {
         // Find the existing coupon by ID
         const existingCoupon = await Coupon.findById(req.params.id);
         if (!existingCoupon) {
-            return res.status(404).json({ message: 'Coupon not found.' });
+            return res.status(404).json({ error: 'Coupon not found.' });
         }
 
         // Check if the couponCode is being changed and ensure it's unique
         if (couponCode !== existingCoupon.couponCode) {
             const couponExists = await Coupon.findOne({ couponCode });
             if (couponExists) {
-                return res.status(400).json({ message: 'Coupon code must be unique.' });
+                return res.status(400).json({ error: 'Coupon code must be unique.' });
             }
         }
 
         if (!couponType || !['Percentage', 'Fixed Amount'].includes(couponType)) {
             return res
                 .status(400)
-                .json({ message: 'Coupon type is required and must be either "Percentage" or "Fixed Amount".' });
+                .json({ error: 'Coupon type is required and must be either "Percentage" or "Fixed Amount".' });
         }
 
 
@@ -309,13 +309,13 @@ exports.updateCoupon = async (req, res) => {
             if (discountOffered === undefined || discountOffered === null || discountOffered < 0 || discountOffered > 100) {
                 return res
                     .status(400)
-                    .json({ message: 'For "Percentage" coupon type, discount must be between 0 and 100.' });
+                    .json({ error: 'For "Percentage" coupon type, discount must be between 0 and 100.' });
             }
         } else if (couponType === 'Fixed Amount') {
             if (discountOffered === undefined || discountOffered === null || discountOffered < 0) {
                 return res
                     .status(400)
-                    .json({ message: 'For "Fixed Amount" coupon type, discount must be greater than or equal to 0.' });
+                    .json({ error: 'For "Fixed Amount" coupon type, discount must be greater than or equal to 0.' });
             }
         }
 
@@ -327,7 +327,7 @@ exports.updateCoupon = async (req, res) => {
             if (newStartDateTime.getTime() !== existingStartDateTime.getTime()) {
                 // Validate new start date/time is not in the past
                 if (newStartDateTime < new Date()) {
-                    return res.status(400).json({ message: 'Start date and time cannot be in the past.' });
+                    return res.status(400).json({ error: 'Start date and time cannot be in the past.' });
                 }
             }
         }
@@ -340,13 +340,13 @@ exports.updateCoupon = async (req, res) => {
             if (newEndDateTime.getTime() !== existingEndDateTime.getTime()) {
                 // Validate new end date/time is not in the past
                 if (newEndDateTime < new Date()) {
-                    return res.status(400).json({ message: 'End date and time cannot be in the past.' });
+                    return res.status(400).json({ error: 'End date and time cannot be in the past.' });
                 }
 
                 // Ensure end date/time is after the start date/time
                 const newStartDateTime = new Date(`${startDate || existingCoupon.startDate}T${startTime || existingCoupon.startTime}`);
                 if (newEndDateTime <= newStartDateTime) {
-                    return res.status(400).json({ message: 'End date and time must be after the start date and time.' });
+                    return res.status(400).json({ error: 'End date and time must be after the start date and time.' });
                 }
             }
         }
@@ -389,10 +389,9 @@ exports.updateCoupon = async (req, res) => {
 
         res.status(200).json(updatedCoupon);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ error: error.message });
     }
 };
-
 
 
 // Delete a coupon by ID
@@ -400,11 +399,11 @@ exports.deleteCoupon = async (req, res) => {
     try {
         const deletedCoupon = await Coupon.findByIdAndDelete(req.params.id);
         if (!deletedCoupon) {
-            return res.status(404).json({ message: 'Coupon not found' });
+            return res.status(404).json({ error: 'Coupon not found' });
         }
         res.status(200).json({ message: 'Coupon deleted successfully' });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ error: error.message });
     }
 };
 
@@ -416,37 +415,37 @@ exports.applyCoupon = async (req, res) => {
 
         // Validate request data
         if (!couponCode || !userId || !planId || amount === undefined || amount === null) {
-            return res.status(400).json({ message: 'Coupon code, user ID, plan ID, and amount are required.' });
+            return res.status(400).json({ error: 'Coupon code, user ID, plan ID, and amount are required.' });
         }
 
         // Find the coupon by code
         const coupon = await Coupon.findOne({ couponCode });
         if (!coupon) {
-            return res.status(404).json({ message: 'Invalid coupon code.' });
+            return res.status(404).json({ error: 'Invalid coupon code.' });
         }
 
         // Check if the coupon is active
         if (coupon.status.toLowerCase() === 'scheduled') {
-            return res.status(400).json({ message: 'Coupon is not active yet.' });
+            return res.status(400).json({ error: 'Coupon is not active yet.' });
         }
         if (coupon.status.toLowerCase() === 'expired') {
-            return res.status(400).json({ message: 'Coupon has expired.' });
+            return res.status(400).json({ error: 'Coupon has expired.' });
         }
 
 
         // Check if the coupon is applicable to the selected plan
         if (coupon.selectedPlans.length > 0 && !coupon.selectedPlans.includes(planId)) {
-            return res.status(400).json({ message: 'Coupon is not applicable for the selected plan.' });
+            return res.status(400).json({ error: 'Coupon is not applicable for the selected plan.' });
         }
 
         // Check if the user has already applied the coupon (if useLimit is true)
         if (coupon.useLimit && coupon.appliedBy.includes(userId)) {
-            return res.status(400).json({ message: 'You have already used this coupon.' });
+            return res.status(400).json({ error: 'You have already used this coupon.' });
         }
 
         // Check if the coupon has redemption limits
         if (coupon.redemptionCount >= coupon.numberOfRedeem && coupon.numberOfRedeem !== -1) {
-            return res.status(400).json({ message: 'Coupon redemption limit has been reached.' });
+            return res.status(400).json({ error: 'Coupon redemption limit has been reached.' });
         }
 
         // Calculate the discount and grand total
@@ -459,7 +458,7 @@ exports.applyCoupon = async (req, res) => {
 
         // Check if the discount exceeds the original amount
         if (discount > amount) {
-            return res.status(400).json({ message: 'This coupon cannot be execute to this plan' });
+            return res.status(400).json({ error: 'This coupon cannot be execute to this plan' });
         }
 
         const grandTotal = amount - discount;
@@ -487,7 +486,7 @@ exports.applyCoupon = async (req, res) => {
             couponType: coupon.couponType,
         });
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ error: 'Server error', error });
     }
 };
 
