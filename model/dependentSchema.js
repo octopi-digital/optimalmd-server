@@ -1,16 +1,24 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const dependentSchema = new mongoose.Schema({
   firstName: { type: String, default: "" },
   lastName: { type: String, default: "" },
   sex: { type: String, default: "" },
-  relation: { type: String, enum: ["Parents", "Children", "Spouse", "Other"], required: true },
+  relation: {
+    type: String,
+    enum: ["Parents", "Child", "Spouse", "Other"],
+    required: true,
+  },
   email: { type: String, default: "" },
   phone: { type: String, default: "" },
   dob: { type: String, default: "" },
   image: { type: String, default: "" },
 
-  primaryUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  primaryUser: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
   status: { type: String, enum: ["Active", "Pending"], default: "Pending" },
 
   // Shipping info:
@@ -34,4 +42,4 @@ const dependentSchema = new mongoose.Schema({
   rxvaletDependentId: { type: String, default: "" },
 });
 
-module.exports = mongoose.model('Dependent', dependentSchema);
+module.exports = mongoose.model("Dependent", dependentSchema);
