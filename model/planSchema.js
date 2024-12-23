@@ -14,6 +14,8 @@ const PlanSchema = new mongoose.Schema({
     },
   },
   status: { type: String, enum: ["Active", "Inactive"], default: "Inactive" },
+  tag: { type: String, default: "" },
+  sortOrder: { type: Number, default: 0 }
 });
 
 const Plan = mongoose.model("Plan", PlanSchema);
