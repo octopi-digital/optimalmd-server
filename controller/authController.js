@@ -124,6 +124,7 @@ async function register(req, res) {
       couponCode,
       ...userData
     } = req.body;
+    console.log(req.body);
 
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
@@ -236,7 +237,6 @@ async function register(req, res) {
         discount = coupon.discountOffered;
         console.log("fix: discount: ",discount);
       }
-
       // Check if the discount exceeds the original amount
       if (discount > amount) {
         return res.status(400).json({ error: 'This coupon cannot be execute to this plan' });
