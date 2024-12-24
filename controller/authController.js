@@ -16,7 +16,6 @@ const {
   frontendBaseURL,
 } = require("../baseURL");
 
-
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 
@@ -124,7 +123,6 @@ async function register(req, res) {
       couponCode,
       ...userData
     } = req.body;
-    console.log(req.body);
 
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
@@ -136,6 +134,55 @@ async function register(req, res) {
     const existingUser = await User.findOne({ email: userData.email });
     if (existingUser) {
       return res.status(400).json({ error: "Email already exists" });
+    }
+
+    const loginData = new FormData();
+    loginData.append(
+      "email",
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
+      }`
+    );
+    loginData.append(
+      "password",
+      `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`
+    );
+    const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
+    const authToken = loginResponse.headers["authorization"];
+
+    if (!authToken) {
+      return res
+        .status(401)
+        .json({ error: "Authorization token missing for getlyric" });
+    }
+
+    // check user in getlyrics
+    const validateEmail = new FormData();
+    validateEmail.append("email", userData.email);
+    const validateEmailResponse = await axios.post(
+      `${lyricURL}/census/validateEmail`,
+      validateEmail,
+      { headers: { Authorization: authToken } }
+    );
+
+    if (validateEmailResponse?.data?.availableForUse) {
+      return res.status(400).json({ error: "Email already exists" });
+    }
+
+    const validateRxEmail = new FormData();
+    validateRxEmail.append("Email", userData.email);
+    // check user in rxvalet
+    const emailCheck = await axios.post(
+      "https://rxvaletapi.com/api/omdrx/check_patient_already_exists.php",
+      validateRxEmail,
+      { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
+    );
+    if (emailCheck.data.StatusCode == "1") {
+      return res
+        .status(400)
+        .json({ error: "Email already exists" });
     }
 
     // Generate random password and hash it
@@ -207,46 +254,54 @@ async function register(req, res) {
       const coupon = await Coupon.findOne({ couponCode });
 
       if (!coupon) {
-        return res.status(404).json({ error: 'Invalid coupon code.' });
+        return res.status(404).json({ error: "Invalid coupon code." });
       }
 
       // Check if the coupon is active
-      if (coupon.status.toLowerCase() === 'scheduled') {
-        return res.status(400).json({ error: 'Coupon is not active yet.' });
+      if (coupon.status.toLowerCase() === "scheduled") {
+        return res.status(400).json({ error: "Coupon is not active yet." });
       }
-      if (coupon.status.toLowerCase() === 'expired') {
-        return res.status(400).json({ error: 'Coupon has expired.' });
+      if (coupon.status.toLowerCase() === "expired") {
+        return res.status(400).json({ error: "Coupon has expired." });
       }
 
       // Check if the coupon is applicable to the selected plan
-      if (coupon.selectedPlans.length > 0 && !coupon.selectedPlans.includes(plan)) {
-        return res.status(400).json({ error: 'Coupon is not applicable for the selected plan.' });
+      if (
+        coupon.selectedPlans.length > 0 &&
+        !coupon.selectedPlans.includes(plan)
+      ) {
+        return res
+          .status(400)
+          .json({ error: "Coupon is not applicable for the selected plan." });
       }
 
       // Check if the coupon has redemption limits
-      if (coupon.redemptionCount >= coupon.numberOfRedeem && coupon.numberOfRedeem !== -1) {
-        return res.status(400).json({ error: 'Coupon redemption limit has been reached.' });
+      if (
+        coupon.redemptionCount >= coupon.numberOfRedeem &&
+        coupon.numberOfRedeem !== -1
+      ) {
+        return res
+          .status(400)
+          .json({ error: "Coupon redemption limit has been reached." });
       }
 
       // Calculate the discount and grand total
-      if (coupon.couponType === 'Percentage') {
+      if (coupon.couponType === "Percentage") {
         discount = (amount * coupon.discountOffered) / 100;
-        console.log("discount: ",discount);
-        
-      } else if (coupon.couponType === 'Fixed Amount') {
+      } else if (coupon.couponType === "Fixed Amount") {
         discount = coupon.discountOffered;
-        console.log("fix: discount: ",discount);
       }
       // Check if the discount exceeds the original amount
       if (discount > amount) {
-        return res.status(400).json({ error: 'This coupon cannot be execute to this plan' });
+        return res
+          .status(400)
+          .json({ error: "This coupon cannot be execute to this plan" });
       }
 
       // Adjust amount
       amount = amount - discount;
-
     }
-    
+
     // Process Payment
 
     let paymentMethod;
@@ -327,7 +382,6 @@ async function register(req, res) {
         { couponCode },
         { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: newUser._id } }
       );
-
     }
 
     // Save Payment Record
@@ -392,9 +446,10 @@ async function updateUser(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -415,8 +470,10 @@ async function updateUser(req, res) {
     }
     console.log("lyric login reponse: ", loginResponse.data);
 
-    const stagingPlanId = user.plan === "Trial" ? "2322" : "2323";
-    const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
+    const stagingPlanId =
+      user.plan === "Trial" || user.plan === "Plus" ? "2322" : "2323";
+    const prodPlanId =
+      user.plan === "Trial" || user.plan === "Plus" ? "4690" : "4692";
 
     // Prepare `createMember` API payload
     const createMemberData = new FormData();
@@ -426,7 +483,10 @@ async function updateUser(req, res) {
       `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
     );
     createMemberData.append("planId", production ? prodPlanId : stagingPlanId);
-    createMemberData.append("planDetailsId", user.plan === "Trial" ? "1" : "3");
+    createMemberData.append(
+      "planDetailsId",
+      user.plan === "Trial" || user.plan === "Plus" ? "3" : "1"
+    );
     createMemberData.append("firstName", userInfo.firstName);
     createMemberData.append("lastName", userInfo.lastName);
     createMemberData.append("dob", formattedDob);
@@ -690,9 +750,10 @@ async function updateUserPlan(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -744,7 +805,10 @@ async function updateUserPlan(req, res) {
       `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
     );
     updateMemberData.append("planId", production ? prodPlanId : stagingPlanId);
-    updateMemberData.append("planDetailsId", plan === "Trial" ? "1" : "3");
+    updateMemberData.append(
+      "planDetailsId",
+      plan === "Trial" || plan === "Plus" ? "3" : "1"
+    );
     updateMemberData.append("effectiveDate", planStartDate);
     updateMemberData.append("terminationDate", planEndDate);
     updateMemberData.append("firstName", user.firstName);
@@ -907,8 +971,9 @@ async function login(req, res) {
     }
 
     // If not a user, check the Dependent schema
-    const dependent = await Dependent.findOne({ email: req.body.email })
-      .populate("primaryUser", "plan"); // Populate the primaryUser field to access the plan
+    const dependent = await Dependent.findOne({
+      email: req.body.email,
+    }).populate("primaryUser", "plan"); // Populate the primaryUser field to access the plan
 
     if (dependent && dependent.status === "Active") {
       // Check if password matches for the dependent
@@ -918,7 +983,8 @@ async function login(req, res) {
       );
 
       if (isDependentPasswordMatch) {
-        const { password, ...dependentWithoutSensitiveData } = dependent.toObject();
+        const { password, ...dependentWithoutSensitiveData } =
+          dependent.toObject();
         return res.status(200).json({
           message: "Dependent logged in successfully",
           user: {
@@ -937,7 +1003,6 @@ async function login(req, res) {
       .json({ detail: "Internal Server Error", error: error.message });
   }
 }
-
 
 // Change password
 async function changepassword(req, res) {
@@ -982,7 +1047,6 @@ async function changepassword(req, res) {
       .json({ detail: "Internal Server Error", error: error.message });
   }
 }
-
 
 // forget Password password
 async function forgetPassword(req, res) {
@@ -1189,9 +1253,10 @@ async function updateUserStatus(req, res) {
       const cenSusloginData = new FormData();
       cenSusloginData.append(
         "email",
-        `${production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+        `${
+          production
+            ? "mtmoptim01@mytelemedicine.com"
+            : "mtmstgopt01@mytelemedicine.com"
         }`
       );
       cenSusloginData.append(
@@ -1303,8 +1368,9 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("GetLyric API Error:", err);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on GetLyric API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on GetLyric API.`,
           error: err,
         });
       }
@@ -1327,14 +1393,17 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("RxValet API Error:", err.message);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on RxValet API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on RxValet API.`,
           error: err.message,
         });
       }
 
-      const stagingPlanId = user.plan === "Trial" ? "2322" : "2323";
-      const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
+      const stagingPlanId =
+        user.plan === "Trial" || user.plan === "Plus" ? "2322" : "2323";
+      const prodPlanId =
+        user.plan === "Trial" || user.plan === "Plus" ? "4692" : "4690";
 
       if (status === "Active") {
         // update getlyric to plus plan

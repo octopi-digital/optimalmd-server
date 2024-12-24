@@ -393,7 +393,7 @@ async function updateDependent(req, res) {
 
     if (newLyricDependentId && newRxvaletDependentId) {
       const emailResponse = await axios.post(
-        "https://services.leadconnectorhq.com/hooks/c4HwDVSDzA4oeLOnUvdK/webhook-trigger/ff7069b4-e1b6-467d-99fa-c89759fd6093",
+        "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/687a3cf7-89e8-4f8c-91a7-59abdf26e9c6",
         {
           firstName: userInfo?.firstName,
           lastName: userInfo?.lastName,
