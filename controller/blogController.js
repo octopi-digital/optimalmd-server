@@ -1,13 +1,14 @@
 const Blog = require("../model/blogSchema");
 const mongoose = require("mongoose");
+const { addLog } = require("./logController");
 
 // Create a blog
 exports.createBlog = async (req, res) => {
-  const { title, description, url, image, show, publishDate } = req.body;
+  const { title, description, url, image, show, publishDate, userId } = req.body;
 
   try {
     if (!title || !description || !url || !image) {
-      return res.status(400).json({ message: "Title, Description, URL, and Image are required" });
+      return res.status(400).json({ error: "Title, Description, URL, and Image are required" });
     }
 
     // Set default values for 'show' and 'publishDate' if not provided
@@ -21,6 +22,8 @@ exports.createBlog = async (req, res) => {
     });
 
     await blog.save();
+    // Log the creation
+    addLog('Created Blog', userId, `Created blog with title: ${title}`);
     res.status(201).json(blog);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -75,8 +78,7 @@ exports.getBlogById = async (req, res) => {
 
 // Update a blog
 exports.updateBlog = async (req, res) => {
-  console.log(req.body);
-  const { title, description, url, image, show, publishDate } = req.body;
+  const { title, description, url, image, show, publishDate, userId } = req.body;
 
   try {
     // Validate ObjectId
@@ -104,6 +106,7 @@ exports.updateBlog = async (req, res) => {
       return res.status(404).json({ error: "Blog not found" });
     }
 
+    addLog('Update Blog', userId, `Updated blog with title: ${updatedBlog.title}`);
     // Success response
     res.status(200).json(updatedBlog);
   } catch (error) {
@@ -115,24 +118,27 @@ exports.updateBlog = async (req, res) => {
 // Delete a blog
 exports.deleteBlog = async (req, res) => {
   try {
-    // Validate ObjectId
     const { id } = req.params;
+    const { userId } = req.body;
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: "Invalid Blog ID" });
     }
 
-    // Find and delete the blog
-    const blog = await Blog.findByIdAndDelete(id);
+    const blog = await Blog.findById(id);
 
-    // If blog is not found
     if (!blog) {
       return res.status(404).json({ error: "Blog not found" });
     }
 
-    // Success response
+    await Blog.findByIdAndDelete(id);
+
+    // Log the deletion
+    addLog('Delete Blog', userId, `Deleted blog with title: ${blog.title}`);
+
     res.status(200).json({ message: "Blog deleted successfully" });
   } catch (error) {
-    // Internal server error
     res.status(500).json({ error: error.message });
   }
 };
+
