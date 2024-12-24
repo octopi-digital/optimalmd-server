@@ -13,7 +13,7 @@ const port = process.env.PORT || 5000;
 
 // middle ware:
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "50mb" })); // Increase required size
 
 const dbUser = process.env.DB_USER;
 const dbPass = process.env.DB_PASS;
@@ -27,6 +27,7 @@ mongoose
 
 const User = require("./model/userSchema");
 const Payment = require("./model/paymentSchema");
+const Coupon = require("./model/couponSchema");
 
 const authRoutes = require("./router/authRoutes");
 const dependentRoutes = require("./router/dependentRoutes");
@@ -37,7 +38,7 @@ const planRoutes = require("./router/planRoutes");
 const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 const orgRoutes = require("./router/orgRoutes");
 const blogRoutes = require("./router/blogRoutes");
-
+const couponRoutes = require('./router/couponRoutes');
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
@@ -48,6 +49,7 @@ app.use("/api/plans", planRoutes);
 app.use("/api/admin/stats", adminStatisticsRoutes);
 app.use("/api/org", orgRoutes);
 app.use("/api/blogs", blogRoutes);
+app.use('/api/coupons', couponRoutes);
 
 cron.schedule("0 0 * * *", async () => {
   try {
@@ -79,13 +81,14 @@ cron.schedule("0 0 * * *", async () => {
     const terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
     const memberActive = "1";
     const getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
-    const amount = 97;
+    const plan = "Plus";
+    let amount = 97;
 
     for (const user of usersToUpdate) {
       console.log("email: ", user.email);
       const planEndDate = moment(user.planEndDate, "MM/DD/YYYY");
       const daysRemaining = planEndDate.diff(moment(currentDate, "MM/DD/YYYY"), "days");
-    
+
       // Send follow-up emails based on days remaining
       if (daysRemaining === 5 || daysRemaining === 2 || daysRemaining === 1) {
         try {
@@ -106,6 +109,7 @@ cron.schedule("0 0 * * *", async () => {
         `${lyricURL}/login`,
         cenSusloginData
       );
+
       const cenSusauthToken = cenSusloginResponse.headers["authorization"];
       if (!cenSusauthToken) {
         return res
@@ -114,6 +118,52 @@ cron.schedule("0 0 * * *", async () => {
       }
 
       try {
+        console.log("Before amount: ", amount);
+        let couponCode = "";
+        let discount = 0;
+
+        if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
+          const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
+
+          if (!coupon) {
+            discount = 0;
+          } else {
+            console.log("coupon: ", coupon);
+            if (
+              coupon.status === "Active" &&
+              (!coupon.selectedPlans.length || coupon.selectedPlans.includes(plan)) &&
+              (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
+              coupon.recurringOrFuturePayments
+            ) {
+              // Calculate the discount based on coupon type
+              if (coupon.couponType === "Percentage") {
+                discount = (amount * coupon.discountOffered) / 100;
+              } else if (coupon.couponType === "Fixed Amount") {
+                discount = coupon.discountOffered;
+              } else {
+                discount = 0;
+              }
+
+              console.log("Discount: ", discount);
+
+              // Ensure the discount doesn't exceed the amount
+              if (discount > amount) {
+                discount = 0;
+              } else {
+                couponCode = coupon.couponCode;
+              }
+            } else {
+              // Return an error if coupon is invalid or not applicable
+              discount = 0;
+              couponCode = "";
+            }
+          }
+        }
+
+        // Subtract the discount from the total amount
+        discountedAmount = amount - discount;
+
+        console.log("After amount: ", amount);
         // Payment processing logic
         let paymentMethod;
 
@@ -153,7 +203,7 @@ cron.schedule("0 0 * * *", async () => {
               },
               transactionRequest: {
                 transactionType: "authCaptureTransaction",
-                amount: amount,
+                amount: discountedAmount,
                 payment: paymentMethod,
               },
             },
@@ -163,11 +213,11 @@ cron.schedule("0 0 * * *", async () => {
           }
         );
         const result = paymentResponse.data;
-        console.log(result);
+        // console.log(result);
 
         if (paymentResponse?.data?.transactionResponse?.transId === "0") {
           // return res.status(500).json({ error: paymentResponse.data.transactionResponse.errors, message: paymentResponse.data.messages.message});
-          
+
           user.status = "Canceled";
           await user.save();
 
@@ -190,9 +240,22 @@ cron.schedule("0 0 * * *", async () => {
           amount: amount,
           plan: "Plus",
           transactionId: result.transactionResponse.transId,
-          paymentReason:"User plan upgraded/Renew to Access Plus"
+          paymentReason: "User plan upgraded/Renew to Access Plus"
         });
         await payment.save();
+
+        // Save Coupon Redemption
+        if (discount > 0 && couponCode) {
+          await Coupon.updateOne(
+            { couponCode },
+            { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
+          );
+
+        }
+
+        if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
+          user.appliedCoupon.push(couponCode)
+        }
 
         // Add payment to user's payment history and update plan
         user.paymentHistory.push(payment._id);
@@ -211,7 +274,7 @@ cron.schedule("0 0 * * *", async () => {
           const resp = await axios.post(getLyricUrl, getLyricFormData, {
             headers: { Authorization: cenSusauthToken },
           });
-          console.log("lyric response: ", resp.data);
+          // console.log("lyric response: ", resp.data);
         } catch (err) {
           console.error("GetLyric API Error:", err);
         }
@@ -235,7 +298,7 @@ cron.schedule("0 0 * * *", async () => {
           console.error("RxValet API Error:", err);
         }
 
-        const stagingPlanId = user.plan === "Trial" ?  "2322" : "2323";
+        const stagingPlanId = user.plan === "Trial" ? "2322" : "2323";
         const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
 
         // update getlyric to plus plan
@@ -269,7 +332,7 @@ cron.schedule("0 0 * * *", async () => {
           updateMemberData,
           { headers: { Authorization: cenSusauthToken } }
         );
-        console.log("lyrics data-: ", response.data);
+        // console.log("lyrics data-: ", response.data);
         if (!response.data.success) {
           return res.status(500).json({
             error: "Failed to update user in Lyric system",
@@ -293,7 +356,7 @@ cron.schedule("0 0 * * *", async () => {
           rxvaletFormData,
           { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
         );
-        console.log("rxvalet data update plan: ", rxRespose.data);
+        // console.log("rxvalet data update plan: ", rxRespose.data);
         if (rxRespose.data.StatusCode !== "1") {
           return res.status(500).json({
             error: "Failed to update user plan in RxValet system",

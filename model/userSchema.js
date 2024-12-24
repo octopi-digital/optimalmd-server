@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema(
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    phone: { type: String, required: true },
+    phone: { type: String },
     dob: { type: String, required: true },
     image: { type: String, default: "" },
     password: { type: String },
@@ -57,7 +57,7 @@ const userSchema = new mongoose.Schema(
     },
     plan: {
       type: String,
-      enum: ["Trial", "Plus", "Access", "Premiere"],
+      // enum: ["Trial", "Plus", "Access", "Premiere"],
       validate: {
         validator: function (value) {
           // If the role is not 'SalesPartner', the plan field is required
@@ -81,7 +81,7 @@ const userSchema = new mongoose.Schema(
     cvc: { type: String, default: "" },
 
     // coupon
-    couponCode: { type: String, default: "" },
+    appliedCoupon: { type: [String], default: [] },
 
     // rx-valet
     PrimaryMemberGUID: { type: String, default: "" },
