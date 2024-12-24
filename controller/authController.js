@@ -230,8 +230,11 @@ async function register(req, res) {
       // Calculate the discount and grand total
       if (coupon.couponType === 'Percentage') {
         discount = (amount * coupon.discountOffered) / 100;
+        console.log("discount: ",discount);
+        
       } else if (coupon.couponType === 'Fixed Amount') {
         discount = coupon.discountOffered;
+        console.log("fix: discount: ",discount);
       }
 
       // Check if the discount exceeds the original amount
@@ -240,10 +243,10 @@ async function register(req, res) {
       }
 
       // Adjust amount
-      amount -= discount;
+      amount = amount - discount;
 
     }
-
+    
     // Process Payment
 
     let paymentMethod;
@@ -294,8 +297,6 @@ async function register(req, res) {
     );
 
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
-    console.log(paymentMethod);
-    console.log(paymentResponse.data.messages.message);
 
     if (!transactionId || transactionId == "0") {
       return res.status(400).json({ error: "Payment failed" });
