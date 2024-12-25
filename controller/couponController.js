@@ -92,6 +92,7 @@ exports.createCoupon = async (req, res) => {
       userId,
     } = req.body;
 
+    console.log(req.body.userId);
     // Check required fields one by one
     if (!couponName) {
       return res.status(400).json({ message: "Coupon name is required." });
@@ -412,10 +413,13 @@ exports.updateCoupon = async (req, res) => {
 // Delete a coupon by ID
 exports.deleteCoupon = async (req, res) => {
   try {
+    const userId = req.body.userId;
     const deletedCoupon = await Coupon.findByIdAndDelete(req.params.id);
     if (!deletedCoupon) {
       return res.status(404).json({ message: "Coupon not found" });
     }
+    // Log the deletion
+    addLog('Delete Coupon', userId, `Deleted coupon with title: ${deletedCoupon.couponName}`);
     res.status(200).json({ message: "Coupon deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
