@@ -167,7 +167,7 @@ async function register(req, res) {
       { headers: { Authorization: authToken } }
     );
 
-    if (validateEmailResponse?.data?.availableForUse) {
+    if (!validateEmailResponse?.data?.availableForUse) {
       return res.status(400).json({ error: "Email already exists" });
     }
 
