@@ -1,6 +1,7 @@
 const axios = require("axios");
 const Payment = require("../model/paymentSchema");
 const User = require("../model/userSchema");
+const { addLog } = require("./logController")
 const { customDecrypt } = require("../hash");
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
@@ -291,7 +292,7 @@ const filterByDateRange = async (req, res) => {
 
 // payment refund
 async function paymentRefund(req, res) {
-  const { transactionId, userId, percentage } = req.body;
+  const { transactionId, userId, percentage, currentUserId } = req.body;
 
   if (!transactionId || !userId) {
     return res
@@ -438,6 +439,9 @@ async function paymentRefund(req, res) {
           transactionId: refundResult.transactionResponse.transId,
         }
       );
+
+      // Log the refund
+      addLog("Refund", currentUserId, `Refunded payment of $${payment.amount * percentage} for user ${user.firstName} ${user.lastName}.`);
 
       return res.status(200).json({
         success: true,
