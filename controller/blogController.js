@@ -33,15 +33,66 @@ exports.createBlog = async (req, res) => {
 // Read all blogs
 exports.getAllBlogs = async (req, res) => {
   try {
-    const blogs = await Blog.find();
+    const { show, page = 1, limit = 10 } = req.query; // Default page = 1, limit = 10
 
-    if (blogs.length === 0) return res.status(404).json({ message: "No blogs found" });
+    // Convert page and limit to integers
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
 
-    res.status(200).json(blogs);
+    if (pageNumber <= 0 || limitNumber <= 0) {
+      return res.status(400).json({ error: "Page and limit must be positive integers." });
+    }
+
+    // Initialize variables for blogs and total count
+    let blogs;
+    let totalBlogs;
+
+    if (show !== undefined) {
+      // Validate `show` input
+      if (![0, 1].includes(parseInt(show, 10))) {
+        return res.status(400).json({ error: "Invalid value for 'show'. It must be 0 or 1." });
+      }
+
+      const showFilter = parseInt(show, 10);
+
+      // Fetch blogs filtered by the `show` value with pagination and sorting
+      blogs = await Blog.find({ show: showFilter })
+        .sort({ publishDate: -1 }) // Sort by most recent
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber);
+
+      // Count the total blogs for the specified `show` value
+      totalBlogs = await Blog.countDocuments({ show: showFilter });
+    } else {
+      // Fetch all blogs with pagination and sorting
+      blogs = await Blog.find()
+        .sort({ publishDate: -1 }) // Sort by most recent
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber);
+
+      // Count the total blogs
+      totalBlogs = await Blog.countDocuments();
+    }
+
+    // Calculate total pages
+    const totalPages = Math.ceil(totalBlogs / limitNumber);
+
+    // Send response with blogs and pagination details
+    res.status(200).json({
+      blogs,
+      pagination: {
+        currentPage: pageNumber,
+        totalPages,
+        totalBlogs,
+        limit: limitNumber,
+      },
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error fetching blogs:", error);
+    res.status(500).json({ error: "Failed to fetch blogs." });
   }
 };
+
 
 // Fetch blogs that are visible (show: 1)
 exports.getVisibleBlogs = async (req, res) => {

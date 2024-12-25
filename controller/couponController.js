@@ -212,14 +212,24 @@ exports.createCoupon = async (req, res) => {
   }
 };
 
-// Get all coupons and update expired ones
+
 exports.getAllCoupons = async (req, res) => {
   try {
+    const { status, page = 1, limit = 10 } = req.query; // Default page = 1, limit = 10
+
+    // Convert page and limit to integers
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+
+    if (pageNumber <= 0 || limitNumber <= 0) {
+      return res.status(400).json({ error: "Page and limit must be positive integers." });
+    }
+
     const currentDateTime = moment(); // Local time
     const currentDate = currentDateTime.format("YYYY-MM-DD"); // Date part only
     const currentTime = currentDateTime.format("HH:mm:ss"); // Time part only
 
-    // Update expired coupons
+    // Update Expired Coupons
     await Coupon.updateMany(
       {
         $or: [
@@ -234,7 +244,7 @@ exports.getAllCoupons = async (req, res) => {
       { $set: { status: "Expired" } }
     );
 
-    // Update active coupons
+    // Update Active Coupons
     await Coupon.updateMany(
       {
         startDate: { $lte: currentDate }, // Start date is today or earlier
@@ -264,19 +274,62 @@ exports.getAllCoupons = async (req, res) => {
       { $set: { status: "Active" } }
     );
 
-    // Fetch all coupons
-    const coupons = await Coupon.find().sort({ createdAt: -1 }); // Sort by most recent
+    // Update Scheduled Coupons
+    await Coupon.updateMany(
+      {
+        startDate: { $gt: currentDate }, // Start date is in the future
+        status: { $ne: "Scheduled" },
+      },
+      { $set: { status: "Scheduled" } }
+    );
 
-    if (coupons.length === 0) {
-      return res.status(404).json({ message: "No coupons found" });
+    let coupons;
+    let totalCoupons;
+
+    if (status) {
+      // Validate `status` input
+      if (!['Active', 'Expired', 'Scheduled'].includes(status)) {
+        return res.status(400).json({ error: "Invalid status specified." });
+      }
+
+      // Fetch coupons filtered by `status` with pagination and sorting
+      coupons = await Coupon.find({ status })
+        .sort({ createdAt: -1 }) // Sort by most recent
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber);
+
+      // Count total coupons for the specified `status`
+      totalCoupons = await Coupon.countDocuments({ status });
+    } else {
+      // Fetch all coupons with pagination and sorting
+      coupons = await Coupon.find()
+        .sort({ createdAt: -1 }) // Sort by most recent
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber);
+
+      // Count total coupons
+      totalCoupons = await Coupon.countDocuments();
     }
 
-    // Return the updated list of coupons
-    res.status(200).json(coupons);
+    // Calculate total pages
+    const totalPages = Math.ceil(totalCoupons / limitNumber);
+
+    // Send response with coupons and pagination details
+    res.status(200).json({
+      coupons,
+      pagination: {
+        currentPage: pageNumber,
+        totalPages,
+        totalCoupons,
+        limit: limitNumber,
+      },
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error fetching coupons:", error);
+    res.status(500).json({ error: "Failed to fetch coupons." });
   }
 };
+
 
 // Get a single coupon by ID
 exports.getCouponById = async (req, res) => {
