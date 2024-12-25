@@ -29,6 +29,7 @@ exports.getLogs = async (req, res) => {
       // Fetch logs for those users with pagination
       logs = await Log.find({ user: { $in: userIds } })
         .populate('user', 'name email role')
+        .sort({ createdAt: -1 })
         .skip((pageNumber - 1) * limitNumber)
         .limit(limitNumber);
 
@@ -38,6 +39,7 @@ exports.getLogs = async (req, res) => {
       // Fetch all logs with pagination
       logs = await Log.find()
         .populate('user', 'name email role')
+        .sort({ createdAt: -1 })
         .skip((pageNumber - 1) * limitNumber)
         .limit(limitNumber);
 
