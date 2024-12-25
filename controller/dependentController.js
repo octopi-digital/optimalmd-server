@@ -4,6 +4,7 @@ const Payment = require("../model/paymentSchema");
 const bcrypt = require("bcryptjs");
 const User = require("../model/userSchema");
 const axios = require("axios");
+const { addLog } = require("./logController");
 const moment = require("moment");
 
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
@@ -34,6 +35,8 @@ async function addDependent(req, res) {
     });
     const savedDependent = await newDependent.save();
 
+
+
     // Update the user to include this dependent in their `dependents` array
     const updatedUser = await User.findByIdAndUpdate(
       primaryUser,
@@ -46,6 +49,9 @@ async function addDependent(req, res) {
         .status(500)
         .json({ message: "Failed to update user dependents." });
     }
+
+    // Log for adding dependent
+    addLog('Dependent added', primaryUser, `New Dependent added to ${userExists.firstName} with the name ${savedDependent.firstName} ${savedDependent.lastName}`);
 
     // Remove sensitive fields before sending response
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
@@ -99,6 +105,9 @@ async function addDependent(req, res) {
         .json({ message: "Failed to update user dependents." });
     }
 
+    // Log for adding dependent
+    addLog('Dependent added', primaryUser, `New Dependent added to ${userExists.firstName} with the name ${savedDependent.firstName} ${savedDependent.lastName}`);
+
     // Remove sensitive fields before sending response
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
 
@@ -133,6 +142,9 @@ async function deleteDependent(req, res) {
 
     // Delete the dependent
     await Dependent.findByIdAndDelete(dependentId);
+
+    // Log for deleting dependent
+    addLog('Dependent deleted', dependent.primaryUser, `Dependent deleted with the name ${dependent.firstName} ${dependent.lastName}`);
 
     res.status(200).json({ message: "Dependent deleted successfully" });
   } catch (error) {
@@ -233,17 +245,16 @@ async function updateDependent(req, res) {
     //   await user.save();
     // }
 
-    if(role==="Dependent"){
+    if (role === "Dependent") {
       updateData.relation = dependent.relation;
     }
 
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${
-        production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+      `${production
+        ? "mtmoptim01@mytelemedicine.com"
+        : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -405,6 +416,9 @@ async function updateDependent(req, res) {
       console.log(emailResponse?.data);
     }
 
+    // Log for updating dependent
+    addLog('Dependent updated', primaryUserId, `Dependent info updated for ${updatedDependent.firstName} ${updatedDependent.lastName}`);
+
     res.status(200).json({
       message: "Dependent updated successfully",
       user: role === "Dependent" ? updatedDependent : userWithoutSensitiveData,
@@ -462,6 +476,10 @@ async function updateDependentImage(req, res) {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+
+    // Log for updating dependent image
+    addLog('Dependent image updated', user._id, `Dependent image updated for ${updatedDependent.firstName} ${updatedDependent.lastName}`);
 
     const { password, ...userWithoutSensitiveData } = user.toObject();
 
