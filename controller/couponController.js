@@ -2,6 +2,7 @@ const Coupon = require("../model/couponSchema");
 const User = require("../model/userSchema");
 const cron = require("node-cron");
 const moment = require("moment");
+const { addLog } = require("./logController");
 
 // Cron job to automatically update coupon statuses every minute
 cron.schedule("* * * * *", async () => {
@@ -88,6 +89,7 @@ exports.createCoupon = async (req, res) => {
       selectedPlans,
       useLimit,
       recurringOrFuturePayments,
+      userId,
     } = req.body;
 
     // Check required fields one by one
@@ -201,6 +203,8 @@ exports.createCoupon = async (req, res) => {
     });
 
     const savedCoupon = await newCoupon.save();
+    // Log the creation
+    addLog('Created Coupon', userId, `Created coupon with title: ${couponName}`);
     res.status(201).json(savedCoupon);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -302,6 +306,7 @@ exports.updateCoupon = async (req, res) => {
       selectedPlans,
       useLimit,
       recurringOrFuturePayments,
+      userId,
     } = req.body;
 
     // Find the existing coupon by ID
@@ -344,8 +349,7 @@ exports.updateCoupon = async (req, res) => {
 
         // Ensure end date/time is after the start date/time
         const newStartDateTime = new Date(
-          `${startDate || existingCoupon.startDate}T${
-            startTime || existingCoupon.startTime
+          `${startDate || existingCoupon.startDate}T${startTime || existingCoupon.startTime
           }`
         );
         if (newEndDateTime <= newStartDateTime) {
@@ -360,13 +364,11 @@ exports.updateCoupon = async (req, res) => {
     let couponStatus = existingCoupon.status; // Default to existing status
     const currentDateTime = new Date();
     const newStartDateTime = new Date(
-      `${startDate || existingCoupon.startDate}T${
-        startTime || existingCoupon.startTime
+      `${startDate || existingCoupon.startDate}T${startTime || existingCoupon.startTime
       }`
     );
     const newEndDateTime = new Date(
-      `${endDate || existingCoupon.endDate}T${
-        endTime || existingCoupon.endTime
+      `${endDate || existingCoupon.endDate}T${endTime || existingCoupon.endTime
       }`
     );
 
@@ -399,6 +401,8 @@ exports.updateCoupon = async (req, res) => {
       { new: true, runValidators: true }
     );
 
+    // Log the update
+    addLog('Update Coupon', userId, `Updated coupon with title: ${updatedCoupon.couponName}`);
     res.status(200).json(updatedCoupon);
   } catch (error) {
     res.status(500).json({ message: error.message });
