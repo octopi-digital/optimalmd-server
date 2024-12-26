@@ -66,6 +66,9 @@ const userSchema = new mongoose.Schema(
         message: "Plan is required unless the role is 'SalesPartner'.",
       },
     },
+    planKey: {
+      type: String,
+    },
     planPrice: { type: Number, default: 0 },
     planStartDate: { type: String },
     planEndDate: { type: String },

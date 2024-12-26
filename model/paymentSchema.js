@@ -5,9 +5,10 @@ const paymentSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   plan: {
     type: String,
-    enum: ["Trial", "Plus", "Access", "Premiere"],
+    // enum: ["Trial", "Plus", "Access", "Premiere"],
     // required: true,
   },
+  planKey: { type: String },
   transactionId: { type: String },
   paymentReason: { type: String, default: "" },
   paymentDate: { type: Date, default: Date.now },

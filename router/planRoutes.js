@@ -20,5 +20,8 @@ router.delete("/:id", planController.deletePlan);
 
 // update status route
 router.patch("/status/:id", planController.updatePlanStatus);
+router.put("/position/:id", planController.updatePlanPosition);
+router.patch("/tag/:id", planController.updatePlanTag);
+
 
 module.exports = router;

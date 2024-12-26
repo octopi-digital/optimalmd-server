@@ -15,6 +15,7 @@ const {
   authorizedDotNetURL,
   frontendBaseURL,
 } = require("../baseURL");
+const Plan = require("../model/planSchema");
 const { addLog } = require("./logController");
 
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
@@ -109,9 +110,11 @@ async function getAllSalesPartners(req, res) {
 }
 // Register a new user
 async function register(req, res) {
+
   try {
     const {
       plan,
+      planKey,
       dob,
       cardNumber,
       cvc,
@@ -124,7 +127,8 @@ async function register(req, res) {
       couponCode,
       ...userData
     } = req.body;
-
+    const userPlan = await Plan.findOne({ planKey });
+    // console.log(userPlan)
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
     const rawRoutingNumber = customDecrypt(routingNumber);
@@ -227,26 +231,26 @@ async function register(req, res) {
     const planStartDate = moment().format("MM/DD/YYYY");
     let planEndDate, amount;
 
-    switch (plan) {
-      case "Trial":
-        planEndDate = moment().add(10, "days").format("MM/DD/YYYY");
-        amount = 10;
-        break;
-      case "Plus":
-        planEndDate = moment().add(1, "months").format("MM/DD/YYYY");
-        amount = 97;
-        break;
-      case "Access":
-        planEndDate = moment().add(3, "months").format("MM/DD/YYYY");
-        amount = 97;
-        break;
-      case "Premiere":
-        planEndDate = moment().add(6, "months").format("MM/DD/YYYY");
-        amount = 97;
-        break;
-      default:
-        return res.status(400).json({ error: "Invalid plan type" });
-    }
+    // switch (plan) {
+    //   case "Trial":
+    planEndDate = moment().add(userPlan.duration.value, userPlan.duration.unit).format("MM/DD/YYYY");
+    amount = userPlan.price;
+    //     break;
+    //   case "Plus":
+    //     planEndDate = moment().add(1, "months").format("MM/DD/YYYY");
+    //     amount = 97;
+    //     break;
+    //   case "Access":
+    //     planEndDate = moment().add(3, "months").format("MM/DD/YYYY");
+    //     amount = 97;
+    //     break;
+    //   case "Premiere":
+    //     planEndDate = moment().add(6, "months").format("MM/DD/YYYY");
+    //     amount = 97;
+    //     break;
+    //   default:
+    //     return res.status(400).json({ error: "Invalid plan type" });
+    // }
     let discount = 0;
 
     // Process Coupon Apply
@@ -362,6 +366,7 @@ async function register(req, res) {
       ...userData,
       dob: dob,
       password: hashedPassword,
+      planKey,
       plan,
       planStartDate,
       planEndDate,
@@ -391,6 +396,7 @@ async function register(req, res) {
       userId: newUser._id,
       amount,
       plan,
+      planKey,
       transactionId,
       paymentReason: "Plan Purchase(Registration)",
     });
@@ -475,9 +481,9 @@ async function updateUser(req, res) {
     console.log("lyric login reponse: ", loginResponse.data);
 
     const stagingPlanId =
-      user.plan === "Trial" || user.plan === "Plus" ? "2322" : "2323";
+      user.planKey === "TRIAL" || user.planKey === "ACCESS PLUS" ? "2322" : "2323";
     const prodPlanId =
-      user.plan === "Trial" || user.plan === "Plus" ? "4690" : "4692";
+      user.planKey === "TRIAL" || user.planKey === "ACCESS PLUS" ? "4690" : "4692";
 
     // Prepare `createMember` API payload
     const createMemberData = new FormData();
@@ -489,7 +495,7 @@ async function updateUser(req, res) {
     createMemberData.append("planId", production ? prodPlanId : stagingPlanId);
     createMemberData.append(
       "planDetailsId",
-      user.plan === "Trial" || user.plan === "Plus" ? "3" : "1"
+      user.planKey === "TRIAL" || user.planKey === "ACCESS PLUS" ? "3" : "1"
     );
     createMemberData.append("firstName", userInfo.firstName);
     createMemberData.append("lastName", userInfo.lastName);
@@ -513,10 +519,10 @@ async function updateUser(req, res) {
     const rxvaletUserInfo = {
       CompanyID: "12212",
       Testing: production ? "0" : "1",
-      GroupID: user.plan === "Trial" ? "OPT125" : "OPT800",
+      GroupID: user.planKey === "ACCESS" ? "OPT125" : "OPT800",
       MemberID: user?._id,
       PersonCode: "1",
-      CoverageType: user.plan === "Trial" ? "EE" : "EF",
+      CoverageType: "EF",
       StartDate: user.planStartDate,
       TermDate: user.planEndDate,
       FirstName: userInfo.firstName,
@@ -657,9 +663,10 @@ async function updateUser(req, res) {
 // update plan
 async function updateUserPlan(req, res) {
   try {
-    const { userId, plan } = req.body;
+    const { userId, plan, planKey } = req.body;
+    const selectedPlan = await Plan.findOne({ planKey });
 
-    if (!userId || !plan) {
+    if (!userId || !plan || !planKey) {
       return res.status(400).json({ error: "User ID and plan are required" });
     }
 
@@ -676,7 +683,7 @@ async function updateUserPlan(req, res) {
     }
 
     // Process Payment
-    const amount = 97;
+    const amount = selectedPlan.price;
     let paymentMethod;
 
     if (user.paymentOption === "Card") {
@@ -738,8 +745,9 @@ async function updateUserPlan(req, res) {
       userId: user._id,
       amount: amount,
       plan: plan,
+      planKey: planKey,
       transactionId: paymentResponse?.data?.transactionResponse?.transId,
-      paymentReason: "Update Plan",
+      paymentReason: `Update Plan- ${user.plan} to ${plan}`,
     });
     const paymentResp = await payment.save();
 
@@ -777,7 +785,7 @@ async function updateUserPlan(req, res) {
 
     // RxValet integration
     const rxvaletUserInfo = {
-      GroupID: plan === "Trial" ? "OPT125" : "OPT800",
+      GroupID: planKey === "ACCESS" ? "OPT125" : "OPT800",
       MemberGUID: user?.PrimaryMemberGUID,
     };
 
@@ -799,8 +807,8 @@ async function updateUserPlan(req, res) {
       });
     }
 
-    const stagingPlanId = user.plan === "Trial" ? "2322" : "2323";
-    const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
+    const stagingPlanId = user.planKey === "ACCESS" ? "2322" : "2323";
+    const prodPlanId = user.planKey === "ACCESS" ? "4690" : "4692";
 
     // Prepare `updateMember` API payload
     const updateMemberData = new FormData();
@@ -812,7 +820,7 @@ async function updateUserPlan(req, res) {
     updateMemberData.append("planId", production ? prodPlanId : stagingPlanId);
     updateMemberData.append(
       "planDetailsId",
-      plan === "Trial" || plan === "Plus" ? "3" : "1"
+      planKey === "TRIAL" || planKey === "ACCESS PLUS" ? "3" : "1"
     );
     updateMemberData.append("effectiveDate", planStartDate);
     updateMemberData.append("terminationDate", planEndDate);
@@ -853,6 +861,7 @@ async function updateUserPlan(req, res) {
       {
         $set: {
           plan,
+          planKey,
           planStartDate,
           planEndDate,
         },
@@ -1161,7 +1170,10 @@ async function updateUserStatus(req, res) {
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
+    const userPlan = await Plan.findOne({ planKey: user.planKey });
+    const plus = await Plan.findOne({ planKey: "ACCESS PLUS" });
 
+   
     const formattedDob = moment(user.dob).format("MM/DD/YYYY");
     // payment method method condition
     let paymentMethod;
@@ -1208,7 +1220,7 @@ async function updateUserStatus(req, res) {
       // sending email
       if (status === "Active") {
         try {
-          const amount = 97;
+          const amount = plus.price;
           const paymentResponse = await axios.post(
             `${authorizedDotNetURL}/xml/v1/request.api`,
             {
@@ -1239,7 +1251,8 @@ async function updateUserStatus(req, res) {
           const payment = new Payment({
             userId: user._id,
             amount: amount,
-            plan: "Plus",
+            plan: plus.name,
+            planKey: plus.planKey,
             transactionId: paymentResponse?.data?.transactionResponse?.transId,
             paymentReason: "Account Activated And using Access Plus Plan",
           });
@@ -1316,7 +1329,7 @@ async function updateUserStatus(req, res) {
         getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
         UpdatePlanGetLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
         // Process Payment
-        const amount = 97;
+        const amount = userPlan.planKey === "TRIAL" || plus.planKey ? plus.price : userPlan.price;
         try {
           const paymentResponse = await axios.post(
             `${authorizedDotNetURL}/xml/v1/request.api`,
@@ -1361,7 +1374,8 @@ async function updateUserStatus(req, res) {
           const payment = new Payment({
             userId: user._id,
             amount: amount,
-            plan: "Plus",
+            plan: userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name ,
+            planKey: userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey ,
             transactionId: result.transactionResponse.transId,
             paymentReason: "Account Activated And using Access Plus Plan",
           });
@@ -1369,7 +1383,10 @@ async function updateUserStatus(req, res) {
 
           // Add payment to user's payment history
           user.paymentHistory.push(payment._id);
-          user.plan = "Plus";
+          // user.plan = userPlan.planKey === "TRIAL" ? plus.name : userPlan.name;
+          user.plan = userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name;
+          user.planKey = userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey;
+          await user.save();
         } catch (error) {
           console.error("Payment Processing Error:", error.message);
           return res
@@ -1428,9 +1445,9 @@ async function updateUserStatus(req, res) {
       }
 
       const stagingPlanId =
-        user.plan === "Trial" || user.plan === "Plus" ? "2322" : "2323";
+        user.plan === "TRIAL" || user.plan === "ACCESS PLUS" ? "2322" : "2323";
       const prodPlanId =
-        user.plan === "Trial" || user.plan === "Plus" ? "4692" : "4690";
+        user.plan === "TRIAL" || user.plan === "ACCESS PLUS" ? "4692" : "4690";
 
       if (status === "Active") {
         // update getlyric to plus plan
@@ -1480,7 +1497,7 @@ async function updateUserStatus(req, res) {
 
         // update rxvalet to plus plan
         const rxvaletUserInfo = {
-          GroupID: "OPT800",
+          GroupID:planKey === "ACCESS" ? "OPT125" : "OPT800",
           MemberGUID: user?.PrimaryMemberGUID,
         };
 

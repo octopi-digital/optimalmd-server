@@ -39,6 +39,7 @@ const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 const orgRoutes = require("./router/orgRoutes");
 const blogRoutes = require("./router/blogRoutes");
 const couponRoutes = require('./router/couponRoutes');
+const Plan = require("./model/planSchema");
 const logRoutes = require("./router/logRoutes");
 
 app.use("/api/auth", authRoutes);
@@ -83,14 +84,17 @@ cron.schedule("0 0 * * *", async () => {
     const terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
     const memberActive = "1";
     const getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
-    const plan = "Plus";
-    let amount = 97;
+    // const plan = userPlan.planKey === "TRIAL" ? plus.name : userPlan.name;
+    // let amount = 97;
 
     for (const user of usersToUpdate) {
       console.log("email: ", user.email);
       const planEndDate = moment(user.planEndDate, "MM/DD/YYYY");
       const daysRemaining = planEndDate.diff(moment(currentDate, "MM/DD/YYYY"), "days");
-
+      const userPlan = await Plan.findOne({ planKey: user.planKey });
+      const plus = await Plan.findOne({ planKey: "ACCESS PLUS" });
+      const plan = userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name;
+      let amount = userPlan.planKey === "TRIAL" || plus.planKey ? plus.price : userPlan.price;
       // Send follow-up emails based on days remaining
       if (daysRemaining === 5 || daysRemaining === 2 || daysRemaining === 1) {
         try {
@@ -240,7 +244,8 @@ cron.schedule("0 0 * * *", async () => {
         const payment = new Payment({
           userId: user._id,
           amount: amount,
-          plan: "Plus",
+          plan: userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name ,
+          planKey: userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey ,
           transactionId: result.transactionResponse.transId,
           paymentReason: "User plan upgraded/Renew to Access Plus"
         });
@@ -261,7 +266,8 @@ cron.schedule("0 0 * * *", async () => {
 
         // Add payment to user's payment history and update plan
         user.paymentHistory.push(payment._id);
-        user.plan = "Plus";
+        user.plan = userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name;
+        user.planKey = userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey;
         await user.save();
 
         const formattedDob = moment(user.dob).format("MM/DD/YYYY");
