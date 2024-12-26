@@ -81,7 +81,7 @@ cron.schedule("0 0 * * *", async () => {
     cenSusloginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
 
     const effectiveDate = moment().format("MM/DD/YYYY");
-    const terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
+    // const terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
     const memberActive = "1";
     const getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
     // const plan = userPlan.planKey === "TRIAL" ? plus.name : userPlan.name;
@@ -95,6 +95,7 @@ cron.schedule("0 0 * * *", async () => {
       const plus = await Plan.findOne({ planKey: "ACCESS PLUS" });
       const plan = userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name;
       let amount = userPlan.planKey === "TRIAL" || plus.planKey ? plus.price : userPlan.price;
+      const terminationDate = moment().add(userPlan.duration.value, userPlan.duration.unit).format("MM/DD/YYYY");
       // Send follow-up emails based on days remaining
       if (daysRemaining === 5 || daysRemaining === 2 || daysRemaining === 1) {
         try {
