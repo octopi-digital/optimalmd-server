@@ -255,6 +255,7 @@ async function register(req, res) {
 
     // Process Coupon Apply
     if (couponCode) {
+      console.log("Before Coupon: ", amount);
       const coupon = await Coupon.findOne({ couponCode });
 
       if (!coupon) {
@@ -272,7 +273,7 @@ async function register(req, res) {
       // Check if the coupon is applicable to the selected plan
       if (
         coupon.selectedPlans.length > 0 &&
-        !coupon.selectedPlans.includes(plan)
+        !coupon.selectedPlans.includes(planKey)
       ) {
         return res
           .status(400)
@@ -304,6 +305,8 @@ async function register(req, res) {
 
       // Adjust amount
       amount = amount - discount;
+
+      console.log("After Coupon: ", amount);
     }
 
     // Process Payment
@@ -683,7 +686,55 @@ async function updateUserPlan(req, res) {
     }
 
     // Process Payment
-    const amount = selectedPlan.price;
+    let amount = selectedPlan.price;
+
+    console.log("Before amount: ", amount);
+    let couponCode = "";
+    let discount = 0;
+
+    if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
+      const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
+
+      if (!coupon) {
+        discount = 0;
+      } else {
+        console.log("coupon: ", coupon);
+        if (
+          coupon.status === "Active" &&
+          (!coupon.selectedPlans.length || coupon.selectedPlans.includes(planKey)) &&
+          (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
+          coupon.recurringOrFuturePayments
+        ) {
+          // Calculate the discount based on coupon type
+          if (coupon.couponType === "Percentage") {
+            discount = (amount * coupon.discountOffered) / 100;
+          } else if (coupon.couponType === "Fixed Amount") {
+            discount = coupon.discountOffered;
+          } else {
+            discount = 0;
+          }
+
+          console.log("Discount: ", discount);
+
+          // Ensure the discount doesn't exceed the amount
+          if (discount > amount) {
+            discount = 0;
+          } else {
+            couponCode = coupon.couponCode;
+          }
+        } else {
+          // Return an error if coupon is invalid or not applicable
+          discount = 0;
+          couponCode = "";
+        }
+      }
+    }
+
+    // Subtract the discount from the total amount
+    amount -= discount;
+
+    console.log("After amount: ", amount);
+
     let paymentMethod;
 
     if (user.paymentOption === "Card") {
@@ -751,6 +802,18 @@ async function updateUserPlan(req, res) {
     });
     const paymentResp = await payment.save();
 
+
+    // Save Coupon Redemption
+    if (discount > 0 && couponCode) {
+      await Coupon.updateOne(
+        { couponCode },
+        { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
+      );
+    }
+
+    if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
+      user.appliedCoupon.push(couponCode)
+    }
     // Add payment to user's payment history
     user.paymentHistory.push(paymentResp._id);
     user.status = "Active";
@@ -1173,7 +1236,7 @@ async function updateUserStatus(req, res) {
     const userPlan = await Plan.findOne({ planKey: user.planKey });
     const plus = await Plan.findOne({ planKey: "ACCESS PLUS" });
 
-   
+
     const formattedDob = moment(user.dob).format("MM/DD/YYYY");
     // payment method method condition
     let paymentMethod;
@@ -1220,7 +1283,55 @@ async function updateUserStatus(req, res) {
       // sending email
       if (status === "Active") {
         try {
-          const amount = plus.price;
+          let amount = plus.price;
+
+          console.log("Before amount: ", amount);
+          let couponCode = "";
+          let discount = 0;
+
+          if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
+            const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
+
+            if (!coupon) {
+              discount = 0;
+            } else {
+              console.log("coupon: ", coupon);
+              if (
+                coupon.status === "Active" &&
+                (!coupon.selectedPlans.length || coupon.selectedPlans.includes(plus.planKey)) &&
+                (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
+                coupon.recurringOrFuturePayments
+              ) {
+                // Calculate the discount based on coupon type
+                if (coupon.couponType === "Percentage") {
+                  discount = (amount * coupon.discountOffered) / 100;
+                } else if (coupon.couponType === "Fixed Amount") {
+                  discount = coupon.discountOffered;
+                } else {
+                  discount = 0;
+                }
+
+                console.log("Discount: ", discount);
+
+                // Ensure the discount doesn't exceed the amount
+                if (discount > amount) {
+                  discount = 0;
+                } else {
+                  couponCode = coupon.couponCode;
+                }
+              } else {
+                // Return an error if coupon is invalid or not applicable
+                discount = 0;
+                couponCode = "";
+              }
+            }
+          }
+
+          // Subtract the discount from the total amount
+          amount -= discount;
+
+          console.log("After amount: ", amount);
+
           const paymentResponse = await axios.post(
             `${authorizedDotNetURL}/xml/v1/request.api`,
             {
@@ -1268,6 +1379,19 @@ async function updateUserStatus(req, res) {
             }
           );
           console.log(resp.data);
+
+          // Save Coupon Redemption
+          if (discount > 0 && couponCode) {
+            await Coupon.updateOne(
+              { couponCode },
+              { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
+            );
+
+          }
+
+          if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
+            user.appliedCoupon.push(couponCode)
+          }
 
           // Add payment to user's payment history
           user.paymentHistory.push(payment._id);
@@ -1329,7 +1453,53 @@ async function updateUserStatus(req, res) {
         getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
         UpdatePlanGetLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
         // Process Payment
-        const amount = userPlan.planKey === "TRIAL" || plus.planKey ? plus.price : userPlan.price;
+        let amount = userPlan.planKey === "TRIAL" || plus.planKey ? plus.price : userPlan.price;
+        console.log("Before amount: ", amount);
+        let couponCode = "";
+        let discount = 0;
+
+        if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
+          const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
+
+          if (!coupon) {
+            discount = 0;
+          } else {
+            console.log("coupon: ", coupon);
+            if (
+              coupon.status === "Active" &&
+              (!coupon.selectedPlans.length || coupon.selectedPlans.includes(userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey)) &&
+              (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
+              coupon.recurringOrFuturePayments
+            ) {
+              // Calculate the discount based on coupon type
+              if (coupon.couponType === "Percentage") {
+                discount = (amount * coupon.discountOffered) / 100;
+              } else if (coupon.couponType === "Fixed Amount") {
+                discount = coupon.discountOffered;
+              } else {
+                discount = 0;
+              }
+
+              console.log("Discount: ", discount);
+
+              // Ensure the discount doesn't exceed the amount
+              if (discount > amount) {
+                discount = 0;
+              } else {
+                couponCode = coupon.couponCode;
+              }
+            } else {
+              // Return an error if coupon is invalid or not applicable
+              discount = 0;
+              couponCode = "";
+            }
+          }
+        }
+
+        // Subtract the discount from the total amount
+        amount -= discount;
+
+        console.log("After amount: ", amount);
         try {
           const paymentResponse = await axios.post(
             `${authorizedDotNetURL}/xml/v1/request.api`,
@@ -1374,13 +1544,25 @@ async function updateUserStatus(req, res) {
           const payment = new Payment({
             userId: user._id,
             amount: amount,
-            plan: userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name ,
-            planKey: userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey ,
+            plan: userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name,
+            planKey: userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey,
             transactionId: result.transactionResponse.transId,
             paymentReason: "Account Activated And using Access Plus Plan",
           });
           await payment.save();
 
+
+          // Save Coupon Redemption
+          if (discount > 0 && couponCode) {
+            await Coupon.updateOne(
+              { couponCode },
+              { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
+            );
+          }
+          // Add coupon code to user's appliedCoupon array
+          if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
+            user.appliedCoupon.push(couponCode)
+          }
           // Add payment to user's payment history
           user.paymentHistory.push(payment._id);
           // user.plan = userPlan.planKey === "TRIAL" ? plus.name : userPlan.name;
@@ -1497,7 +1679,7 @@ async function updateUserStatus(req, res) {
 
         // update rxvalet to plus plan
         const rxvaletUserInfo = {
-          GroupID:planKey === "ACCESS" ? "OPT125" : "OPT800",
+          GroupID: planKey === "ACCESS" ? "OPT125" : "OPT800",
           MemberGUID: user?.PrimaryMemberGUID,
         };
 

@@ -137,7 +137,7 @@ cron.schedule("0 0 * * *", async () => {
             console.log("coupon: ", coupon);
             if (
               coupon.status === "Active" &&
-              (!coupon.selectedPlans.length || coupon.selectedPlans.includes(plan)) &&
+              (!coupon.selectedPlans.length || coupon.selectedPlans.includes(userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey)) &&
               (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
               coupon.recurringOrFuturePayments
             ) {
@@ -167,7 +167,7 @@ cron.schedule("0 0 * * *", async () => {
         }
 
         // Subtract the discount from the total amount
-        discountedAmount = amount - discount;
+        amount -= discount;
 
         console.log("After amount: ", amount);
         // Payment processing logic
@@ -209,7 +209,7 @@ cron.schedule("0 0 * * *", async () => {
               },
               transactionRequest: {
                 transactionType: "authCaptureTransaction",
-                amount: discountedAmount,
+                amount: amount,
                 payment: paymentMethod,
               },
             },
