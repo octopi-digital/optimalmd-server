@@ -81,7 +81,7 @@ cron.schedule("0 0 * * *", async () => {
     cenSusloginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
 
     const effectiveDate = moment().format("MM/DD/YYYY");
-    const terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
+    // const terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
     const memberActive = "1";
     const getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
     // const plan = userPlan.planKey === "TRIAL" ? plus.name : userPlan.name;
@@ -95,6 +95,7 @@ cron.schedule("0 0 * * *", async () => {
       const plus = await Plan.findOne({ planKey: "ACCESS PLUS" });
       const plan = userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name;
       let amount = userPlan.planKey === "TRIAL" || plus.planKey ? plus.price : userPlan.price;
+      const terminationDate = moment().add(userPlan.duration.value, userPlan.duration.unit).format("MM/DD/YYYY");
       // Send follow-up emails based on days remaining
       if (daysRemaining === 5 || daysRemaining === 2 || daysRemaining === 1) {
         try {
@@ -282,7 +283,7 @@ cron.schedule("0 0 * * *", async () => {
           const resp = await axios.post(getLyricUrl, getLyricFormData, {
             headers: { Authorization: cenSusauthToken },
           });
-          // console.log("lyric response: ", resp.data);
+          console.log("lyric response: ", resp.data);
         } catch (err) {
           console.error("GetLyric API Error:", err);
         }
@@ -306,8 +307,8 @@ cron.schedule("0 0 * * *", async () => {
           console.error("RxValet API Error:", err);
         }
 
-        const stagingPlanId = user.plan === "Trial" ? "2322" : "2323";
-        const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
+        const stagingPlanId = user.planKey === "ACCESS" ? "2322" : "2323";
+        const prodPlanId = user.planKey === "ACCESS" ? "4690" : "4692";
 
         // update getlyric to plus plan
         const updateMemberData = new FormData();
@@ -350,7 +351,7 @@ cron.schedule("0 0 * * *", async () => {
 
         // update rxvalet to plus plan
         const rxvaletUserInfo = {
-          GroupID: "OPT800",
+          GroupID: userPlan.planKey === "TRIAL" || plus.planKey ? "OPT800" : "OPT125" ,
           MemberGUID: user?.PrimaryMemberGUID,
         };
 
@@ -397,32 +398,6 @@ cron.schedule("0 0 * * *", async () => {
 app.get("/", (req, res) => {
   res.send("Optimal MD network is running...");
 });
-
-// app.post('/encrypt-users', async (req, res) => {
-//   try {
-//       // Find all users that need encryption, excluding the specific user
-//       const users = await User.find({ email: { $ne: 'lowok43672@lofiey.com' } });
-
-//       // Loop through users and encrypt their card number and CVC
-//       for (let user of users) {
-//           const encryptedCardNumber = customEncrypt(user.cardNumber);
-//           const encryptedCVC = customEncrypt(user.cvc);
-
-//           // Update user with encrypted values
-//           user.cardNumber = encryptedCardNumber;
-//           user.cvc = encryptedCVC;
-//           console.log(`for user: ${user.email}, card number and cvc encrypted `);
-
-//           // Save the updated user
-//           await user.save();
-//       }
-
-//       res.status(200).json({ message: 'All users encrypted successfully, except the excluded one!' });
-//   } catch (err) {
-//       console.error(err);
-//       res.status(500).json({ message: 'Failed to encrypt users' });
-//   }
-// });
 
 app.listen(port, (req, res) => {
   console.log(`Optimal MD network is running on port: ${port}`);

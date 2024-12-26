@@ -110,7 +110,6 @@ async function getAllSalesPartners(req, res) {
 }
 // Register a new user
 async function register(req, res) {
-
   try {
     const {
       plan,
@@ -144,9 +143,10 @@ async function register(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -184,9 +184,7 @@ async function register(req, res) {
       { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
     );
     if (emailCheck.data.StatusCode == "1") {
-      return res
-        .status(400)
-        .json({ error: "Email already exists" });
+      return res.status(400).json({ error: "Email already exists" });
     }
 
     // Generate random password and hash it
@@ -233,7 +231,9 @@ async function register(req, res) {
 
     // switch (plan) {
     //   case "Trial":
-    planEndDate = moment().add(userPlan.duration.value, userPlan.duration.unit).format("MM/DD/YYYY");
+    planEndDate = moment()
+      .add(userPlan.duration.value, userPlan.duration.unit)
+      .format("MM/DD/YYYY");
     amount = userPlan.price;
     //     break;
     //   case "Plus":
@@ -392,8 +392,6 @@ async function register(req, res) {
       );
     }
 
-
-
     // Save Payment Record
     const paymentRecord = new Payment({
       userId: newUser._id,
@@ -423,7 +421,11 @@ async function register(req, res) {
     );
 
     // Log the registration
-    addLog("User Registration", newUser._id, `New user registrar with title: ${newUser.firstName}`);
+    addLog(
+      "User Registration",
+      newUser._id,
+      `New user registrar with title: ${newUser.firstName}`
+    );
 
     res.status(201).json({
       message: "User created successfully, payment recorded, and email sent",
@@ -460,9 +462,10 @@ async function updateUser(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -483,10 +486,8 @@ async function updateUser(req, res) {
     }
     console.log("lyric login reponse: ", loginResponse.data);
 
-    const stagingPlanId =
-      user.planKey === "TRIAL" || user.planKey === "ACCESS PLUS" ? "2322" : "2323";
-    const prodPlanId =
-      user.planKey === "TRIAL" || user.planKey === "ACCESS PLUS" ? "4690" : "4692";
+    const stagingPlanId = user.planKey === "ACCESS" ? "2322" : "2323";
+    const prodPlanId = user.planKey === "ACCESS" ? "4690" : "4692";
 
     // Prepare `createMember` API payload
     const createMemberData = new FormData();
@@ -496,10 +497,11 @@ async function updateUser(req, res) {
       `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
     );
     createMemberData.append("planId", production ? prodPlanId : stagingPlanId);
-    createMemberData.append(
-      "planDetailsId",
-      user.planKey === "TRIAL" || user.planKey === "ACCESS PLUS" ? "3" : "1"
-    );
+    createMemberData.append("planDetailsId", "3");
+    // createMemberData.append(
+    //   "planDetailsId",
+    //   user.planKey === "ACCESS" ? "1" : "3"
+    // );
     createMemberData.append("firstName", userInfo.firstName);
     createMemberData.append("lastName", userInfo.lastName);
     createMemberData.append("dob", formattedDob);
@@ -650,7 +652,11 @@ async function updateUser(req, res) {
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
 
-    addLog("Update User", userId, `Updated user with title: ${updatedUser.firstName}`);
+    addLog(
+      "Update User",
+      userId,
+      `Updated user with title: ${updatedUser.firstName}`
+    );
     res.status(200).json({
       message: "User updated successfully",
       user: userWithoutSensitiveData,
@@ -827,9 +833,10 @@ async function updateUserPlan(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -870,8 +877,8 @@ async function updateUserPlan(req, res) {
       });
     }
 
-    const stagingPlanId = user.planKey === "ACCESS" ? "2322" : "2323";
-    const prodPlanId = user.planKey === "ACCESS" ? "4690" : "4692";
+    const stagingPlanId = planKey === "ACCESS" ? "2322" : "2323";
+    const prodPlanId = planKey === "ACCESS" ? "4690" : "4692";
 
     // Prepare `updateMember` API payload
     const updateMemberData = new FormData();
@@ -881,10 +888,11 @@ async function updateUserPlan(req, res) {
       `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
     );
     updateMemberData.append("planId", production ? prodPlanId : stagingPlanId);
-    updateMemberData.append(
-      "planDetailsId",
-      planKey === "TRIAL" || planKey === "ACCESS PLUS" ? "3" : "1"
-    );
+    updateMemberData.append("planDetailsId", "3");
+    // updateMemberData.append(
+    //   "planDetailsId",
+    //   planKey === "TRIAL" || planKey === "ACCESS PLUS" ? "3" : "1"
+    // );
     updateMemberData.append("effectiveDate", planStartDate);
     updateMemberData.append("terminationDate", planEndDate);
     updateMemberData.append("firstName", user.firstName);
@@ -943,7 +951,11 @@ async function updateUserPlan(req, res) {
       }
     );
 
-    addLog("Update User Plan", userId, `Updated user plan with title: ${updatedUser.firstName}`);
+    addLog(
+      "Update User Plan",
+      userId,
+      `Updated user plan with title: ${updatedUser.firstName}`
+    );
     res.status(200).json({
       message: "User Plan updated successfully",
       user: userWithoutSensitiveData,
@@ -980,7 +992,11 @@ async function updateUserImage(req, res) {
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
 
-    addLog("Update User Image", id, `Updated user image with user title: ${updatedUser.firstName}`);
+    addLog(
+      "Update User Image",
+      id,
+      `Updated user image with user title: ${updatedUser.firstName}`
+    );
 
     res.status(200).json({
       message: "User image updated successfully",
@@ -1046,7 +1062,11 @@ async function login(req, res) {
         const { password, ...userWithoutSensitiveData } = user.toObject();
 
         // Log the login
-        addLog("User Login", user._id, `User logged in with title: ${user.firstName}`);
+        addLog(
+          "User Login",
+          user._id,
+          `User logged in with title: ${user.firstName}`
+        );
         return res.status(200).json({
           message: "User logged in successfully",
           user: userWithoutSensitiveData,
@@ -1071,7 +1091,11 @@ async function login(req, res) {
           dependent.toObject();
 
         // Log the login
-        addLog("Dependent Login", dependent._id, `Dependent logged in with title: ${dependent.firstName}`);
+        addLog(
+          "Dependent Login",
+          dependent._id,
+          `Dependent logged in with title: ${dependent.firstName}`
+        );
         return res.status(200).json({
           message: "Dependent logged in successfully",
           user: {
@@ -1127,7 +1151,11 @@ async function changepassword(req, res) {
     await user.save();
 
     // Log the password change
-    addLog("Password Change", userId, `Password changed for user with title: ${user.firstName}`);
+    addLog(
+      "Password Change",
+      userId,
+      `Password changed for user with title: ${user.firstName}`
+    );
 
     res.status(200).json({ message: "Password updated successfully" });
   } catch (error) {
@@ -1171,9 +1199,12 @@ async function forgetPassword(req, res) {
       }
     );
 
-
     // Log the password reset apply
-    addLog("Password Reset Apply", user._id, `Password reset email sent to user with title: ${user.firstName}`);
+    addLog(
+      "Password Reset Apply",
+      user._id,
+      `Password reset email sent to user with title: ${user.firstName}`
+    );
 
     res.status(200).json({ message: "Password reset email sent" });
   } catch (error) {
@@ -1204,7 +1235,11 @@ async function resetPassword(req, res) {
     await user.save();
 
     // Log the password reset
-    addLog("Password Reset", user._id, `Password reset for user with title: ${user.firstName}`);
+    addLog(
+      "Password Reset",
+      user._id,
+      `Password reset for user with title: ${user.firstName}`
+    );
     res.status(200).json({ message: "Password reset successfully" });
   } catch (error) {
     console.error("Error resetting password:", error);
@@ -1235,7 +1270,6 @@ async function updateUserStatus(req, res) {
     }
     const userPlan = await Plan.findOne({ planKey: user.planKey });
     const plus = await Plan.findOne({ planKey: "ACCESS PLUS" });
-
 
     const formattedDob = moment(user.dob).format("MM/DD/YYYY");
     // payment method method condition
@@ -1272,7 +1306,11 @@ async function updateUserStatus(req, res) {
       await user.save();
 
       // Log the user status update
-      addLog("Update User Status", currentUserId, `Updated user status to ${status} with title: ${user.firstName}`);
+      addLog(
+        "Update User Status",
+        currentUserId,
+        `Updated user status to ${status} with title: ${user.firstName}`
+      );
 
       // Populate dependents and paymentHistory
       await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
@@ -1420,9 +1458,10 @@ async function updateUserStatus(req, res) {
       const cenSusloginData = new FormData();
       cenSusloginData.append(
         "email",
-        `${production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+        `${
+          production
+            ? "mtmoptim01@mytelemedicine.com"
+            : "mtmstgopt01@mytelemedicine.com"
         }`
       );
       cenSusloginData.append(
@@ -1544,8 +1583,14 @@ async function updateUserStatus(req, res) {
           const payment = new Payment({
             userId: user._id,
             amount: amount,
-            plan: userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name,
-            planKey: userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey,
+            plan:
+              userPlan.planKey === "TRIAL" || plus.planKey
+                ? plus.name
+                : userPlan.name,
+            planKey:
+              userPlan.planKey === "TRIAL" || plus.planKey
+                ? plus.planKey
+                : userPlan.planKey,
             transactionId: result.transactionResponse.transId,
             paymentReason: "Account Activated And using Access Plus Plan",
           });
@@ -1566,8 +1611,14 @@ async function updateUserStatus(req, res) {
           // Add payment to user's payment history
           user.paymentHistory.push(payment._id);
           // user.plan = userPlan.planKey === "TRIAL" ? plus.name : userPlan.name;
-          user.plan = userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name;
-          user.planKey = userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey;
+          user.plan =
+            userPlan.planKey === "TRIAL" || plus.planKey
+              ? plus.name
+              : userPlan.name;
+          user.planKey =
+            userPlan.planKey === "TRIAL" || plus.planKey
+              ? plus.planKey
+              : userPlan.planKey;
           await user.save();
         } catch (error) {
           console.error("Payment Processing Error:", error.message);
@@ -1596,8 +1647,9 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("GetLyric API Error:", err);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on GetLyric API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on GetLyric API.`,
           error: err,
         });
       }
@@ -1620,16 +1672,15 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("RxValet API Error:", err.message);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on RxValet API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on RxValet API.`,
           error: err.message,
         });
       }
 
-      const stagingPlanId =
-        user.plan === "TRIAL" || user.plan === "ACCESS PLUS" ? "2322" : "2323";
-      const prodPlanId =
-        user.plan === "TRIAL" || user.plan === "ACCESS PLUS" ? "4692" : "4690";
+      const stagingPlanId = user.plan === "ACCESS" ? "2322" : "2323";
+      const prodPlanId = user.plan === "ACCESS" ? "4690" : "4692";
 
       if (status === "Active") {
         // update getlyric to plus plan
@@ -1679,7 +1730,7 @@ async function updateUserStatus(req, res) {
 
         // update rxvalet to plus plan
         const rxvaletUserInfo = {
-          GroupID: planKey === "ACCESS" ? "OPT125" : "OPT800",
+          GroupID: userPlan.planKey === "ACCESS" ? "OPT125" : "OPT800",
           MemberGUID: user?.PrimaryMemberGUID,
         };
 
@@ -1720,10 +1771,12 @@ async function updateUserStatus(req, res) {
       await user.save();
       const { password, ...userWithoutSensitiveData } = user.toObject();
 
-
-
       // Log the user status update
-      addLog("Update User Status", currentUserId, `Updated user status to ${status} with title: ${user.firstName}`);
+      addLog(
+        "Update User Status",
+        currentUserId,
+        `Updated user status to ${status} with title: ${user.firstName}`
+      );
 
       // Populate dependents and paymentHistory
       await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
@@ -1767,7 +1820,11 @@ async function manageUserRole(req, res) {
     await user.save();
 
     // Log the user role update
-    addLog("Update User Role", currentUserId, `Updated user role to ${role} with title: ${user.firstName}`);
+    addLog(
+      "Update User Role",
+      currentUserId,
+      `Updated user role to ${role} with title: ${user.firstName}`
+    );
 
     res.json({
       message: `User role successfully updated to ${role}.`,
