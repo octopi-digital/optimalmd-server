@@ -35,8 +35,6 @@ async function addDependent(req, res) {
     });
     const savedDependent = await newDependent.save();
 
-
-
     // Update the user to include this dependent in their `dependents` array
     const updatedUser = await User.findByIdAndUpdate(
       primaryUser,
@@ -51,7 +49,11 @@ async function addDependent(req, res) {
     }
 
     // Log for adding dependent
-    addLog('Dependent added', primaryUser, `New Dependent added to ${userExists.firstName} with the name ${savedDependent.firstName} ${savedDependent.lastName}`);
+    addLog(
+      "Dependent added",
+      primaryUser,
+      `New Dependent added to ${userExists.firstName} with the name ${savedDependent.firstName} ${savedDependent.lastName}`
+    );
 
     // Remove sensitive fields before sending response
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
@@ -106,7 +108,11 @@ async function addDependent(req, res) {
     }
 
     // Log for adding dependent
-    addLog('Dependent added', primaryUser, `New Dependent added to ${userExists.firstName} with the name ${savedDependent.firstName} ${savedDependent.lastName}`);
+    addLog(
+      "Dependent added",
+      primaryUser,
+      `New Dependent added to ${userExists.firstName} with the name ${savedDependent.firstName} ${savedDependent.lastName}`
+    );
 
     // Remove sensitive fields before sending response
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
@@ -144,7 +150,11 @@ async function deleteDependent(req, res) {
     await Dependent.findByIdAndDelete(dependentId);
 
     // Log for deleting dependent
-    addLog('Dependent deleted', dependent.primaryUser, `Dependent deleted with the name ${dependent.firstName} ${dependent.lastName}`);
+    addLog(
+      "Dependent deleted",
+      dependent.primaryUser,
+      `Dependent deleted with the name ${dependent.firstName} ${dependent.lastName}`
+    );
 
     res.status(200).json({ message: "Dependent deleted successfully" });
   } catch (error) {
@@ -164,6 +174,61 @@ async function updateDependent(req, res) {
 
     if (!dependentId) {
       return res.status(400).json({ message: "Dependent Id Is Required" });
+    }
+
+    if (userInfo?.email) {
+      // Check if the email already exists
+      const existingUser = await User.findOne({ email: userInfo.email });
+      if (existingUser) {
+        return res.status(400).json({ error: "Email already exists" });
+      }
+
+      const loginData = new FormData();
+      loginData.append(
+        "email",
+        `${
+          production
+            ? "mtmoptim01@mytelemedicine.com"
+            : "mtmstgopt01@mytelemedicine.com"
+        }`
+      );
+      loginData.append(
+        "password",
+        `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`
+      );
+      const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
+      const authToken = loginResponse.headers["authorization"];
+
+      if (!authToken) {
+        return res
+          .status(401)
+          .json({ error: "Authorization token missing for getlyric" });
+      }
+
+      // check user in getlyrics
+      const validateEmail = new FormData();
+      validateEmail.append("email", userInfo.email);
+      const validateEmailResponse = await axios.post(
+        `${lyricURL}/census/validateEmail`,
+        validateEmail,
+        { headers: { Authorization: authToken } }
+      );
+
+      if (!validateEmailResponse?.data?.availableForUse) {
+        return res.status(400).json({ error: "Email already exists" });
+      }
+
+      const validateRxEmail = new FormData();
+      validateRxEmail.append("Email", userData.email);
+      // check user in rxvalet
+      const emailCheck = await axios.post(
+        "https://rxvaletapi.com/api/omdrx/check_patient_already_exists.php",
+        validateRxEmail,
+        { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
+      );
+      if (emailCheck.data.StatusCode == "1") {
+        return res.status(400).json({ error: "Email already exists" });
+      }
     }
 
     // Find the primary user and dependent in the database
@@ -252,9 +317,10 @@ async function updateDependent(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -417,7 +483,11 @@ async function updateDependent(req, res) {
     }
 
     // Log for updating dependent
-    addLog('Dependent updated', primaryUserId, `Dependent info updated for ${updatedDependent.firstName} ${updatedDependent.lastName}`);
+    addLog(
+      "Dependent updated",
+      primaryUserId,
+      `Dependent info updated for ${updatedDependent.firstName} ${updatedDependent.lastName}`
+    );
 
     res.status(200).json({
       message: "Dependent updated successfully",
@@ -477,9 +547,12 @@ async function updateDependentImage(req, res) {
       return res.status(404).json({ message: "User not found" });
     }
 
-
     // Log for updating dependent image
-    addLog('Dependent image updated', user._id, `Dependent image updated for ${updatedDependent.firstName} ${updatedDependent.lastName}`);
+    addLog(
+      "Dependent image updated",
+      user._id,
+      `Dependent image updated for ${updatedDependent.firstName} ${updatedDependent.lastName}`
+    );
 
     const { password, ...userWithoutSensitiveData } = user.toObject();
 
