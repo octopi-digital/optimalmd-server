@@ -1,13 +1,14 @@
 const Blog = require("../model/blogSchema");
 const mongoose = require("mongoose");
+const { addLog } = require("./logController");
 
 // Create a blog
 exports.createBlog = async (req, res) => {
-  const { title, description, url, image, show, publishDate } = req.body;
+  const { title, description, url, image, show, publishDate, userId } = req.body;
 
   try {
     if (!title || !description || !url || !image) {
-      return res.status(400).json({ message: "Title, Description, URL, and Image are required" });
+      return res.status(400).json({ error: "Title, Description, URL, and Image are required" });
     }
 
     // Set default values for 'show' and 'publishDate' if not provided
@@ -21,6 +22,8 @@ exports.createBlog = async (req, res) => {
     });
 
     await blog.save();
+    // Log the creation
+    addLog('Created Blog', userId, `Created blog with title: ${title}`);
     res.status(201).json(blog);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -30,15 +33,66 @@ exports.createBlog = async (req, res) => {
 // Read all blogs
 exports.getAllBlogs = async (req, res) => {
   try {
-    const blogs = await Blog.find();
+    const { show, page = 1, limit = 10 } = req.query; // Default page = 1, limit = 10
 
-    if (blogs.length === 0) return res.status(404).json({ message: "No blogs found" });
+    // Convert page and limit to integers
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
 
-    res.status(200).json(blogs);
+    if (pageNumber <= 0 || limitNumber <= 0) {
+      return res.status(400).json({ error: "Page and limit must be positive integers." });
+    }
+
+    // Initialize variables for blogs and total count
+    let blogs;
+    let totalBlogs;
+
+    if (show !== undefined) {
+      // Validate `show` input
+      if (![0, 1].includes(parseInt(show, 10))) {
+        return res.status(400).json({ error: "Invalid value for 'show'. It must be 0 or 1." });
+      }
+
+      const showFilter = parseInt(show, 10);
+
+      // Fetch blogs filtered by the `show` value with pagination and sorting
+      blogs = await Blog.find({ show: showFilter })
+        .sort({ publishDate: -1 }) // Sort by most recent
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber);
+
+      // Count the total blogs for the specified `show` value
+      totalBlogs = await Blog.countDocuments({ show: showFilter });
+    } else {
+      // Fetch all blogs with pagination and sorting
+      blogs = await Blog.find()
+        .sort({ publishDate: -1 }) // Sort by most recent
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber);
+
+      // Count the total blogs
+      totalBlogs = await Blog.countDocuments();
+    }
+
+    // Calculate total pages
+    const totalPages = Math.ceil(totalBlogs / limitNumber);
+
+    // Send response with blogs and pagination details
+    res.status(200).json({
+      blogs,
+      pagination: {
+        currentPage: pageNumber,
+        totalPages,
+        totalBlogs,
+        limit: limitNumber,
+      },
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error fetching blogs:", error);
+    res.status(500).json({ error: "Failed to fetch blogs." });
   }
 };
+
 
 // Fetch blogs that are visible (show: 1)
 exports.getVisibleBlogs = async (req, res) => {
@@ -75,8 +129,7 @@ exports.getBlogById = async (req, res) => {
 
 // Update a blog
 exports.updateBlog = async (req, res) => {
-  console.log(req.body);
-  const { title, description, url, image, show, publishDate } = req.body;
+  const { title, description, url, image, show, publishDate, userId } = req.body;
 
   try {
     // Validate ObjectId
@@ -104,6 +157,7 @@ exports.updateBlog = async (req, res) => {
       return res.status(404).json({ error: "Blog not found" });
     }
 
+    addLog('Update Blog', userId, `Updated blog with title: ${updatedBlog.title}`);
     // Success response
     res.status(200).json(updatedBlog);
   } catch (error) {
@@ -115,24 +169,27 @@ exports.updateBlog = async (req, res) => {
 // Delete a blog
 exports.deleteBlog = async (req, res) => {
   try {
-    // Validate ObjectId
     const { id } = req.params;
+    const { userId } = req.body;
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: "Invalid Blog ID" });
     }
 
-    // Find and delete the blog
-    const blog = await Blog.findByIdAndDelete(id);
+    const blog = await Blog.findById(id);
 
-    // If blog is not found
     if (!blog) {
       return res.status(404).json({ error: "Blog not found" });
     }
 
-    // Success response
+    await Blog.findByIdAndDelete(id);
+
+    // Log the deletion
+    addLog('Delete Blog', userId, `Deleted blog with title: ${blog.title}`);
+
     res.status(200).json({ message: "Blog deleted successfully" });
   } catch (error) {
-    // Internal server error
     res.status(500).json({ error: error.message });
   }
 };
+

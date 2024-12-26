@@ -2,6 +2,7 @@ const Coupon = require("../model/couponSchema");
 const User = require("../model/userSchema");
 const cron = require("node-cron");
 const moment = require("moment");
+const { addLog } = require("./logController");
 
 // Cron job to automatically update coupon statuses every minute
 cron.schedule("* * * * *", async () => {
@@ -88,8 +89,10 @@ exports.createCoupon = async (req, res) => {
       selectedPlans,
       useLimit,
       recurringOrFuturePayments,
+      userId,
     } = req.body;
 
+    console.log(req.body.userId);
     // Check required fields one by one
     if (!couponName) {
       return res.status(400).json({ message: "Coupon name is required." });
@@ -201,20 +204,32 @@ exports.createCoupon = async (req, res) => {
     });
 
     const savedCoupon = await newCoupon.save();
+    // Log the creation
+    addLog('Created Coupon', userId, `Created coupon with title: ${couponName}`);
     res.status(201).json(savedCoupon);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get all coupons and update expired ones
+
 exports.getAllCoupons = async (req, res) => {
   try {
+    const { status, page = 1, limit = 10 } = req.query; // Default page = 1, limit = 10
+
+    // Convert page and limit to integers
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+
+    if (pageNumber <= 0 || limitNumber <= 0) {
+      return res.status(400).json({ error: "Page and limit must be positive integers." });
+    }
+
     const currentDateTime = moment(); // Local time
     const currentDate = currentDateTime.format("YYYY-MM-DD"); // Date part only
     const currentTime = currentDateTime.format("HH:mm:ss"); // Time part only
 
-    // Update expired coupons
+    // Update Expired Coupons
     await Coupon.updateMany(
       {
         $or: [
@@ -229,7 +244,7 @@ exports.getAllCoupons = async (req, res) => {
       { $set: { status: "Expired" } }
     );
 
-    // Update active coupons
+    // Update Active Coupons
     await Coupon.updateMany(
       {
         startDate: { $lte: currentDate }, // Start date is today or earlier
@@ -259,19 +274,62 @@ exports.getAllCoupons = async (req, res) => {
       { $set: { status: "Active" } }
     );
 
-    // Fetch all coupons
-    const coupons = await Coupon.find().sort({ createdAt: -1 }); // Sort by most recent
+    // Update Scheduled Coupons
+    await Coupon.updateMany(
+      {
+        startDate: { $gt: currentDate }, // Start date is in the future
+        status: { $ne: "Scheduled" },
+      },
+      { $set: { status: "Scheduled" } }
+    );
 
-    if (coupons.length === 0) {
-      return res.status(404).json({ message: "No coupons found" });
+    let coupons;
+    let totalCoupons;
+
+    if (status) {
+      // Validate `status` input
+      if (!['Active', 'Expired', 'Scheduled'].includes(status)) {
+        return res.status(400).json({ error: "Invalid status specified." });
+      }
+
+      // Fetch coupons filtered by `status` with pagination and sorting
+      coupons = await Coupon.find({ status })
+        .sort({ createdAt: -1 }) // Sort by most recent
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber);
+
+      // Count total coupons for the specified `status`
+      totalCoupons = await Coupon.countDocuments({ status });
+    } else {
+      // Fetch all coupons with pagination and sorting
+      coupons = await Coupon.find()
+        .sort({ createdAt: -1 }) // Sort by most recent
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber);
+
+      // Count total coupons
+      totalCoupons = await Coupon.countDocuments();
     }
 
-    // Return the updated list of coupons
-    res.status(200).json(coupons);
+    // Calculate total pages
+    const totalPages = Math.ceil(totalCoupons / limitNumber);
+
+    // Send response with coupons and pagination details
+    res.status(200).json({
+      coupons,
+      pagination: {
+        currentPage: pageNumber,
+        totalPages,
+        totalCoupons,
+        limit: limitNumber,
+      },
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error fetching coupons:", error);
+    res.status(500).json({ error: "Failed to fetch coupons." });
   }
 };
+
 
 // Get a single coupon by ID
 exports.getCouponById = async (req, res) => {
@@ -302,6 +360,7 @@ exports.updateCoupon = async (req, res) => {
       selectedPlans,
       useLimit,
       recurringOrFuturePayments,
+      userId,
     } = req.body;
 
     // Find the existing coupon by ID
@@ -344,8 +403,7 @@ exports.updateCoupon = async (req, res) => {
 
         // Ensure end date/time is after the start date/time
         const newStartDateTime = new Date(
-          `${startDate || existingCoupon.startDate}T${
-            startTime || existingCoupon.startTime
+          `${startDate || existingCoupon.startDate}T${startTime || existingCoupon.startTime
           }`
         );
         if (newEndDateTime <= newStartDateTime) {
@@ -360,13 +418,11 @@ exports.updateCoupon = async (req, res) => {
     let couponStatus = existingCoupon.status; // Default to existing status
     const currentDateTime = new Date();
     const newStartDateTime = new Date(
-      `${startDate || existingCoupon.startDate}T${
-        startTime || existingCoupon.startTime
+      `${startDate || existingCoupon.startDate}T${startTime || existingCoupon.startTime
       }`
     );
     const newEndDateTime = new Date(
-      `${endDate || existingCoupon.endDate}T${
-        endTime || existingCoupon.endTime
+      `${endDate || existingCoupon.endDate}T${endTime || existingCoupon.endTime
       }`
     );
 
@@ -399,6 +455,8 @@ exports.updateCoupon = async (req, res) => {
       { new: true, runValidators: true }
     );
 
+    // Log the update
+    addLog('Update Coupon', userId, `Updated coupon with title: ${updatedCoupon.couponName}`);
     res.status(200).json(updatedCoupon);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -408,10 +466,13 @@ exports.updateCoupon = async (req, res) => {
 // Delete a coupon by ID
 exports.deleteCoupon = async (req, res) => {
   try {
+    const userId = req.body.userId;
     const deletedCoupon = await Coupon.findByIdAndDelete(req.params.id);
     if (!deletedCoupon) {
       return res.status(404).json({ message: "Coupon not found" });
     }
+    // Log the deletion
+    addLog('Delete Coupon', userId, `Deleted coupon with title: ${deletedCoupon.couponName}`);
     res.status(200).json({ message: "Coupon deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });

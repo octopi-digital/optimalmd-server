@@ -16,6 +16,7 @@ const {
   frontendBaseURL,
 } = require("../baseURL");
 const Plan = require("../model/planSchema");
+const { addLog } = require("./logController");
 
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
@@ -388,6 +389,8 @@ async function register(req, res) {
       );
     }
 
+
+
     // Save Payment Record
     const paymentRecord = new Payment({
       userId: newUser._id,
@@ -415,6 +418,9 @@ async function register(req, res) {
         loginUrl: `${frontendBaseURL}/login`,
       }
     );
+
+    // Log the registration
+    addLog("User Registration", newUser._id, `New user registrar with title: ${newUser.firstName}`);
 
     res.status(201).json({
       message: "User created successfully, payment recorded, and email sent",
@@ -640,6 +646,8 @@ async function updateUser(req, res) {
     ).populate(["dependents", "paymentHistory"]);
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
+
+    addLog("Update User", userId, `Updated user with title: ${updatedUser.firstName}`);
     res.status(200).json({
       message: "User updated successfully",
       user: userWithoutSensitiveData,
@@ -871,6 +879,8 @@ async function updateUserPlan(req, res) {
         transactionId: paymentResponse?.data?.transactionResponse?.transId,
       }
     );
+
+    addLog("Update User Plan", userId, `Updated user plan with title: ${updatedUser.firstName}`);
     res.status(200).json({
       message: "User Plan updated successfully",
       user: userWithoutSensitiveData,
@@ -906,6 +916,8 @@ async function updateUserImage(req, res) {
     }
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
+
+    addLog("Update User Image", id, `Updated user image with user title: ${updatedUser.firstName}`);
 
     res.status(200).json({
       message: "User image updated successfully",
@@ -969,6 +981,9 @@ async function login(req, res) {
 
       if (isPasswordMatch) {
         const { password, ...userWithoutSensitiveData } = user.toObject();
+
+        // Log the login
+        addLog("User Login", user._id, `User logged in with title: ${user.firstName}`);
         return res.status(200).json({
           message: "User logged in successfully",
           user: userWithoutSensitiveData,
@@ -991,6 +1006,9 @@ async function login(req, res) {
       if (isDependentPasswordMatch) {
         const { password, ...dependentWithoutSensitiveData } =
           dependent.toObject();
+
+        // Log the login
+        addLog("Dependent Login", dependent._id, `Dependent logged in with title: ${dependent.firstName}`);
         return res.status(200).json({
           message: "Dependent logged in successfully",
           user: {
@@ -1045,6 +1063,9 @@ async function changepassword(req, res) {
     user.password = hashedNewPassword;
     await user.save();
 
+    // Log the password change
+    addLog("Password Change", userId, `Password changed for user with title: ${user.firstName}`);
+
     res.status(200).json({ message: "Password updated successfully" });
   } catch (error) {
     console.error("Error during password change:", error.message);
@@ -1087,6 +1108,10 @@ async function forgetPassword(req, res) {
       }
     );
 
+
+    // Log the password reset apply
+    addLog("Password Reset Apply", user._id, `Password reset email sent to user with title: ${user.firstName}`);
+
     res.status(200).json({ message: "Password reset email sent" });
   } catch (error) {
     console.error("Error in forgot password:", error);
@@ -1115,6 +1140,8 @@ async function resetPassword(req, res) {
     user.resetPasswordExpires = undefined;
     await user.save();
 
+    // Log the password reset
+    addLog("Password Reset", user._id, `Password reset for user with title: ${user.firstName}`);
     res.status(200).json({ message: "Password reset successfully" });
   } catch (error) {
     console.error("Error resetting password:", error);
@@ -1124,7 +1151,10 @@ async function resetPassword(req, res) {
 
 async function updateUserStatus(req, res) {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, currentUserId } = req.body;
+
+  console.log("status: ", status);
+  console.log("currentUserId: ", currentUserId);
 
   const allowedStatuses = ["Active", "Canceled"];
   if (!allowedStatuses.includes(status)) {
@@ -1177,6 +1207,9 @@ async function updateUserStatus(req, res) {
       // Update user status and plan in the database
       user.status = status;
       await user.save();
+
+      // Log the user status update
+      addLog("Update User Status", currentUserId, `Updated user status to ${status} with title: ${user.firstName}`);
 
       // Populate dependents and paymentHistory
       await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
@@ -1505,6 +1538,11 @@ async function updateUserStatus(req, res) {
       await user.save();
       const { password, ...userWithoutSensitiveData } = user.toObject();
 
+
+
+      // Log the user status update
+      addLog("Update User Status", currentUserId, `Updated user status to ${status} with title: ${user.firstName}`);
+
       // Populate dependents and paymentHistory
       await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
       res.json({
@@ -1522,7 +1560,7 @@ async function updateUserStatus(req, res) {
 
 async function manageUserRole(req, res) {
   const { id } = req.params;
-  const { role } = req.body;
+  const { role, currentUserId } = req.body;
 
   const allowedRoles = ["User", "Admin"];
 
@@ -1545,6 +1583,9 @@ async function manageUserRole(req, res) {
 
     user.role = role;
     await user.save();
+
+    // Log the user role update
+    addLog("Update User Role", currentUserId, `Updated user role to ${role} with title: ${user.firstName}`);
 
     res.json({
       message: `User role successfully updated to ${role}.`,
