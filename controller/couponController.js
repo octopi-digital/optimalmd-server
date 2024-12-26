@@ -215,7 +215,14 @@ exports.createCoupon = async (req, res) => {
 
 exports.getAllCoupons = async (req, res) => {
   try {
-    const { status, page = 1, limit = 10 } = req.query; // Default page = 1, limit = 10
+    const {
+      status,
+      page = 1,
+      limit = 10,
+      search,
+      startDate,
+      endDate,
+    } = req.query; // Include startDate and endDate in query params
 
     // Convert page and limit to integers
     const pageNumber = parseInt(page, 10);
@@ -225,91 +232,42 @@ exports.getAllCoupons = async (req, res) => {
       return res.status(400).json({ error: "Page and limit must be positive integers." });
     }
 
-    const currentDateTime = moment(); // Local time
-    const currentDate = currentDateTime.format("YYYY-MM-DD"); // Date part only
-    const currentTime = currentDateTime.format("HH:mm:ss"); // Time part only
+    const filters = {};
 
-    // Update Expired Coupons
-    await Coupon.updateMany(
-      {
-        $or: [
-          { endDate: { $lt: currentDate } }, // End date is in the past
-          {
-            endDate: { $eq: currentDate }, // Same date
-            endTime: { $lt: currentTime }, // Time is in the past
-          },
-        ],
-        status: { $ne: "Expired" },
-      },
-      { $set: { status: "Expired" } }
-    );
-
-    // Update Active Coupons
-    await Coupon.updateMany(
-      {
-        startDate: { $lte: currentDate }, // Start date is today or earlier
-        endDate: { $gte: currentDate }, // End date is today or later
-        status: { $ne: "Active" },
-        $and: [
-          {
-            $or: [
-              { startDate: { $lt: currentDate } }, // Start date is in the past
-              {
-                startDate: { $eq: currentDate }, // Same date
-                startTime: { $lte: currentTime }, // Start time is in the past or now
-              },
-            ],
-          },
-          {
-            $or: [
-              { endDate: { $gt: currentDate } }, // End date is in the future
-              {
-                endDate: { $eq: currentDate }, // Same date
-                endTime: { $gte: currentTime }, // End time is in the future or now
-              },
-            ],
-          },
-        ],
-      },
-      { $set: { status: "Active" } }
-    );
-
-    // Update Scheduled Coupons
-    await Coupon.updateMany(
-      {
-        startDate: { $gt: currentDate }, // Start date is in the future
-        status: { $ne: "Scheduled" },
-      },
-      { $set: { status: "Scheduled" } }
-    );
-
-    let coupons;
-    let totalCoupons;
-
+    // Filter by status
     if (status) {
-      // Validate `status` input
-      if (!['Active', 'Expired', 'Scheduled'].includes(status)) {
+      if (!["Active", "Expired", "Scheduled"].includes(status)) {
         return res.status(400).json({ error: "Invalid status specified." });
       }
-
-      // Fetch coupons filtered by `status` with pagination and sorting
-      coupons = await Coupon.find({ status })
-        .sort({ createdAt: -1 }) // Sort by most recent
-        .skip((pageNumber - 1) * limitNumber)
-        .limit(limitNumber);
-
-      // Count total coupons for the specified `status`
-      totalCoupons = await Coupon.countDocuments({ status });
-    } else {
-      // Fetch all coupons with pagination and sorting
-      coupons = await Coupon.find()
-        .sort({ createdAt: -1 }) // Sort by most recent
-        .skip((pageNumber - 1) * limitNumber)
-        .limit(limitNumber);
-
-      // Count total coupons
-      totalCoupons = await Coupon.countDocuments();
+      filters.status = status;
     }
+
+    // Search filter
+    if (search) {
+      const searchRegex = { $regex: `.*${search}.*`, $options: "i" }; // Case-insensitive search
+      filters.$or = [{ couponName: searchRegex }, { couponCode: searchRegex }];
+    }
+
+    // Date range filter for string dates
+    if (startDate || endDate) {
+      const dateFilter = {};
+      if (startDate) {
+        dateFilter.$gte = startDate; // Compare as string
+      }
+      if (endDate) {
+        dateFilter.$lte = endDate; // Compare as string
+      }
+      filters.startDate = dateFilter;
+    }
+
+    // Fetch coupons with filters, pagination, and sorting
+    const coupons = await Coupon.find(filters)
+      .sort({ createdAt: -1 }) // Sort by most recent
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber);
+
+    // Count total coupons
+    const totalCoupons = await Coupon.countDocuments(filters);
 
     // Calculate total pages
     const totalPages = Math.ceil(totalCoupons / limitNumber);
@@ -329,6 +287,8 @@ exports.getAllCoupons = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch coupons." });
   }
 };
+
+
 
 
 // Get a single coupon by ID

@@ -33,7 +33,14 @@ exports.createBlog = async (req, res) => {
 // Read all blogs
 exports.getAllBlogs = async (req, res) => {
   try {
-    const { show, page = 1, limit = 10 } = req.query; // Default page = 1, limit = 10
+    const {
+      show,
+      page = 1,
+      limit = 10,
+      search,
+      startDate,
+      endDate,
+    } = req.query;
 
     // Convert page and limit to integers
     const pageNumber = parseInt(page, 10);
@@ -43,36 +50,43 @@ exports.getAllBlogs = async (req, res) => {
       return res.status(400).json({ error: "Page and limit must be positive integers." });
     }
 
-    // Initialize variables for blogs and total count
-    let blogs;
-    let totalBlogs;
+    const filters = {};
 
+    // Filter by `show` field
     if (show !== undefined) {
-      // Validate `show` input
-      if (![0, 1].includes(parseInt(show, 10))) {
+      const showValue = parseInt(show, 10);
+      if (![0, 1].includes(showValue)) {
         return res.status(400).json({ error: "Invalid value for 'show'. It must be 0 or 1." });
       }
-
-      const showFilter = parseInt(show, 10);
-
-      // Fetch blogs filtered by the `show` value with pagination and sorting
-      blogs = await Blog.find({ show: showFilter })
-        .sort({ publishDate: -1 }) // Sort by most recent
-        .skip((pageNumber - 1) * limitNumber)
-        .limit(limitNumber);
-
-      // Count the total blogs for the specified `show` value
-      totalBlogs = await Blog.countDocuments({ show: showFilter });
-    } else {
-      // Fetch all blogs with pagination and sorting
-      blogs = await Blog.find()
-        .sort({ publishDate: -1 }) // Sort by most recent
-        .skip((pageNumber - 1) * limitNumber)
-        .limit(limitNumber);
-
-      // Count the total blogs
-      totalBlogs = await Blog.countDocuments();
+      filters.show = showValue;
     }
+
+    // Search filter for `title` and `description`
+    if (search) {
+      const searchRegex = { $regex: `.*${search}.*`, $options: "i" }; // Case-insensitive search
+      filters.$or = [{ title: searchRegex }, { description: searchRegex }];
+    }
+
+    // Date range filter for `publishDate`
+    if (startDate || endDate) {
+      const dateFilter = {};
+      if (startDate) {
+        dateFilter.$gte = new Date(startDate); // Start date
+      }
+      if (endDate) {
+        dateFilter.$lte = new Date(endDate); // End date
+      }
+      filters.publishDate = dateFilter;
+    }
+
+    // Fetch blogs with filters, pagination, and sorting
+    const blogs = await Blog.find(filters)
+      .sort({ publishDate: -1 }) // Sort by most recent publishDate
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber);
+
+    // Count the total blogs matching the filters
+    const totalBlogs = await Blog.countDocuments(filters);
 
     // Calculate total pages
     const totalPages = Math.ceil(totalBlogs / limitNumber);
@@ -92,6 +106,7 @@ exports.getAllBlogs = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch blogs." });
   }
 };
+
 
 
 // Fetch blogs that are visible (show: 1)
