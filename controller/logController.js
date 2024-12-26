@@ -3,49 +3,77 @@ const User = require('../model/userSchema');
 
 exports.getLogs = async (req, res) => {
   try {
-    const { role, page = 1, limit = 10 } = req.query; // Default page = 1, limit = 10
+    let { role, page = 1, limit = 10, startDate, endDate, action, search } = req.query;
 
     // Convert page and limit to integers
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
 
     if (pageNumber <= 0 || limitNumber <= 0) {
-      return res.status(400).json({ error: 'Page and limit must be positive integers.' });
+      return res.status(400).json({ error: "Page and limit must be positive integers." });
     }
 
-    let logs;
-    let totalLogs;
+    // Build query filters
+    const filters = {};
 
+    // Role filter
     if (role) {
-      // Validate role input
       if (!["User", "Admin", "SuperAdmin", "SalesPartner"].includes(role)) {
-        return res.status(400).json({ error: 'Invalid role specified.' });
+        return res.status(400).json({ error: "Invalid role specified." });
       }
 
-      // Find users with the specified role
-      const users = await User.find({ role }).select('_id');
-      const userIds = users.map((user) => user._id);
-
-      // Fetch logs for those users with pagination
-      logs = await Log.find({ user: { $in: userIds } })
-        .populate('user', 'firstName lastName image email role')
-        .sort({ createdAt: -1 })
-        .skip((pageNumber - 1) * limitNumber)
-        .limit(limitNumber);
-
-      // Count total logs for role
-      totalLogs = await Log.countDocuments({ user: { $in: userIds } });
-    } else {
-      // Fetch all logs with pagination
-      logs = await Log.find()
-        .populate('user', 'firstName lastName image email role')
-        .sort({ createdAt: -1 })
-        .skip((pageNumber - 1) * limitNumber)
-        .limit(limitNumber);
-
-      // Count total logs
-      totalLogs = await Log.countDocuments();
+      const usersWithRole = await User.find({ role }).select("_id");
+      const userIds = usersWithRole.map((user) => user._id);
+      filters.user = { $in: userIds };
     }
+
+    // Action filter
+    if (action) {
+      filters.action = { $regex: `.*${action}.*`, $options: "i" }; // Case-insensitive action search
+    }
+
+    // Date range filter
+    if (startDate || endDate) {
+      const dateFilter = {};
+      if (startDate) {
+        dateFilter.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        dateFilter.$lte = endOfDay;
+      }
+      filters.createdAt = dateFilter;
+    }
+
+    // Search filter
+    if (search) {
+      // Find matching users based on search query
+      const searchUsers = await User.find({
+        $or: [
+          { firstName: { $regex: `.*${search}.*`, $options: "i" } },
+          { lastName: { $regex: `.*${search}.*`, $options: "i" } },
+          { email: { $regex: `.*${search}.*`, $options: "i" } },
+        ],
+      }).select("_id");
+
+      const searchUserIds = searchUsers.map((user) => user._id);
+
+      // Include user filter if other filters are present
+      filters.user = filters.user
+        ? { $in: [...filters.user.$in, ...searchUserIds] }
+        : { $in: searchUserIds };
+    }
+
+    // Fetch logs with filters and pagination
+    const logs = await Log.find(filters)
+      .populate("user", "firstName lastName email image role")
+      .sort({ createdAt: -1 })
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber);
+
+    // Count total logs
+    const totalLogs = await Log.countDocuments(filters);
 
     const totalPages = Math.ceil(totalLogs / limitNumber);
 
@@ -59,10 +87,11 @@ exports.getLogs = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error fetching logs:', error);
-    res.status(500).json({ error: 'Failed to fetch logs.' });
+    console.error("Error fetching logs:", error.message);
+    res.status(500).json({ error: "Failed to fetch logs." });
   }
 };
+
 
 
 
