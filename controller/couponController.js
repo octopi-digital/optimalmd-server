@@ -344,6 +344,27 @@ exports.getCouponById = async (req, res) => {
   }
 };
 
+exports.getCouponByCode = async (req, res) => {
+  try {
+    const { code } = req.body; // Access couponCode from the request body
+    if (!code) {
+      return res.status(400).json({ message: "Coupon code is required" });
+    }
+
+    const coupon = await Coupon.findOne({ couponCode: code });
+    if (!coupon) {
+      return res.status(404).json({ message: "Coupon not found" });
+    }
+
+    res.status(200).json(coupon);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+
 // Update a coupon by ID
 exports.updateCoupon = async (req, res) => {
   try {

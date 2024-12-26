@@ -10,6 +10,7 @@ router.get('/', couponController.getAllCoupons);
 
 // Get a single coupon by ID
 router.get('/:id', couponController.getCouponById);
+router.post('/single-coupon', couponController.getCouponByCode);
 
 // Update a coupon by ID
 router.put('/:id', couponController.updateCoupon);
