@@ -5,12 +5,12 @@ const Plan = require("../model/planSchema");
 exports.createPlan = async (req, res) => {
   const { name, price, subtitle, benefits, duration, planKey, planType } = req.body;
   // Validate inputs
-  if (!name || !price || !subtitle || !benefits || !duration) {
+  if (!name || !price || !subtitle || !benefits || !duration || !planKey || !planType) {
     return res.status(400).json({ message: "Invalid data provided" });
   }
 
   try {
-    const newPlan = new Plan({ name, price, subtitle, benefits, duration });
+    const newPlan = new Plan({ name, price, subtitle, benefits, duration, planKey, planType });
     await newPlan.save();
     res
       .status(201)
@@ -54,12 +54,12 @@ exports.getPlanById = async (req, res) => {
 // Update a plan
 exports.updatePlan = async (req, res) => {
   const { id } = req.params;
-  const { name, price, subtitle, benefits } = req.body;
+  const { name, price, subtitle, benefits, duration, planKey, planType } = req.body;
 
   try {
     const updatedPlan = await Plan.findByIdAndUpdate(
       id,
-      { name, price, subtitle, benefits },
+      { name, price, subtitle, benefits, duration, planKey, planType },
       { new: true }
     );
 
