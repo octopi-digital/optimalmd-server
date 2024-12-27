@@ -1,11 +1,11 @@
 const mongoose = require("mongoose");
 const User = require("../model/userSchema");
 const Dependent = require("../model/dependentSchema");
-const dependentSchema = require("../model/dependentSchema");
+const Org = require("../model/orgSchema");
 
 const addMultipleUsers = async (req, res) => {
   try {
-    const { users } = req.body;
+    const { users, orgId } = req.body;
 
     if (!Array.isArray(users) || users.length === 0) {
       return res.status(400).json({
@@ -13,11 +13,24 @@ const addMultipleUsers = async (req, res) => {
       });
     }
 
+    if (!orgId) {
+      return res.status(400).json({
+        message: "Organization ID is required.",
+      });
+    }
+
+    const organization = await Org.findById(orgId);
+    if (!organization) {
+      return res.status(404).json({
+        message: "Organization not found.",
+      });
+    }
+
     const successfulUsers = [];
     const failedUsers = [];
+    const allUserIds = []; // To store all user and dependent IDs for the organization
 
     for (let user of users) {
-      // console.log("current user: ", user);
       const {
         firstName,
         lastName,
@@ -33,20 +46,9 @@ const addMultipleUsers = async (req, res) => {
         shipingZip,
         dependents,
       } = user;
+
       try {
-        // console.log("Current User Object:", user);
-        let newUserId = "";
-        // Step 2: Process dependents if any
-        const dependentIds = [];
-        // Ensure dependents is always an array
-        const dependents = [
-          ...(Array.isArray(user.dependents) ? user.dependents : []),
-        ];
-        // console.log(`Dependents for ${user.firstName}:`, dependents);
-
-        console.log("dependendts length I: ", dependents.length);
-
-        // Step 1: Create the user
+        // Create the primary user
         const newUser = new User({
           firstName,
           lastName,
@@ -54,6 +56,7 @@ const addMultipleUsers = async (req, res) => {
           plan,
           dob,
           sex,
+          org: orgId,
           phone,
           shipingAddress1,
           shipingAddress2,
@@ -61,21 +64,13 @@ const addMultipleUsers = async (req, res) => {
           shipingState,
           shipingZip,
         });
-        const addUserResponse = await newUser.save();
+        const savedUser = await newUser.save();
+        allUserIds.push(savedUser._id);
 
-        console.log("addUserResponse:  ", addUserResponse._id);
-
-        console.log("dependendts length II: ", dependents.length);
-        if (dependents.length === 0 && !newUser._id.toString()) {
-          console.log(`No dependents found for user: ${user.firstName}`);
-        } else {
-          console.log("user id: ", newUser._id.toString());
+        const dependentIds = [];
+        if (Array.isArray(dependents) && dependents.length > 0) {
           for (let dependent of dependents) {
             try {
-              console.log(
-                `Dependents found for user: ${user.firstName}`,
-                user.dependents
-              );
               const newDependent = new Dependent({
                 firstName: dependent.firstName,
                 lastName: dependent.lastName,
@@ -85,31 +80,38 @@ const addMultipleUsers = async (req, res) => {
                 relation:
                   dependent.relation === "Children" ? "Child" : "Spouse",
                 sex: dependent.sex,
+                org: orgId,
                 phone: dependent.phone,
                 shipingAddress1: dependent.shipingAddress1,
                 shipingAddress2: dependent.shipingAddress2,
                 shipingCity: dependent.shipingCity,
                 shipingState: dependent.shipingState,
                 shipingZip: dependent.shipingZip,
-                primaryUser: newUser._id.toString(),
+                primaryUser: savedUser._id,
               });
-              await newDependent.save();
-              dependentIds.push(newDependent._id);
+              const savedDependent = await newDependent.save();
+              dependentIds.push(savedDependent._id);
+              allUserIds.push(savedDependent._id); // Add dependent ID to the org
             } catch (depError) {
               console.error(
-                `Error saving dependent for user ${newUser._id}:`,
+                `Error saving dependent for user ${savedUser._id}:`,
                 depError
               );
             }
           }
         }
-        newUser.dependents = dependentIds;
-        await newUser.save();
-        successfulUsers.push(newUser);
+
+        savedUser.dependents = dependentIds;
+        await savedUser.save();
+        successfulUsers.push(savedUser);
       } catch (error) {
         failedUsers.push({ user, error: error.message || "Error saving user" });
       }
     }
+
+    // Update the organization with all user and dependent IDs
+    organization.users = [...organization.users, ...allUserIds];
+    await organization.save();
 
     return res.status(201).json({
       message: "Users processing complete.",
@@ -138,12 +140,18 @@ const deleteUsers = async (req, res) => {
     const successfulDeletions = [];
     const failedDeletions = [];
 
-    // Process each email individually
     for (let email of emails) {
       try {
+        // Find and delete the user
         const deletedUser = await User.findOneAndDelete({ email });
 
         if (deletedUser) {
+          // Remove user ID from the organization
+          await Org.updateOne(
+            { _id: deletedUser.org[0] }, // Match the organization by its ID
+            { $pull: { users: deletedUser._id } } // Remove the user ID from the users array
+          );
+
           successfulDeletions.push(deletedUser); // Add to successful deletions
         } else {
           failedDeletions.push({
@@ -159,7 +167,6 @@ const deleteUsers = async (req, res) => {
       }
     }
 
-    // Return the results after processing all emails
     return res.status(200).json({
       message: "User deletion process complete.",
       successfulDeletions,
