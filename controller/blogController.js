@@ -109,7 +109,7 @@ exports.getVisibleBlogs = async (req, res) => {
     return res.status(200).json(blogs);
   } catch (error) {
     console.error("Error fetching visible blogs:", error);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ error: "Server error" });
   }
 };
 
@@ -119,7 +119,7 @@ exports.getBlogById = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
 
-    if (!blog) return res.status(404).json({ message: "Blog not found" });
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
 
     res.status(200).json(blog);
   } catch (error) {
