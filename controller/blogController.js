@@ -156,17 +156,24 @@ exports.updateBlog = async (req, res) => {
       return res.status(400).json({ error: "Invalid Blog ID" });
     }
 
+    // Prepare the update object
+    const updateFields = {
+      title,
+      description,
+      url,
+      image,
+      show: show !== undefined ? show : 1, // Default to 1 (visible) if not provided
+    };
+
+    // Include publishDate only if provided
+    if (publishDate !== undefined) {
+      updateFields.publishDate = publishDate;
+    }
+
     // Find and update the blog
     const updatedBlog = await Blog.findByIdAndUpdate(
       id,
-      {
-        title,
-        description,
-        url,
-        image,
-        show: show !== undefined ? show : 1,  // default to 1 (visible) if not provided
-        publishDate: publishDate || Date.now(),  // default to current date if not provided
-      },
+      updateFields,
       { new: true, runValidators: true } // Ensures validation
     );
 
@@ -175,7 +182,9 @@ exports.updateBlog = async (req, res) => {
       return res.status(404).json({ error: "Blog not found" });
     }
 
+    // Log the update
     addLog('Update Blog', userId, `Updated blog with title: ${updatedBlog.title}`);
+
     // Success response
     res.status(200).json(updatedBlog);
   } catch (error) {
@@ -183,6 +192,7 @@ exports.updateBlog = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // Delete a blog
 exports.deleteBlog = async (req, res) => {
