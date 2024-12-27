@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const PlanSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  planKey:  { type: String },
   price: { type: Number, required: true },
   subtitle: { type: String, required: true },
   benefits: [{ type: String }],
@@ -14,6 +15,8 @@ const PlanSchema = new mongoose.Schema({
     },
   },
   status: { type: String, enum: ["Active", "Inactive"], default: "Inactive" },
+  tag: { type: String, default: "" },
+  sortOrder: { type: Number, default: 0 }
 });
 
 const Plan = mongoose.model("Plan", PlanSchema);

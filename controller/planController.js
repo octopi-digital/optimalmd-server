@@ -129,3 +129,87 @@ exports.updatePlanStatus = async (req, res) => {
     });
   }
 };
+
+exports.updatePlanPosition = async (req, res) => {
+  const { id } = req.params;
+  const { newPosition } = req.body;
+
+  console.log('Received newPosition:', newPosition); // Debugging line
+
+  if (typeof newPosition !== "number") {
+    return res.status(400).json({ message: "Invalid new position provided" });
+  }
+
+  try {
+    // Find the plan to update
+    const planToMove = await Plan.findById(id);
+    if (!planToMove) {
+      return res.status(404).json({ message: "Plan not found" });
+    }
+
+    const currentOrder = planToMove.sortOrder;
+
+    // Update positions of other plans
+    if (currentOrder < newPosition) {
+      // Shift plans down between current position and new position
+      await Plan.updateMany(
+        { sortOrder: { $gt: currentOrder, $lte: newPosition } },
+        { $inc: { sortOrder: -1 } }
+      );
+    } else if (currentOrder > newPosition) {
+      // Shift plans up between new position and current position
+      await Plan.updateMany(
+        { sortOrder: { $lt: currentOrder, $gte: newPosition } },
+        { $inc: { sortOrder: 1 } }
+      );
+    }
+
+    // Update the sortOrder of the current plan
+    planToMove.sortOrder = newPosition;
+    await planToMove.save();
+
+    res.status(200).json({
+      message: "Plan position updated successfully",
+      plan: planToMove,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error updating plan position", error: error.message });
+  }
+};
+
+// Update a plan's tag (set it to "Popular" or empty)
+exports.updatePlanTag = async (req, res) => {
+  const { id } = req.params;
+  const { tag } = req.body; // Assuming tag is sent in the body
+
+  // Validate tag value
+  if (tag !== "Popular" && tag !== "") {
+    return res.status(400).json({
+      message: "Invalid tag provided. Only 'Popular' or empty string are allowed.",
+    });
+  }
+
+  try {
+    // Find the plan to update
+    const plan = await Plan.findById(id);
+    if (!plan) {
+      return res.status(404).json({ message: "Plan not found" });
+    }
+
+    // Update the tag value
+    plan.tag = tag;
+    await plan.save();
+
+    res.status(200).json({
+      message: "Plan tag updated successfully",
+      plan: plan,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error updating plan tag",
+      error: error.message,
+    });
+  }
+};

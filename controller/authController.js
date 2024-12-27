@@ -15,6 +15,7 @@ const {
   authorizedDotNetURL,
   frontendBaseURL,
 } = require("../baseURL");
+const Plan = require("../model/planSchema");
 const { addLog } = require("./logController");
 
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
@@ -112,6 +113,7 @@ async function register(req, res) {
   try {
     const {
       plan,
+      planKey,
       dob,
       cardNumber,
       cvc,
@@ -124,7 +126,8 @@ async function register(req, res) {
       couponCode,
       ...userData
     } = req.body;
-
+    const userPlan = await Plan.findOne({ planKey });
+    // console.log(userPlan)
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
     const rawRoutingNumber = customDecrypt(routingNumber);
@@ -140,9 +143,10 @@ async function register(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -180,9 +184,7 @@ async function register(req, res) {
       { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
     );
     if (emailCheck.data.StatusCode == "1") {
-      return res
-        .status(400)
-        .json({ error: "Email already exists" });
+      return res.status(400).json({ error: "Email already exists" });
     }
 
     // Generate random password and hash it
@@ -227,30 +229,33 @@ async function register(req, res) {
     const planStartDate = moment().format("MM/DD/YYYY");
     let planEndDate, amount;
 
-    switch (plan) {
-      case "Trial":
-        planEndDate = moment().add(10, "days").format("MM/DD/YYYY");
-        amount = 10;
-        break;
-      case "Plus":
-        planEndDate = moment().add(1, "months").format("MM/DD/YYYY");
-        amount = 97;
-        break;
-      case "Access":
-        planEndDate = moment().add(3, "months").format("MM/DD/YYYY");
-        amount = 97;
-        break;
-      case "Premiere":
-        planEndDate = moment().add(6, "months").format("MM/DD/YYYY");
-        amount = 97;
-        break;
-      default:
-        return res.status(400).json({ error: "Invalid plan type" });
-    }
+    // switch (plan) {
+    //   case "Trial":
+    planEndDate = moment()
+      .add(userPlan.duration.value, userPlan.duration.unit)
+      .format("MM/DD/YYYY");
+    amount = userPlan.price;
+    //     break;
+    //   case "Plus":
+    //     planEndDate = moment().add(1, "months").format("MM/DD/YYYY");
+    //     amount = 97;
+    //     break;
+    //   case "Access":
+    //     planEndDate = moment().add(3, "months").format("MM/DD/YYYY");
+    //     amount = 97;
+    //     break;
+    //   case "Premiere":
+    //     planEndDate = moment().add(6, "months").format("MM/DD/YYYY");
+    //     amount = 97;
+    //     break;
+    //   default:
+    //     return res.status(400).json({ error: "Invalid plan type" });
+    // }
     let discount = 0;
 
     // Process Coupon Apply
     if (couponCode) {
+      console.log("Before Coupon: ", amount);
       const coupon = await Coupon.findOne({ couponCode });
 
       if (!coupon) {
@@ -268,7 +273,7 @@ async function register(req, res) {
       // Check if the coupon is applicable to the selected plan
       if (
         coupon.selectedPlans.length > 0 &&
-        !coupon.selectedPlans.includes(plan)
+        !coupon.selectedPlans.includes(planKey)
       ) {
         return res
           .status(400)
@@ -300,6 +305,8 @@ async function register(req, res) {
 
       // Adjust amount
       amount = amount - discount;
+
+      console.log("After Coupon: ", amount);
     }
 
     // Process Payment
@@ -362,6 +369,7 @@ async function register(req, res) {
       ...userData,
       dob: dob,
       password: hashedPassword,
+      planKey,
       plan,
       planStartDate,
       planEndDate,
@@ -384,13 +392,12 @@ async function register(req, res) {
       );
     }
 
-
-
     // Save Payment Record
     const paymentRecord = new Payment({
       userId: newUser._id,
       amount,
       plan,
+      planKey,
       transactionId,
       paymentReason: "Plan Purchase(Registration)",
     });
@@ -414,7 +421,11 @@ async function register(req, res) {
     );
 
     // Log the registration
-    addLog("User Registration", newUser._id, `New user registrar with title: ${newUser.firstName}`);
+    addLog(
+      "User Registration",
+      newUser._id,
+      `New user registrar with title: ${newUser.firstName}`
+    );
 
     res.status(201).json({
       message: "User created successfully, payment recorded, and email sent",
@@ -451,9 +462,10 @@ async function updateUser(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -474,10 +486,8 @@ async function updateUser(req, res) {
     }
     console.log("lyric login reponse: ", loginResponse.data);
 
-    const stagingPlanId =
-      user.plan === "Trial" || user.plan === "Plus" ? "2322" : "2323";
-    const prodPlanId =
-      user.plan === "Trial" || user.plan === "Plus" ? "4690" : "4692";
+    const stagingPlanId = user.planKey === "ACCESS" ? "2322" : "2323";
+    const prodPlanId = user.planKey === "ACCESS" ? "4690" : "4692";
 
     // Prepare `createMember` API payload
     const createMemberData = new FormData();
@@ -487,10 +497,11 @@ async function updateUser(req, res) {
       `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
     );
     createMemberData.append("planId", production ? prodPlanId : stagingPlanId);
-    createMemberData.append(
-      "planDetailsId",
-      user.plan === "Trial" || user.plan === "Plus" ? "3" : "1"
-    );
+    createMemberData.append("planDetailsId", "3");
+    // createMemberData.append(
+    //   "planDetailsId",
+    //   user.planKey === "ACCESS" ? "1" : "3"
+    // );
     createMemberData.append("firstName", userInfo.firstName);
     createMemberData.append("lastName", userInfo.lastName);
     createMemberData.append("dob", formattedDob);
@@ -513,10 +524,10 @@ async function updateUser(req, res) {
     const rxvaletUserInfo = {
       CompanyID: "12212",
       Testing: production ? "0" : "1",
-      GroupID: user.plan === "Trial" ? "OPT125" : "OPT800",
+      GroupID: user.planKey === "ACCESS" ? "OPT125" : "OPT800",
       MemberID: user?._id,
       PersonCode: "1",
-      CoverageType: user.plan === "Trial" ? "EE" : "EF",
+      CoverageType: "EF",
       StartDate: user.planStartDate,
       TermDate: user.planEndDate,
       FirstName: userInfo.firstName,
@@ -641,7 +652,11 @@ async function updateUser(req, res) {
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
 
-    addLog("Update User", userId, `Updated user with title: ${updatedUser.firstName}`);
+    addLog(
+      "Update User",
+      userId,
+      `Updated user with title: ${updatedUser.firstName}`
+    );
     res.status(200).json({
       message: "User updated successfully",
       user: userWithoutSensitiveData,
@@ -657,9 +672,10 @@ async function updateUser(req, res) {
 // update plan
 async function updateUserPlan(req, res) {
   try {
-    const { userId, plan } = req.body;
+    const { userId, plan, planKey } = req.body;
+    const selectedPlan = await Plan.findOne({ planKey });
 
-    if (!userId || !plan) {
+    if (!userId || !plan || !planKey) {
       return res.status(400).json({ error: "User ID and plan are required" });
     }
 
@@ -676,7 +692,55 @@ async function updateUserPlan(req, res) {
     }
 
     // Process Payment
-    const amount = 97;
+    let amount = selectedPlan.price;
+
+    console.log("Before amount: ", amount);
+    let couponCode = "";
+    let discount = 0;
+
+    if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
+      const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
+
+      if (!coupon) {
+        discount = 0;
+      } else {
+        console.log("coupon: ", coupon);
+        if (
+          coupon.status === "Active" &&
+          (!coupon.selectedPlans.length || coupon.selectedPlans.includes(planKey)) &&
+          (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
+          coupon.recurringOrFuturePayments
+        ) {
+          // Calculate the discount based on coupon type
+          if (coupon.couponType === "Percentage") {
+            discount = (amount * coupon.discountOffered) / 100;
+          } else if (coupon.couponType === "Fixed Amount") {
+            discount = coupon.discountOffered;
+          } else {
+            discount = 0;
+          }
+
+          console.log("Discount: ", discount);
+
+          // Ensure the discount doesn't exceed the amount
+          if (discount > amount) {
+            discount = 0;
+          } else {
+            couponCode = coupon.couponCode;
+          }
+        } else {
+          // Return an error if coupon is invalid or not applicable
+          discount = 0;
+          couponCode = "";
+        }
+      }
+    }
+
+    // Subtract the discount from the total amount
+    amount -= discount;
+
+    console.log("After amount: ", amount);
+
     let paymentMethod;
 
     if (user.paymentOption === "Card") {
@@ -738,11 +802,24 @@ async function updateUserPlan(req, res) {
       userId: user._id,
       amount: amount,
       plan: plan,
+      planKey: planKey,
       transactionId: paymentResponse?.data?.transactionResponse?.transId,
-      paymentReason: "Update Plan",
+      paymentReason: `Update Plan- ${user.plan} to ${plan}`,
     });
     const paymentResp = await payment.save();
 
+
+    // Save Coupon Redemption
+    if (discount > 0 && couponCode) {
+      await Coupon.updateOne(
+        { couponCode },
+        { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
+      );
+    }
+
+    if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
+      user.appliedCoupon.push(couponCode)
+    }
     // Add payment to user's payment history
     user.paymentHistory.push(paymentResp._id);
     user.status = "Active";
@@ -756,9 +833,10 @@ async function updateUserPlan(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -777,7 +855,7 @@ async function updateUserPlan(req, res) {
 
     // RxValet integration
     const rxvaletUserInfo = {
-      GroupID: plan === "Trial" ? "OPT125" : "OPT800",
+      GroupID: planKey === "ACCESS" ? "OPT125" : "OPT800",
       MemberGUID: user?.PrimaryMemberGUID,
     };
 
@@ -799,8 +877,8 @@ async function updateUserPlan(req, res) {
       });
     }
 
-    const stagingPlanId = user.plan === "Trial" ? "2322" : "2323";
-    const prodPlanId = user.plan === "Trial" ? "4690" : "4692";
+    const stagingPlanId = planKey === "ACCESS" ? "2322" : "2323";
+    const prodPlanId = planKey === "ACCESS" ? "4690" : "4692";
 
     // Prepare `updateMember` API payload
     const updateMemberData = new FormData();
@@ -810,10 +888,11 @@ async function updateUserPlan(req, res) {
       `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
     );
     updateMemberData.append("planId", production ? prodPlanId : stagingPlanId);
-    updateMemberData.append(
-      "planDetailsId",
-      plan === "Trial" || plan === "Plus" ? "3" : "1"
-    );
+    updateMemberData.append("planDetailsId", "3");
+    // updateMemberData.append(
+    //   "planDetailsId",
+    //   planKey === "TRIAL" || planKey === "ACCESS PLUS" ? "3" : "1"
+    // );
     updateMemberData.append("effectiveDate", planStartDate);
     updateMemberData.append("terminationDate", planEndDate);
     updateMemberData.append("firstName", user.firstName);
@@ -853,6 +932,7 @@ async function updateUserPlan(req, res) {
       {
         $set: {
           plan,
+          planKey,
           planStartDate,
           planEndDate,
         },
@@ -871,7 +951,11 @@ async function updateUserPlan(req, res) {
       }
     );
 
-    addLog("Update User Plan", userId, `Updated user plan with title: ${updatedUser.firstName}`);
+    addLog(
+      "Update User Plan",
+      userId,
+      `Updated user plan with title: ${updatedUser.firstName}`
+    );
     res.status(200).json({
       message: "User Plan updated successfully",
       user: userWithoutSensitiveData,
@@ -908,7 +992,11 @@ async function updateUserImage(req, res) {
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
 
-    addLog("Update User Image", id, `Updated user image with user title: ${updatedUser.firstName}`);
+    addLog(
+      "Update User Image",
+      id,
+      `Updated user image with user title: ${updatedUser.firstName}`
+    );
 
     res.status(200).json({
       message: "User image updated successfully",
@@ -974,7 +1062,11 @@ async function login(req, res) {
         const { password, ...userWithoutSensitiveData } = user.toObject();
 
         // Log the login
-        addLog("User Login", user._id, `User logged in with title: ${user.firstName}`);
+        addLog(
+          "User Login",
+          user._id,
+          `User logged in with title: ${user.firstName}`
+        );
         return res.status(200).json({
           message: "User logged in successfully",
           user: userWithoutSensitiveData,
@@ -999,7 +1091,11 @@ async function login(req, res) {
           dependent.toObject();
 
         // Log the login
-        addLog("Dependent Login", dependent._id, `Dependent logged in with title: ${dependent.firstName}`);
+        addLog(
+          "Dependent Login",
+          dependent._id,
+          `Dependent logged in with title: ${dependent.firstName}`
+        );
         return res.status(200).json({
           message: "Dependent logged in successfully",
           user: {
@@ -1055,7 +1151,11 @@ async function changepassword(req, res) {
     await user.save();
 
     // Log the password change
-    addLog("Password Change", userId, `Password changed for user with title: ${user.firstName}`);
+    addLog(
+      "Password Change",
+      userId,
+      `Password changed for user with title: ${user.firstName}`
+    );
 
     res.status(200).json({ message: "Password updated successfully" });
   } catch (error) {
@@ -1099,9 +1199,12 @@ async function forgetPassword(req, res) {
       }
     );
 
-
     // Log the password reset apply
-    addLog("Password Reset Apply", user._id, `Password reset email sent to user with title: ${user.firstName}`);
+    addLog(
+      "Password Reset Apply",
+      user._id,
+      `Password reset email sent to user with title: ${user.firstName}`
+    );
 
     res.status(200).json({ message: "Password reset email sent" });
   } catch (error) {
@@ -1132,7 +1235,11 @@ async function resetPassword(req, res) {
     await user.save();
 
     // Log the password reset
-    addLog("Password Reset", user._id, `Password reset for user with title: ${user.firstName}`);
+    addLog(
+      "Password Reset",
+      user._id,
+      `Password reset for user with title: ${user.firstName}`
+    );
     res.status(200).json({ message: "Password reset successfully" });
   } catch (error) {
     console.error("Error resetting password:", error);
@@ -1161,6 +1268,8 @@ async function updateUserStatus(req, res) {
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
+    const userPlan = await Plan.findOne({ planKey: user.planKey });
+    const plus = await Plan.findOne({ planKey: "ACCESS PLUS" });
 
     const formattedDob = moment(user.dob).format("MM/DD/YYYY");
     // payment method method condition
@@ -1197,7 +1306,11 @@ async function updateUserStatus(req, res) {
       await user.save();
 
       // Log the user status update
-      addLog("Update User Status", currentUserId, `Updated user status to ${status} with title: ${user.firstName}`);
+      addLog(
+        "Update User Status",
+        currentUserId,
+        `Updated user status to ${status} with title: ${user.firstName}`
+      );
 
       // Populate dependents and paymentHistory
       await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
@@ -1208,7 +1321,55 @@ async function updateUserStatus(req, res) {
       // sending email
       if (status === "Active") {
         try {
-          const amount = 97;
+          let amount = plus.price;
+
+          console.log("Before amount: ", amount);
+          let couponCode = "";
+          let discount = 0;
+
+          if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
+            const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
+
+            if (!coupon) {
+              discount = 0;
+            } else {
+              console.log("coupon: ", coupon);
+              if (
+                coupon.status === "Active" &&
+                (!coupon.selectedPlans.length || coupon.selectedPlans.includes(plus.planKey)) &&
+                (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
+                coupon.recurringOrFuturePayments
+              ) {
+                // Calculate the discount based on coupon type
+                if (coupon.couponType === "Percentage") {
+                  discount = (amount * coupon.discountOffered) / 100;
+                } else if (coupon.couponType === "Fixed Amount") {
+                  discount = coupon.discountOffered;
+                } else {
+                  discount = 0;
+                }
+
+                console.log("Discount: ", discount);
+
+                // Ensure the discount doesn't exceed the amount
+                if (discount > amount) {
+                  discount = 0;
+                } else {
+                  couponCode = coupon.couponCode;
+                }
+              } else {
+                // Return an error if coupon is invalid or not applicable
+                discount = 0;
+                couponCode = "";
+              }
+            }
+          }
+
+          // Subtract the discount from the total amount
+          amount -= discount;
+
+          console.log("After amount: ", amount);
+
           const paymentResponse = await axios.post(
             `${authorizedDotNetURL}/xml/v1/request.api`,
             {
@@ -1239,7 +1400,8 @@ async function updateUserStatus(req, res) {
           const payment = new Payment({
             userId: user._id,
             amount: amount,
-            plan: "Plus",
+            plan: plus.name,
+            planKey: plus.planKey,
             transactionId: paymentResponse?.data?.transactionResponse?.transId,
             paymentReason: "Account Activated And using Access Plus Plan",
           });
@@ -1255,6 +1417,19 @@ async function updateUserStatus(req, res) {
             }
           );
           console.log(resp.data);
+
+          // Save Coupon Redemption
+          if (discount > 0 && couponCode) {
+            await Coupon.updateOne(
+              { couponCode },
+              { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
+            );
+
+          }
+
+          if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
+            user.appliedCoupon.push(couponCode)
+          }
 
           // Add payment to user's payment history
           user.paymentHistory.push(payment._id);
@@ -1283,9 +1458,10 @@ async function updateUserStatus(req, res) {
       const cenSusloginData = new FormData();
       cenSusloginData.append(
         "email",
-        `${production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+        `${
+          production
+            ? "mtmoptim01@mytelemedicine.com"
+            : "mtmstgopt01@mytelemedicine.com"
         }`
       );
       cenSusloginData.append(
@@ -1316,7 +1492,53 @@ async function updateUserStatus(req, res) {
         getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
         UpdatePlanGetLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
         // Process Payment
-        const amount = 97;
+        let amount = userPlan.planKey === "TRIAL" || plus.planKey ? plus.price : userPlan.price;
+        console.log("Before amount: ", amount);
+        let couponCode = "";
+        let discount = 0;
+
+        if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
+          const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
+
+          if (!coupon) {
+            discount = 0;
+          } else {
+            console.log("coupon: ", coupon);
+            if (
+              coupon.status === "Active" &&
+              (!coupon.selectedPlans.length || coupon.selectedPlans.includes(userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey)) &&
+              (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
+              coupon.recurringOrFuturePayments
+            ) {
+              // Calculate the discount based on coupon type
+              if (coupon.couponType === "Percentage") {
+                discount = (amount * coupon.discountOffered) / 100;
+              } else if (coupon.couponType === "Fixed Amount") {
+                discount = coupon.discountOffered;
+              } else {
+                discount = 0;
+              }
+
+              console.log("Discount: ", discount);
+
+              // Ensure the discount doesn't exceed the amount
+              if (discount > amount) {
+                discount = 0;
+              } else {
+                couponCode = coupon.couponCode;
+              }
+            } else {
+              // Return an error if coupon is invalid or not applicable
+              discount = 0;
+              couponCode = "";
+            }
+          }
+        }
+
+        // Subtract the discount from the total amount
+        amount -= discount;
+
+        console.log("After amount: ", amount);
         try {
           const paymentResponse = await axios.post(
             `${authorizedDotNetURL}/xml/v1/request.api`,
@@ -1361,15 +1583,43 @@ async function updateUserStatus(req, res) {
           const payment = new Payment({
             userId: user._id,
             amount: amount,
-            plan: "Plus",
+            plan:
+              userPlan.planKey === "TRIAL" || plus.planKey
+                ? plus.name
+                : userPlan.name,
+            planKey:
+              userPlan.planKey === "TRIAL" || plus.planKey
+                ? plus.planKey
+                : userPlan.planKey,
             transactionId: result.transactionResponse.transId,
             paymentReason: "Account Activated And using Access Plus Plan",
           });
           await payment.save();
 
+
+          // Save Coupon Redemption
+          if (discount > 0 && couponCode) {
+            await Coupon.updateOne(
+              { couponCode },
+              { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
+            );
+          }
+          // Add coupon code to user's appliedCoupon array
+          if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
+            user.appliedCoupon.push(couponCode)
+          }
           // Add payment to user's payment history
           user.paymentHistory.push(payment._id);
-          user.plan = "Plus";
+          // user.plan = userPlan.planKey === "TRIAL" ? plus.name : userPlan.name;
+          user.plan =
+            userPlan.planKey === "TRIAL" || plus.planKey
+              ? plus.name
+              : userPlan.name;
+          user.planKey =
+            userPlan.planKey === "TRIAL" || plus.planKey
+              ? plus.planKey
+              : userPlan.planKey;
+          await user.save();
         } catch (error) {
           console.error("Payment Processing Error:", error.message);
           return res
@@ -1397,8 +1647,9 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("GetLyric API Error:", err);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on GetLyric API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on GetLyric API.`,
           error: err,
         });
       }
@@ -1421,16 +1672,15 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("RxValet API Error:", err.message);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on RxValet API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on RxValet API.`,
           error: err.message,
         });
       }
 
-      const stagingPlanId =
-        user.plan === "Trial" || user.plan === "Plus" ? "2322" : "2323";
-      const prodPlanId =
-        user.plan === "Trial" || user.plan === "Plus" ? "4692" : "4690";
+      const stagingPlanId = user.plan === "ACCESS" ? "2322" : "2323";
+      const prodPlanId = user.plan === "ACCESS" ? "4690" : "4692";
 
       if (status === "Active") {
         // update getlyric to plus plan
@@ -1480,7 +1730,7 @@ async function updateUserStatus(req, res) {
 
         // update rxvalet to plus plan
         const rxvaletUserInfo = {
-          GroupID: "OPT800",
+          GroupID: userPlan.planKey === "ACCESS" ? "OPT125" : "OPT800",
           MemberGUID: user?.PrimaryMemberGUID,
         };
 
@@ -1521,10 +1771,12 @@ async function updateUserStatus(req, res) {
       await user.save();
       const { password, ...userWithoutSensitiveData } = user.toObject();
 
-
-
       // Log the user status update
-      addLog("Update User Status", currentUserId, `Updated user status to ${status} with title: ${user.firstName}`);
+      addLog(
+        "Update User Status",
+        currentUserId,
+        `Updated user status to ${status} with title: ${user.firstName}`
+      );
 
       // Populate dependents and paymentHistory
       await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
@@ -1568,7 +1820,11 @@ async function manageUserRole(req, res) {
     await user.save();
 
     // Log the user role update
-    addLog("Update User Role", currentUserId, `Updated user role to ${role} with title: ${user.firstName}`);
+    addLog(
+      "Update User Role",
+      currentUserId,
+      `Updated user role to ${role} with title: ${user.firstName}`
+    );
 
     res.json({
       message: `User role successfully updated to ${role}.`,
