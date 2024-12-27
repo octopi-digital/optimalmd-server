@@ -71,13 +71,16 @@ exports.getAllBlogs = async (req, res) => {
     if (startDate || endDate) {
       const dateFilter = {};
       if (startDate) {
-        dateFilter.$gte = new Date(startDate); // Start date
+        dateFilter.$gte = new Date(startDate); // Start date at 00:00:00
       }
       if (endDate) {
-        dateFilter.$lte = new Date(endDate); // End date
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999); // End date at 23:59:59
+        dateFilter.$lte = endDateTime;
       }
       filters.publishDate = dateFilter;
     }
+    
 
     // Fetch blogs with filters, pagination, and sorting
     const blogs = await Blog.find(filters)
