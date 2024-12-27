@@ -132,9 +132,7 @@ cron.schedule("0 0 * * *", async () => {
         if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
           const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
 
-          if (!coupon) {
-            discount = 0;
-          } else {
+          if (coupon) {
             console.log("coupon: ", coupon);
             if (
               coupon.status === "Active" &&
@@ -147,28 +145,17 @@ cron.schedule("0 0 * * *", async () => {
                 discount = (amount * coupon.discountOffered) / 100;
               } else if (coupon.couponType === "Fixed Amount") {
                 discount = coupon.discountOffered;
-              } else {
-                discount = 0;
-              }
-
+              } 
               console.log("Discount: ", discount);
+              amount -= discount;
 
-              // Ensure the discount doesn't exceed the amount
-              if (discount > amount) {
-                discount = 0;
-              } else {
-                couponCode = coupon.couponCode;
+              if (amount < 0) {
+                amount = 0;
               }
-            } else {
-              // Return an error if coupon is invalid or not applicable
-              discount = 0;
-              couponCode = "";
-            }
+              couponCode = coupon.couponCode;
+            } 
           }
         }
-
-        // Subtract the discount from the total amount
-        amount -= discount;
 
         console.log("After amount: ", amount);
         // Payment processing logic
@@ -245,8 +232,8 @@ cron.schedule("0 0 * * *", async () => {
         const payment = new Payment({
           userId: user._id,
           amount: amount,
-          plan: userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name ,
-          planKey: userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey ,
+          plan: userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name,
+          planKey: userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey,
           transactionId: result.transactionResponse.transId,
           paymentReason: "User plan upgraded/Renew to Access Plus"
         });
@@ -351,7 +338,7 @@ cron.schedule("0 0 * * *", async () => {
 
         // update rxvalet to plus plan
         const rxvaletUserInfo = {
-          GroupID: userPlan.planKey === "TRIAL" || plus.planKey ? "OPT800" : "OPT125" ,
+          GroupID: userPlan.planKey === "TRIAL" || plus.planKey ? "OPT800" : "OPT125",
           MemberGUID: user?.PrimaryMemberGUID,
         };
 
