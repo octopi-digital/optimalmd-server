@@ -5,13 +5,78 @@ const Org = require("../model/orgSchema");
 // Create a new organization
 const createOrg = async (req, res) => {
     try {
+        const {
+            orgName,
+            orgEmail,
+            orgPhone,
+            primaryContactFirstName,
+            primaryContactLastName,
+            primaryContactEmail,
+            primaryContactPhone
+        } = req.body;
+
+        // Validate required fields
+        if (!orgName || !orgEmail || !orgPhone || !primaryContactFirstName || !primaryContactLastName || !primaryContactEmail || !primaryContactPhone) {
+            return res.status(400).json({
+                error: "Missing required fields. Please provide all required information.",
+                requiredFields: [
+                    "orgName",
+                    "orgEmail",
+                    "orgPhone",
+                    "primaryContactFirstName",
+                    "primaryContactLastName",
+                    "primaryContactEmail",
+                    "primaryContactPhone",
+                ]
+            });
+        }
+
+        // Check for valid email formats
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(orgEmail)) {
+            return res.status(400).json({ error: "Invalid organization email format." });
+        }
+        if (!emailRegex.test(primaryContactEmail)) {
+            return res.status(400).json({ error: "Invalid primary contact email format." });
+        }
+
+        // Check for valid phone number format (example regex for 10-15 digit numbers)
+        const phoneRegex = /^\d{10,15}$/;
+        if (!phoneRegex.test(orgPhone)) {
+            return res.status(400).json({ error: "Invalid organization phone number format. Must be 10-15 digits." });
+        }
+        if (!phoneRegex.test(primaryContactPhone)) {
+            return res.status(400).json({ error: "Invalid primary contact phone number format. Must be 10-15 digits." });
+        }
+
+        // Check for unique fields (orgName, orgEmail, primaryContactEmail)
+        const existingOrg = await Org.findOne({
+            $or: [{ orgName }, { orgEmail }, { primaryContactEmail }]
+        });
+        if (existingOrg) {
+            return res.status(409).json({
+                error: "An organization with the same name, email, or primary contact email already exists."
+            });
+        }
+
+        // Create and save the organization
         const newOrg = new Org(req.body);
         const savedOrg = await newOrg.save();
+
+        // Respond with success
         res.status(201).json(savedOrg);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // Handle validation errors or other issues
+        if (err.name === "ValidationError") {
+            const messages = Object.values(err.errors).map(e => e.message);
+            return res.status(400).json({ error: "Validation Error", details: messages });
+        }
+
+        // Internal server error
+        res.status(500).json({ error: "Internal Server Error", details: err.message });
     }
 };
+
 
 // Get all organizations with optional filtering by orgName or primaryContactEmail
 const getOrgs = async (req, res) => {

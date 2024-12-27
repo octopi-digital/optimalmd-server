@@ -1,39 +1,38 @@
 const mongoose = require("mongoose");
 
 const orgSchema = new mongoose.Schema({
-
-    orgName: { type: String, default: "" },
+    orgName: { type: String, required: true, unique: true }, 
     orgType: { type: String, default: "" },
-    orgEmail: { type: String, default: "" },
-    orgPhone: { type: String, default: "" },
+    orgEmail: { type: String, required: true, unique: true }, 
+    orgPhone: { type: String, required: true }, 
     paidByMember: {
         type: String,
-        enum: ["No", "Yes",],
-        default: "No"
+        enum: ["No", "Yes"],
+        default: "No",
     },
     orgImage: { type: String, default: "" },
 
-    // address
+    // Address
     orgAddress: { type: String, default: "" },
     orgCity: { type: String, default: "" },
     orgState: { type: String, default: "" },
     orgZip: { type: String, default: "" },
 
-    // primary contact info
-    primaryContactFirstName: { type: String, default: "" },
-    primaryContactLastName: { type: String, default: "" },
-    primaryContactEmail: { type: String, default: "" },
-    primaryContactPhone: { type: String, default: "" },
+    // Primary contact info
+    primaryContactFirstName: { type: String, required: true }, 
+    primaryContactLastName: { type: String, required: true }, 
+    primaryContactEmail: { type: String, required: true, unique: true }, 
+    primaryContactPhone: { type: String, required: true }, 
 
-    // billing contact info
+    // Billing contact info
     billingContactFirstName: { type: String, default: "" },
     billingContactLastName: { type: String, default: "" },
     billingContactEmail: { type: String, default: "" },
     billingContactPhone: { type: String, default: "" },
 
-    // payment info
+    // Payment info
     paymentOption: { type: String, default: "" },
-    cardNumber: { type: String, default: "" },
+    cardNumber: { type: String, default: "" }, 
     expiration: { type: String, default: "" },
     cvc: { type: String, default: "" },
 
@@ -42,7 +41,8 @@ const orgSchema = new mongoose.Schema({
         ref: "User",
         default: [],
     },
-    joiningDate: { type: Date, default: Date.now },
+    joiningDate: { type: Date, default: Date.now, required: true }, 
 });
 
 module.exports = mongoose.model("Org", orgSchema);
+
