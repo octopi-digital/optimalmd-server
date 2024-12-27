@@ -186,6 +186,11 @@ exports.createCoupon = async (req, res) => {
       couponStatus = "Expired"; // Coupon is expired
     }
 
+    let updatedRedeemCount = numberOfRedeem;
+    if (numberOfRedeem === undefined || numberOfRedeem === null || numberOfRedeem < 1) {
+      updatedRedeemCount = -1;
+    }
+
     // If all checks pass, save the coupon
     const newCoupon = new Coupon({
       couponName,
@@ -196,7 +201,7 @@ exports.createCoupon = async (req, res) => {
       startTime,
       endDate,
       endTime,
-      numberOfRedeem,
+      numberOfRedeem: updatedRedeemCount,
       selectedPlans,
       useLimit,
       recurringOrFuturePayments,
@@ -434,6 +439,11 @@ exports.updateCoupon = async (req, res) => {
       couponStatus = "Expired"; // Coupon is expired
     }
 
+    let updatedRedeemCount = numberOfRedeem;
+    if (numberOfRedeem === undefined || numberOfRedeem === null || numberOfRedeem < 1) {
+      updatedRedeemCount = -1;
+    }
+
     // Update the coupon with the new details
     const updatedCoupon = await Coupon.findByIdAndUpdate(
       req.params.id,
@@ -446,7 +456,7 @@ exports.updateCoupon = async (req, res) => {
         startTime: startTime || existingCoupon.startTime,
         endDate: endDate || existingCoupon.endDate,
         endTime: endTime || existingCoupon.endTime,
-        numberOfRedeem,
+        numberOfRedeem: updatedRedeemCount,
         selectedPlans,
         useLimit,
         recurringOrFuturePayments,

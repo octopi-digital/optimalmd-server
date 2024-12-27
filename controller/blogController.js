@@ -147,7 +147,7 @@ exports.updateBlog = async (req, res) => {
         url,
         image,
         show: show !== undefined ? show : 1,  // default to 1 (visible) if not provided
-        publishDate: publishDate || Date.now(),  // default to current date if not provided
+        publishDate: publishDate,  // default to current date if not provided
       },
       { new: true, runValidators: true } // Ensures validation
     );
