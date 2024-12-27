@@ -3,7 +3,7 @@ const Plan = require("../model/planSchema");
 
 // Create a new plan
 exports.createPlan = async (req, res) => {
-  const { name, price, subtitle, benefits, duration } = req.body;
+  const { name, price, subtitle, benefits, duration, planKey, planType } = req.body;
   // Validate inputs
   if (!name || !price || !subtitle || !benefits || !duration) {
     return res.status(400).json({ message: "Invalid data provided" });
