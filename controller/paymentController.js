@@ -414,7 +414,7 @@ async function paymentRefund(req, res) {
           routingNumber: customDecrypt(user.routingNumber),
           accountNumber: customDecrypt(user.accountNumber),
           nameOnAccount: user.accountName,
-          bankName : user.bankName,
+          bankName: user.bankName,
         },
       };
     }

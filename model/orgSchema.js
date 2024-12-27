@@ -30,9 +30,13 @@ const orgSchema = new mongoose.Schema({
     billingContactEmail: { type: String, default: "" },
     billingContactPhone: { type: String, default: "" },
 
-    // Payment info
-    paymentOption: { type: String, default: "" },
-    cardNumber: { type: String, default: "" }, 
+    // Payment details
+    paymentOption: { type: String, enum: ["Card", "Bank"], default: "Card" },
+    bankName: { type: String, default: "" },
+    accountName: { type: String, default: "" },
+    accountNumber: { type: String, default: "" },
+    routingNumber: { type: String, default: "" },
+    cardNumber: { type: String, default: "" },
     expiration: { type: String, default: "" },
     cvc: { type: String, default: "" },
 
