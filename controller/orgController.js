@@ -98,7 +98,9 @@ const getOrgs = async (req, res) => {
             orgType, // Separate filter for orgType
             paymentOption, // Filter for payment method (Card or Bank)
             page = 1, 
-            limit = 10
+            limit = 10,
+            startDate,
+            endDate
         } = req.query;
 
         // Validate pagination parameters
@@ -134,6 +136,24 @@ const getOrgs = async (req, res) => {
         // If paymentOption is provided, add it to the filter (either 'Card' or 'Bank')
         if (paymentOption) {
             filter.paymentOption = paymentOption; // Match exactly 'Card' or 'Bank'
+        }
+
+        // If startDate or endDate is provided, add date range filter
+        if (startDate || endDate) {
+            const dateFilter = {};
+            if (startDate) {
+                // Normalize startDate to the start of the day in UTC
+                const startOfDay = new Date(startDate);
+                startOfDay.setUTCHours(0, 0, 0, 0);
+                dateFilter.$gte = startOfDay;
+            }
+            if (endDate) {
+                // Normalize endDate to the end of the day in UTC
+                const endOfDay = new Date(endDate);
+                endOfDay.setUTCHours(23, 59, 59, 999);
+                dateFilter.$lte = endOfDay;
+            }
+            filter.createdAt = dateFilter;
         }
 
         // Calculate skip and limit for pagination

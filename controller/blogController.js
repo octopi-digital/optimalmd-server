@@ -71,12 +71,16 @@ exports.getAllBlogs = async (req, res) => {
     if (startDate || endDate) {
       const dateFilter = {};
       if (startDate) {
-        dateFilter.$gte = new Date(startDate); // Start date at 00:00:00
+        // Normalize startDate to the start of the day in UTC
+        const startOfDay = new Date(startDate);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        dateFilter.$gte = startOfDay;
       }
       if (endDate) {
-        const endDateTime = new Date(endDate);
-        endDateTime.setHours(23, 59, 59, 999); // End date at 23:59:59
-        dateFilter.$lte = endDateTime;
+        // Normalize endDate to the end of the day in UTC
+        const endOfDay = new Date(endDate);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        dateFilter.$lte = endOfDay;
       }
       filters.publishDate = dateFilter;
     }
