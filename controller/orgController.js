@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const Org = require("../model/orgSchema");
+const { addLog } = require("./logController");
 
 // Create a new organization
 const createOrg = async (req, res) => {
