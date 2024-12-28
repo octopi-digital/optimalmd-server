@@ -304,6 +304,36 @@ exports.getCouponById = async (req, res) => {
   }
 };
 
+exports.getCouponByCode = async (req, res) => {
+  try {
+    const { code } = req.body; // Destructure from body
+    const { couponCode, planKey } = code; // Logs the coupon code
+    // console.log("Plan Key:", planKey);
+    if (!couponCode) {
+      return res.status(400).json({ message: "Coupon code is required" });
+    }
+
+    const coupon = await Coupon.findOne({ couponCode: couponCode });
+    if (!coupon) {
+      return res.status(404).json({ message: "Coupon is invalid" });
+    }
+
+    if (!coupon.selectedPlans.includes(planKey)) {
+      return res.status(400).json({ message: "This coupon is not valid for the selected plan." });
+    }
+    if (!coupon.status === "Active") {
+      return res.status(400).json({ message: `This coupon is ${coupon.status}` });
+    }
+
+    res.status(200).json(coupon);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+
 // Update a coupon by ID
 exports.updateCoupon = async (req, res) => {
   try {

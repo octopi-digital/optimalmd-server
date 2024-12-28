@@ -2,7 +2,8 @@ const mongoose = require("mongoose");
 
 const PlanSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  planKey:  { type: String },
+  planKey: { type: String, enum: ["TRIAL", "ACCESS", "ACCESS PLUS"], required: true },
+  planType: { type: String, enum: ["Organization", "Normal"], required: true },
   price: { type: Number, required: true },
   subtitle: { type: String, required: true },
   benefits: [{ type: String }],
