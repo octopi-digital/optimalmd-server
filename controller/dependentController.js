@@ -520,6 +520,23 @@ async function getDependentsByUserId(req, res) {
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
+async function getDependentById(req, res) {
+  try {
+
+    const dependent = await Dependent.findById(req.params.id);
+   
+    if (!dependent) {
+      return res
+        .status(404)
+        .json({ message: "No dependent found for this user" });
+    }
+
+    res.status(200).json(dependent);
+  } catch (error) {
+    console.error("Error fetching dependent by ID:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
 
 // update dependent image
 async function updateDependentImage(req, res) {
@@ -571,5 +588,6 @@ module.exports = {
   updateDependent,
   deleteDependent,
   getDependentsByUserId,
+  getDependentById,
   updateDependentImage,
 };

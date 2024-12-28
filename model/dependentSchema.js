@@ -47,6 +47,8 @@ const dependentSchema = new mongoose.Schema({
 
   // rxvalet
   rxvaletDependentId: { type: String, default: "" },
-});
+},
+  { timestamps: true },
+);
 
 module.exports = mongoose.model("Dependent", dependentSchema);

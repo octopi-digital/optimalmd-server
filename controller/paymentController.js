@@ -373,7 +373,7 @@ async function paymentRefund(req, res) {
       refundRequest,
       { headers: { "Content-Type": "application/json" } }
     );
-
+    let terminationDate, memberActive, getLyricUrl;
     const refundResult = response.data;
     if (refundResult?.transactionResponse?.transId !== "0") {
       payment.isRefunded = true;
@@ -399,7 +399,6 @@ async function paymentRefund(req, res) {
             .status(401)
             .json({ error: "Authorization token missing for GetLyric." });
         }
-        let terminationDate, memberActive, getLyricUrl;
         terminationDate = moment().format("MM/DD/YYYY");
         memberActive = "0";
         getLyricUrl = `${lyricURL}/census/updateTerminationDate`;
