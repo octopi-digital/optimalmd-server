@@ -1466,7 +1466,9 @@ async function updateUserStatus(req, res) {
           }
         );
       }
-      console.log("user after-1: ",userWithoutSensitiveData);
+      const populatedUser = await user.populate(["paymentHistory","dependents"])
+
+      const { password, ...userWithoutSensitiveData } = populatedUser.toObject();
       res.json({
         message: `User status successfully updated to ${status}.`,
         user: userWithoutSensitiveData,
