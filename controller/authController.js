@@ -683,9 +683,7 @@ async function updateUser(req, res) {
     });
   } catch (error) {
     console.error("Error updating user:", error);
-    res
-      .status(error.status)
-      .json({ error: error, message: error.response.data || error });
+    res.status(error.status).json({ error: error, message: error.response.data || error });
   }
 }
 

@@ -242,14 +242,6 @@ exports.getAllCoupons = async (req, res) => {
       filters.status = status;
     }
 
-    // Filter by paymentOption
-    if (paymentOption) {
-      if (!["Bank", "Card"].includes(paymentOption)) {
-        return res.status(400).json({ error: "Invalid payment option specified. Allowed values are 'Bank' or 'Card'." });
-      }
-      filters.paymentOption = paymentOption;
-    }
-
     // Date range filter for string dates
     if (startDate || endDate) {
       const dateFilter = {};
