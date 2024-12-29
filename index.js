@@ -62,6 +62,7 @@ cron.schedule("0 0 * * *", async () => {
     const usersToUpdate = allUsers.filter((user) => {
       const formattedPlanEndDate = moment(user.planEndDate, "MM/DD/YYYY", true);
       if (!formattedPlanEndDate.isValid()) {
+        addLog("Error", user?._id, `Invalid planEndDate for user: ${user.firstName} ${user.lastName}`);
         console.error(`Invalid planEndDate for user: ${user._id}`);
         return false;
       }
@@ -157,12 +158,13 @@ cron.schedule("0 0 * * *", async () => {
 
               console.log("Discount: ", discount);
 
-              // Ensure the discount doesn't exceed the amount
-              if (discount > amount) {
-                discount = 0;
-              } else {
-                couponCode = coupon.couponCode;
+              // Apply the discount to the amount
+              amount -= discount;
+
+              if(amount < 0) {
+                amount = 0;
               }
+              couponCode = coupon.couponCode;
             } else {
               // Return an error if coupon is invalid or not applicable
               discount = 0;
@@ -170,9 +172,6 @@ cron.schedule("0 0 * * *", async () => {
             }
           }
         }
-
-        // Subtract the discount from the total amount
-        amount -= discount;
 
         console.log("After amount: ", amount);
         // Payment processing logic
@@ -256,6 +255,7 @@ cron.schedule("0 0 * * *", async () => {
           paymentReason: "User plan upgraded/Renew to Access Plus"
         });
         await payment.save();
+        addLog("Info", user?._id, `User new payment history saved successfully.`);
 
         // Save Coupon Redemption
         if (discount > 0 && couponCode) {
@@ -263,6 +263,7 @@ cron.schedule("0 0 * * *", async () => {
             { couponCode },
             { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
           );
+          addLog("Info", user?._id, `Coupon redeemed successfully.`);
 
         }
 
@@ -276,6 +277,8 @@ cron.schedule("0 0 * * *", async () => {
         user.planKey = userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey;
         await user.save();
 
+        
+
         const formattedDob = moment(user.dob).format("MM/DD/YYYY");
 
         // Update GetLyric API
@@ -288,6 +291,8 @@ cron.schedule("0 0 * * *", async () => {
           const resp = await axios.post(getLyricUrl, getLyricFormData, {
             headers: { Authorization: cenSusauthToken },
           });
+
+          addLog("Info", user?._id, `User GetLyric Api updated successfully.`);
           console.log("lyric response: ", resp.data);
         } catch (err) {
           addLog("Error", user?._id, `GetLyric API Error: ${err}`);
@@ -308,6 +313,7 @@ cron.schedule("0 0 * * *", async () => {
             rxValetFormData,
             { headers: rxValetHeaders }
           );
+          addLog("Info", user?._id, `User RxValet Api updated successfully.`);
           console.log("rxvalet resp: ", resp.data);
         } catch (err) {
           addLog("Error", user?._id, `RxValet API Error: ${err}`);
@@ -348,6 +354,8 @@ cron.schedule("0 0 * * *", async () => {
           updateMemberData,
           { headers: { Authorization: cenSusauthToken } }
         );
+
+        addLog("Info", user?._id, `User updated in Lyric system successfully.`);
         // console.log("lyrics data-: ", response.data);
         if (!response.data.success) {
           addLog("Error", user?._id, `Failed to update user in Lyric system: ${response.data}`);
@@ -373,6 +381,7 @@ cron.schedule("0 0 * * *", async () => {
           rxvaletFormData,
           { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
         );
+        addLog("Info", user?._id, `User updated in RxValet system successfully.`);
         // console.log("rxvalet data update plan: ", rxRespose.data);
         if (rxRespose.data.StatusCode !== "1") {
 
@@ -387,6 +396,8 @@ cron.schedule("0 0 * * *", async () => {
         user.planStartDate = effectiveDate;
         user.planEndDate = terminationDate;
         await user.save();
+
+        addLog("Info", user?._id, `User plan updated to ${userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name} successfully.`);
 
         await axios.post(
           "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/f5976b27-57b1-4d11-b024-8742f854e2e9",
