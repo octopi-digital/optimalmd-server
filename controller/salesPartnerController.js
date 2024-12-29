@@ -41,7 +41,7 @@ const addSalesPartner = async (req, res) => {
 const getAllSalesPartners = async (req, res) => {
   try {
     const salesPartners = await SalesPartner.find();
-    return res.status(200).json({ data: salesPartners });
+    return res.status(200).json(salesPartners);
   } catch (error) {
     console.error(error);
     return res
