@@ -149,7 +149,7 @@ async function register(req, res) {
       ...userData
     } = req.body;
     const userPlan = await Plan.findOne({ planKey });
-    // console.log(userPlan)
+    console.log(userPlan)
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
     const rawRoutingNumber = customDecrypt(routingNumber);
@@ -161,6 +161,7 @@ async function register(req, res) {
     if (existingUser) {
       return res.status(400).json({ error: "Email already exists" });
     }
+    console.log("i am here")
 
     const loginData = new FormData();
     loginData.append(
@@ -182,7 +183,6 @@ async function register(req, res) {
         .status(401)
         .json({ error: "Authorization token missing for getlyric" });
     }
-
     // check user in getlyrics
     const validateEmail = new FormData();
     validateEmail.append("email", userData.email);
@@ -378,6 +378,7 @@ async function register(req, res) {
       },
       { headers: { "Content-Type": "application/json" } }
     );
+    console.log(paymentResponse)
 
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
 
@@ -683,9 +684,7 @@ async function updateUser(req, res) {
     });
   } catch (error) {
     console.error("Error updating user:", error);
-    res
-      .status(error.status)
-      .json({ error: error, message: error.response.data || error });
+    res.status(error.status).json({ error: error, message: error.response.data || error });
   }
 }
 
@@ -1096,7 +1095,7 @@ async function login(req, res) {
     // If not a user, check the Dependent schema
     const dependent = await Dependent.findOne({
       email: req.body.email,
-    }).populate("primaryUser", "plan"); // Populate the primaryUser field to access the plan
+    }).populate("primaryUser", "plan planKey status"); // Populate the primaryUser field to access the plan
 
     if (dependent && dependent.status === "Active") {
       // Check if password matches for the dependent
