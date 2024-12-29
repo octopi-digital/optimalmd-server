@@ -161,7 +161,6 @@ async function register(req, res) {
     if (existingUser) {
       return res.status(400).json({ error: "Email already exists" });
     }
-    console.log("i am here")
 
     const loginData = new FormData();
     loginData.append(
@@ -179,6 +178,7 @@ async function register(req, res) {
     const authToken = loginResponse.headers["authorization"];
 
     if (!authToken) {
+      addLog("Registration Error", null, "Failed to login to Lyric. Authorization token missing for getlyric");
       return res
         .status(401)
         .json({ error: "Authorization token missing for getlyric" });
@@ -225,6 +225,8 @@ async function register(req, res) {
         routingNumber: routingNumber,
       });
       const newUser = await user.save();
+
+      addLog("User Registration", newUser._id, `New user registered as SalesPartner with title: ${newUser.firstName} ${newUser.lastName}`);
       // Send Email Notification
       const emailResponse = await axios.post(
         "https://services.leadconnectorhq.com/hooks/c4HwDVSDzA4oeLOnUvdK/webhook-trigger/d5158a62-4e43-440b-bb4a-f6ee715e97bc",
@@ -236,7 +238,10 @@ async function register(req, res) {
           phone: newUser.phone,
         }
       );
-      if (emailResponse.status !== 200) throw new Error("Failed to send email");
+      if (emailResponse.status !== 200) {
+        addLog("Registration Error", newUser?._id, "Failed to send email for new SalesPartner registration");
+        throw new Error("Failed to send email");
+      }
       // Fetch all users with role SalesPartner
       const salesPartners = await User.find({ role: "SalesPartner" });
 
@@ -352,6 +357,7 @@ async function register(req, res) {
         },
       };
     } else {
+      addLog("Registration Error", null, "Invalid payment details. Provide either card or bank account information.");
       return res.status(400).json({
         success: false,
         error:
@@ -410,6 +416,7 @@ async function register(req, res) {
         { couponCode },
         { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: newUser._id } }
       );
+      addLog("Coupon Redemption", newUser?._id, `User redeemed coupon: ${couponCode}`);
     }
 
     // Save Payment Record
@@ -422,6 +429,8 @@ async function register(req, res) {
       paymentReason: "Plan Purchase(Registration)",
     });
     const savedPaymentRecord = await paymentRecord.save();
+
+    addLog("Payment Record", newUser?._id, `Payment recorded for user: ${newUser.firstName} ${newUser.lastName}`);
 
     // Add Payment Record to User's paymentHistory
     newUser.paymentHistory.push(savedPaymentRecord._id);
@@ -495,6 +504,7 @@ async function updateUser(req, res) {
     const authToken = loginResponse.headers["authorization"];
 
     if (!authToken) {
+      addLog("Update User Error", userId, "Failed to login to Lyric. Authorization token missing for getlyric");
       return res
         .status(401)
         .json({ error: "Authorization token missing for getlyric" });
@@ -582,6 +592,7 @@ async function updateUser(req, res) {
       await User.findByIdAndUpdate(userId, { lyricsUserId });
 
       if (!createMemberResponse.data.userid) {
+        addLog("Update User Error", userId, "Failed to create member in Lyric system");
         return res
           .status(500)
           .json({ error: "Failed to create member in Lyric system" });
@@ -594,6 +605,7 @@ async function updateUser(req, res) {
         { headers: { Authorization: authToken } }
       );
       if (!resp.data.success) {
+        addLog("Update User Error", userId, "Failed to update member in Lyric system");
         return res
           .status(500)
           .json({ error: "Failed to update member in Lyric system" });
@@ -618,6 +630,7 @@ async function updateUser(req, res) {
       await User.findByIdAndUpdate(userId, { PrimaryMemberGUID: rxvaletID });
 
       if (rxvaletResponse.data.StatusCode !== "1") {
+        addLog("Update User Error", userId, "Failed to enroll member in RxValet system");
         return res.status(500).json({
           error: rxvaletResponse.data.Message,
           data: rxvaletResponse.data,
@@ -649,6 +662,7 @@ async function updateUser(req, res) {
       );
       console.log("update response rx: ", resp.data);
       if (resp.data.StatusCode !== "1") {
+        addLog("Update User Error", userId, "Failed to update member in RxValet system");
         return res
           .status(500)
           .json({ error: resp.data.Message, data: resp.data });
@@ -781,6 +795,7 @@ async function updateUserPlan(req, res) {
         },
       };
     } else {
+      addLog("Update Plan Error", userId, "Invalid payment details. Provide either card or bank account information.");
       return res.status(400).json({
         success: false,
         error:
@@ -826,6 +841,8 @@ async function updateUserPlan(req, res) {
     });
     const paymentResp = await payment.save();
 
+    addLog("Payment Record", user?._id, `Payment recorded for user: ${user.firstName} ${user.lastName}`);
+
 
     // Save Coupon Redemption
     if (discount > 0 && couponCode) {
@@ -833,6 +850,7 @@ async function updateUserPlan(req, res) {
         { couponCode },
         { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
       );
+      addLog("Coupon Redemption", user?._id, `User redeemed coupon: ${couponCode}`);
     }
 
     if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
@@ -865,6 +883,7 @@ async function updateUserPlan(req, res) {
     const authToken = loginResponse.headers["authorization"];
 
     if (!authToken) {
+      addLog("Update User Error", userId, "Failed to login to Lyric. Authorization token missing for getlyric");
       return res
         .status(401)
         .json({ error: "Authorization token missing for getlyric" });
@@ -888,6 +907,7 @@ async function updateUserPlan(req, res) {
     );
     console.log("rxvalet data: ", rxRespose.data);
     if (rxRespose.data.StatusCode !== "1") {
+      addLog("Update User Error", userId, "Failed to update user plan in RxValet system");
       return res.status(500).json({
         error: "Failed to update user plan in RxValet system",
         data: rxRespose.data,
@@ -937,6 +957,7 @@ async function updateUserPlan(req, res) {
     );
     console.log("lyrics data-: ", response.data);
     if (!response.data.success) {
+      addLog("Update User Error", userId, "Failed to update user in Lyric system");
       return res.status(500).json({
         error: "Failed to update user in Lyric system",
         data: response.data,
@@ -971,7 +992,7 @@ async function updateUserPlan(req, res) {
     addLog(
       "Update User Plan",
       userId,
-      `Updated user plan with title: ${updatedUser.firstName}`
+      `Updated user plan to with title: ${updatedUser.firstName} ${updatedUser.lastName}`
     );
     res.status(200).json({
       message: "User Plan updated successfully",
@@ -1004,6 +1025,7 @@ async function updateUserImage(req, res) {
     ).populate(["dependents", "paymentHistory"]);
 
     if (!updatedUser) {
+      addLog("Image Update Error", id, "User image update failed");
       return res.status(400).json({ error: "User update failed" });
     }
 
@@ -1049,6 +1071,9 @@ async function deleteUser(req, res) {
 
     // Delete the user
     await User.findByIdAndDelete(id);
+
+    // Log the deletion
+    addLog("Delete User", id, `Deleted user with title: ${user.firstName} ${user.lastName}`);
 
     res
       .status(200)

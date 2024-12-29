@@ -62,7 +62,7 @@ cron.schedule("0 0 * * *", async () => {
     const usersToUpdate = allUsers.filter((user) => {
       const formattedPlanEndDate = moment(user.planEndDate, "MM/DD/YYYY", true);
       if (!formattedPlanEndDate.isValid()) {
-        addLog("Error", user?._id, `Invalid planEndDate for user: ${user.firstName} ${user.lastName}`);
+        addLog("Cron Error", user?._id, `Invalid planEndDate for user: ${user.firstName} ${user.lastName}`);
         console.error(`Invalid planEndDate for user: ${user._id}`);
         return false;
       }
@@ -110,9 +110,9 @@ cron.schedule("0 0 * * *", async () => {
             }
           );
           console.log(`Follow-up email sent to ${user.email} for ${daysRemaining} day(s) remaining.`);
-          addLog("Info", user?._id, `Follow-up email sent to ${user.email} for ${daysRemaining} day(s) remaining.`);
+          addLog("Cron Info", user?._id, `Follow-up email sent to ${user.email} for ${daysRemaining} day(s) remaining.`);
         } catch (err) {
-          addLog("Error", user?._id,`Error sending follow-up email to ${user.email}`);
+          addLog("Cron Error", user?._id,`Error sending follow-up email to ${user.email}`);
           console.error(`Error sending follow-up email to ${user.email}:`, err);
         }
       }
@@ -123,7 +123,7 @@ cron.schedule("0 0 * * *", async () => {
 
       const cenSusauthToken = cenSusloginResponse.headers["authorization"];
       if (!cenSusauthToken) {
-        addLog("Error", user?._id, "Authorization token missing for GetLyric.");
+        addLog("Cron Error", user?._id, "Authorization token missing for GetLyric.");
         return res
           .status(401)
           .json({ error: "Authorization token missing for GetLyric." });
@@ -198,7 +198,7 @@ cron.schedule("0 0 * * *", async () => {
           };
         }
         else {
-          addLog("Error", user?._id, "Invalid payment details. Provide either card or bank account information.");
+          addLog("Cron Error", user?._id, "Invalid payment details. Provide either card or bank account information.");
           return res.status(400).json({
             success: false,
             error: "Invalid payment details. Provide either card or bank account information.",
@@ -255,7 +255,7 @@ cron.schedule("0 0 * * *", async () => {
           paymentReason: "User plan upgraded/Renew to Access Plus"
         });
         await payment.save();
-        addLog("Info", user?._id, `User new payment history saved successfully.`);
+        addLog("Cron Info", user?._id, `User new payment history saved successfully.`);
 
         // Save Coupon Redemption
         if (discount > 0 && couponCode) {
@@ -263,7 +263,7 @@ cron.schedule("0 0 * * *", async () => {
             { couponCode },
             { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
           );
-          addLog("Info", user?._id, `Coupon redeemed successfully.`);
+          addLog("Cron Info", user?._id, `Coupon redeemed successfully.`);
 
         }
 
@@ -292,10 +292,10 @@ cron.schedule("0 0 * * *", async () => {
             headers: { Authorization: cenSusauthToken },
           });
 
-          addLog("Corn Info", user?._id, `User GetLyric Api updated successfully.`);
+          addLog("Cron Info", user?._id, `User GetLyric Api updated successfully.`);
           console.log("lyric response: ", resp.data);
         } catch (err) {
-          addLog("Corn Error", user?._id, `GetLyric API Error: ${err}`);
+          addLog("Cron Error", user?._id, `GetLyric API Error`);
           console.error("GetLyric API Error:", err);
         }
 
@@ -313,10 +313,10 @@ cron.schedule("0 0 * * *", async () => {
             rxValetFormData,
             { headers: rxValetHeaders }
           );
-          addLog("Corn Info", user?._id, `User RxValet Api updated successfully.`);
+          addLog("Cron Info", user?._id, `User RxValet Api updated successfully.`);
           console.log("rxvalet resp: ", resp.data);
         } catch (err) {
-          addLog("Corn Error", user?._id, `RxValet API Error: ${err}`);
+          addLog("Cron Error", user?._id, `RxValet API Error`);
           console.error("RxValet API Error:", err);
         }
 
@@ -355,10 +355,10 @@ cron.schedule("0 0 * * *", async () => {
           { headers: { Authorization: cenSusauthToken } }
         );
 
-        addLog("Corn Info", user?._id, `User updated in Lyric system successfully.`);
+        addLog("Cron Info", user?._id, `User updated in Lyric system successfully.`);
         // console.log("lyrics data-: ", response.data);
         if (!response.data.success) {
-          addLog("Corn Error", user?._id, `Failed to update user in Lyric system: ${response.data}`);
+          addLog("Cron Error", user?._id, `Failed to update user in Lyric system`);
           return res.status(500).json({
             error: "Failed to update user in Lyric system",
             data: response.data,
@@ -381,11 +381,11 @@ cron.schedule("0 0 * * *", async () => {
           rxvaletFormData,
           { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
         );
-        addLog("Corn Info", user?._id, `User updated in RxValet system successfully.`);
+        addLog("Cron Info", user?._id, `User updated in RxValet system successfully.`);
         // console.log("rxvalet data update plan: ", rxRespose.data);
         if (rxRespose.data.StatusCode !== "1") {
 
-          addLog("Corn Error", user?._id, `Failed to update user plan in RxValet system: ${rxRespose.data}`);
+          addLog("Cron Error", user?._id, `Failed to update user plan in RxValet system`);
           return res.status(500).json({
             error: "Failed to update user plan in RxValet system",
             data: rxRespose.data,
@@ -397,7 +397,7 @@ cron.schedule("0 0 * * *", async () => {
         user.planEndDate = terminationDate;
         await user.save();
 
-        addLog("Corn Info", user?._id, `User plan updated to ${userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name} successfully.`);
+        addLog("Cron Info", user?._id, `User plan updated to ${userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name} successfully.`);
 
         await axios.post(
           "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/f5976b27-57b1-4d11-b024-8742f854e2e9",
@@ -408,7 +408,7 @@ cron.schedule("0 0 * * *", async () => {
           }
         );
       } catch (err) {
-        addLog("Corn Error", user?._id, `Error processing user: ${err}`);
+        addLog("Cron Error", user?._id, `Error processing user: ${err}`);
         console.error(`Error processing user`, err);
       }
     }
