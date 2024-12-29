@@ -7,6 +7,7 @@ const moment = require("moment");
 const axios = require("axios");
 const { customEncrypt, customDecrypt } = require("./hash");
 const { lyricURL, authorizedDotNetURL, production } = require("./baseURL");
+const { addLog } = require("./controller/logController");
 
 require("dotenv").config();
 const port = process.env.PORT || 5000;
@@ -108,7 +109,9 @@ cron.schedule("0 0 * * *", async () => {
             }
           );
           console.log(`Follow-up email sent to ${user.email} for ${daysRemaining} day(s) remaining.`);
+          addLog("Info", user?._id, `Follow-up email sent to ${user.email} for ${daysRemaining} day(s) remaining.`);
         } catch (err) {
+          addLog("Error", user?._id,`Error sending follow-up email to ${user.email}`);
           console.error(`Error sending follow-up email to ${user.email}:`, err);
         }
       }
@@ -119,6 +122,7 @@ cron.schedule("0 0 * * *", async () => {
 
       const cenSusauthToken = cenSusloginResponse.headers["authorization"];
       if (!cenSusauthToken) {
+        addLog("Error", user?._id, "Authorization token missing for GetLyric.");
         return res
           .status(401)
           .json({ error: "Authorization token missing for GetLyric." });
@@ -195,6 +199,7 @@ cron.schedule("0 0 * * *", async () => {
           };
         }
         else {
+          addLog("Error", user?._id, "Invalid payment details. Provide either card or bank account information.");
           return res.status(400).json({
             success: false,
             error: "Invalid payment details. Provide either card or bank account information.",
@@ -285,6 +290,7 @@ cron.schedule("0 0 * * *", async () => {
           });
           console.log("lyric response: ", resp.data);
         } catch (err) {
+          addLog("Error", user?._id, `GetLyric API Error: ${err}`);
           console.error("GetLyric API Error:", err);
         }
 
@@ -304,6 +310,7 @@ cron.schedule("0 0 * * *", async () => {
           );
           console.log("rxvalet resp: ", resp.data);
         } catch (err) {
+          addLog("Error", user?._id, `RxValet API Error: ${err}`);
           console.error("RxValet API Error:", err);
         }
 
@@ -343,6 +350,7 @@ cron.schedule("0 0 * * *", async () => {
         );
         // console.log("lyrics data-: ", response.data);
         if (!response.data.success) {
+          addLog("Error", user?._id, `Failed to update user in Lyric system: ${response.data}`);
           return res.status(500).json({
             error: "Failed to update user in Lyric system",
             data: response.data,
@@ -367,6 +375,8 @@ cron.schedule("0 0 * * *", async () => {
         );
         // console.log("rxvalet data update plan: ", rxRespose.data);
         if (rxRespose.data.StatusCode !== "1") {
+
+          addLog("Error", user?._id, `Failed to update user plan in RxValet system: ${rxRespose.data}`);
           return res.status(500).json({
             error: "Failed to update user plan in RxValet system",
             data: rxRespose.data,
@@ -387,6 +397,7 @@ cron.schedule("0 0 * * *", async () => {
           }
         );
       } catch (err) {
+        addLog("Error", user?._id, `Error processing user: ${err}`);
         console.error(`Error processing user`, err);
       }
     }
