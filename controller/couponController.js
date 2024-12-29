@@ -312,7 +312,7 @@ exports.getCouponByCode = async (req, res) => {
     const { couponCode, planKey } = code; // Logs the coupon code
     // console.log("Plan Key:", planKey);
     if (!couponCode) {
-      return res.status(400).json({ message: "Coupon code is required" });
+      return res.status(400).json({ message: "" });
     }
 
     const coupon = await Coupon.findOne({ couponCode: couponCode });
