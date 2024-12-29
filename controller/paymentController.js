@@ -209,14 +209,18 @@ const getPaymentHistoryByUserId = async (req, res) => {
     if (startDate || endDate) {
       const dateFilter = {};
       if (startDate) {
-        dateFilter.$gte = new Date(startDate);
-        dateFilter.$gte.setHours(0, 0, 0, 0);
+        // Normalize startDate to the start of the day in UTC
+        const startOfDay = new Date(startDate);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        dateFilter.$gte = startOfDay;
       }
       if (endDate) {
+        // Normalize endDate to the end of the day in UTC
         const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        endOfDay.setUTCHours(23, 59, 59, 999);
         dateFilter.$lte = endOfDay;
       }
+      console.log("dateFilter:", dateFilter);
       filters.paymentDate = dateFilter;
     }
 

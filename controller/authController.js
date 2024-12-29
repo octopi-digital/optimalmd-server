@@ -317,15 +317,13 @@ async function register(req, res) {
       } else if (coupon.couponType === "Fixed Amount") {
         discount = coupon.discountOffered;
       }
-      // Check if the discount exceeds the original amount
-      if (discount > amount) {
-        return res
-          .status(400)
-          .json({ error: "This coupon cannot be execute to this plan" });
-      }
 
       // Adjust amount
       amount = amount - discount;
+
+      if (amount < 0) {
+        amount = 0;
+      }
 
       console.log("After Coupon: ", amount);
     }
@@ -741,12 +739,15 @@ async function updateUserPlan(req, res) {
 
           console.log("Discount: ", discount);
 
-          // Ensure the discount doesn't exceed the amount
-          if (discount > amount) {
-            discount = 0;
-          } else {
-            couponCode = coupon.couponCode;
+
+          // Subtract the discount from the total amount
+          amount -= discount;
+
+          if (amount < 0) {
+            amount = 0;
           }
+          couponCode = coupon.couponCode;
+
         } else {
           // Return an error if coupon is invalid or not applicable
           discount = 0;
@@ -755,8 +756,6 @@ async function updateUserPlan(req, res) {
       }
     }
 
-    // Subtract the discount from the total amount
-    amount -= discount;
 
     console.log("After amount: ", amount);
 
@@ -1368,12 +1367,15 @@ async function updateUserStatus(req, res) {
 
                 console.log("Discount: ", discount);
 
-                // Ensure the discount doesn't exceed the amount
-                if (discount > amount) {
-                  discount = 0;
-                } else {
-                  couponCode = coupon.couponCode;
+                // Subtract the discount from the total amount
+                amount -= discount;
+
+                if (amount < 0) {
+                  amount = 0;
                 }
+
+                couponCode = coupon.couponCode;
+
               } else {
                 // Return an error if coupon is invalid or not applicable
                 discount = 0;
@@ -1382,8 +1384,6 @@ async function updateUserStatus(req, res) {
             }
           }
 
-          // Subtract the discount from the total amount
-          amount -= discount;
 
           console.log("After amount: ", amount);
 
@@ -1538,12 +1538,15 @@ async function updateUserStatus(req, res) {
 
               console.log("Discount: ", discount);
 
-              // Ensure the discount doesn't exceed the amount
-              if (discount > amount) {
-                discount = 0;
-              } else {
-                couponCode = coupon.couponCode;
+              // Subtract the discount from the total amount
+              amount -= discount;
+
+              if (amount < 0) {
+                amount = 0;
               }
+         
+              couponCode = coupon.couponCode;
+              
             } else {
               // Return an error if coupon is invalid or not applicable
               discount = 0;
@@ -1551,9 +1554,6 @@ async function updateUserStatus(req, res) {
             }
           }
         }
-
-        // Subtract the discount from the total amount
-        amount -= discount;
 
         console.log("After amount: ", amount);
         try {
