@@ -219,7 +219,7 @@ async function updateDependent(req, res) {
       }
 
       const validateRxEmail = new FormData();
-      validateRxEmail.append("Email", userData.email);
+      validateRxEmail.append("Email", userInfo.email);
       // check user in rxvalet
       const emailCheck = await axios.post(
         "https://rxvaletapi.com/api/omdrx/check_patient_already_exists.php",
