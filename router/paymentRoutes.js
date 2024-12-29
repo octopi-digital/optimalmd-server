@@ -7,14 +7,15 @@ const {
   searchByEmail, 
   searchByInvoice, 
   filterByDateRange,
-  paymentRefund 
+  paymentRefund, 
+  getPaymentHistoryByUserId
 } = require("../controller/paymentController");
 
 router.post("/process", processPayment);
 
 router.get("/getAllPayment", getAllPayment);
 router.get("/getSinglePayment/:id", getSinglePayment);
-
+router.get("/:userId", getPaymentHistoryByUserId);
 // New routes for search and filtering
 router.get("/searchByEmail", searchByEmail);
 router.get("/searchByInvoice", searchByInvoice);

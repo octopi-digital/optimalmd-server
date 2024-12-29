@@ -114,12 +114,15 @@ const getAllPayment = async (req, res) => {
     if (startDate || endDate) {
       const dateFilter = {};
       if (startDate) {
-        dateFilter.$gte = new Date(startDate);
+        // Normalize startDate to the start of the day in UTC
+        const startOfDay = new Date(startDate);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        dateFilter.$gte = startOfDay;
       }
       if (endDate) {
-        // Set endDate to the end of the day if only the same day is specified
+        // Normalize endDate to the end of the day in UTC
         const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        endOfDay.setUTCHours(23, 59, 59, 999);
         dateFilter.$lte = endOfDay;
       }
       filters.push({ paymentDate: dateFilter });
@@ -174,6 +177,77 @@ const getSinglePayment = async (req, res) => {
       .json({ success: false, message: "Failed to fetch payment", error });
   }
 };
+
+// Get Payment History by User ID with Pagination and Filtering
+const getPaymentHistoryByUserId = async (req, res) => {
+  try {
+    let { userId } = req.params;
+    let { invoice, page = 1, limit = 10, startDate, endDate, plan } = req.query;
+
+    // Convert page and limit to integers
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+
+    if (pageNumber <= 0 || limitNumber <= 0) {
+      return res.status(400).json({ error: "Page and limit must be positive integers." });
+    }
+
+    // Build the query filters
+    let filters = { userId };
+
+    // Invoice filter (search for transactionId)
+    if (invoice) {
+      filters.transactionId = { $regex: invoice, $options: 'i' }; // Case-insensitive search for invoice
+    }
+
+    // Plan filter
+    if (plan) {
+      filters.plan = { $regex: plan, $options: 'i' }; // Case-insensitive search for plan
+    }
+
+    // Date range filter (startDate, endDate)
+    if (startDate || endDate) {
+      const dateFilter = {};
+      if (startDate) {
+        dateFilter.$gte = new Date(startDate);
+        dateFilter.$gte.setHours(0, 0, 0, 0);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        dateFilter.$lte = endOfDay;
+      }
+      filters.paymentDate = dateFilter;
+    }
+
+    // Fetch payment history with filters and pagination
+    const payments = await Payment.find(filters)
+      .populate("userId", "firstName lastName email")
+      .sort({ paymentDate: -1 })
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber);
+
+    // Count total payments
+    const totalPayments = await Payment.countDocuments(filters);
+
+    const totalPages = Math.ceil(totalPayments / limitNumber);
+
+    res.status(200).json({
+      payments,
+      pagination: {
+        currentPage: pageNumber,
+        totalPages,
+        totalPayments,
+        limit: limitNumber,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching payment history:", error.message);
+    res.status(500).json({ error: "Failed to fetch payment history." });
+  }
+};
+
+
 
 // Search by Email
 const searchByEmail = async (req, res) => {
@@ -343,7 +417,7 @@ async function paymentRefund(req, res) {
           routingNumber: customDecrypt(user.routingNumber),
           accountNumber: customDecrypt(user.accountNumber),
           nameOnAccount: user.accountName,
-          bankName : user.bankName,
+          bankName: user.bankName,
         },
       };
     }
@@ -462,6 +536,7 @@ module.exports = {
   processPayment,
   getAllPayment,
   getSinglePayment,
+  getPaymentHistoryByUserId,
   searchByEmail,
   searchByInvoice,
   filterByDateRange,

@@ -24,14 +24,10 @@ const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 // Get all users with pagination and filtering
 async function getAllUser(req, res) {
   try {
-    const { email, status, plan, search, page = 1, limit = 10 } = req.query;
+    const { status, plan, search, role, page = 1, limit = 10, startDate, endDate } = req.query;
 
     // Build the filter array based on the provided query params
     let conditions = [];
-
-    if (email) {
-      conditions.push({ email: { $regex: email, $options: "i" } });
-    }
 
     if (status) {
       conditions.push({ status });
@@ -39,6 +35,14 @@ async function getAllUser(req, res) {
 
     if (plan) {
       conditions.push({ plan });
+    }
+
+    // Filter by role (User, Admin, SuperAdmin, SalesPartner)
+    if (role) {
+      if (!["User", "Admin", "SuperAdmin", "SalesPartner"].includes(role)) {
+        return res.status(400).json({ error: "Invalid role specified." });
+      }
+      conditions.push({ role });
     }
 
     // Add search functionality
@@ -51,6 +55,24 @@ async function getAllUser(req, res) {
           { lastName: searchRegex },
         ],
       });
+    }
+
+    // Add date range filter
+    if (startDate || endDate) {
+      const dateFilter = {};
+      if (startDate) {
+        // Normalize startDate to the start of the day in UTC
+        const startOfDay = new Date(startDate);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        dateFilter.$gte = startOfDay;
+      }
+      if (endDate) {
+        // Normalize endDate to the end of the day in UTC
+        const endOfDay = new Date(endDate);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        dateFilter.$lte = endOfDay;
+      }
+      conditions.push({ createdAt: dateFilter });
     }
 
     // Create filter object: If no conditions, fetch all users
@@ -143,10 +165,9 @@ async function register(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${
-        production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+      `${production
+        ? "mtmoptim01@mytelemedicine.com"
+        : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -462,10 +483,9 @@ async function updateUser(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${
-        production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+      `${production
+        ? "mtmoptim01@mytelemedicine.com"
+        : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -833,10 +853,9 @@ async function updateUserPlan(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${
-        production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+      `${production
+        ? "mtmoptim01@mytelemedicine.com"
+        : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -1458,10 +1477,9 @@ async function updateUserStatus(req, res) {
       const cenSusloginData = new FormData();
       cenSusloginData.append(
         "email",
-        `${
-          production
-            ? "mtmoptim01@mytelemedicine.com"
-            : "mtmstgopt01@mytelemedicine.com"
+        `${production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
         }`
       );
       cenSusloginData.append(
@@ -1647,9 +1665,8 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("GetLyric API Error:", err);
         return res.status(500).json({
-          message: `Failed to ${
-            status === "Active" ? "reactivate" : "terminate"
-          } user on GetLyric API.`,
+          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
+            } user on GetLyric API.`,
           error: err,
         });
       }
@@ -1672,9 +1689,8 @@ async function updateUserStatus(req, res) {
       } catch (err) {
         console.error("RxValet API Error:", err.message);
         return res.status(500).json({
-          message: `Failed to ${
-            status === "Active" ? "reactivate" : "terminate"
-          } user on RxValet API.`,
+          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
+            } user on RxValet API.`,
           error: err.message,
         });
       }

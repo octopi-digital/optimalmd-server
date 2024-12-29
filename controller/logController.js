@@ -3,7 +3,7 @@ const User = require('../model/userSchema');
 
 exports.getLogs = async (req, res) => {
   try {
-    let { role, page = 1, limit = 10, startDate, endDate, action, search } = req.query;
+    let { role, page = 1, limit = 10, startDate, endDate, search } = req.query;
 
     // Convert page and limit to integers
     const pageNumber = parseInt(page, 10);
@@ -27,42 +27,43 @@ exports.getLogs = async (req, res) => {
       filters.user = { $in: userIds };
     }
 
-    // Action filter
-    if (action) {
-      filters.action = { $regex: `.*${action}.*`, $options: "i" }; // Case-insensitive action search
-    }
-
     // Date range filter
     if (startDate || endDate) {
       const dateFilter = {};
       if (startDate) {
-        dateFilter.$gte = new Date(startDate);
+        // Normalize startDate to the start of the day in UTC
+        const startOfDay = new Date(startDate);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        dateFilter.$gte = startOfDay;
       }
       if (endDate) {
+        // Normalize endDate to the end of the day in UTC
         const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        endOfDay.setUTCHours(23, 59, 59, 999);
         dateFilter.$lte = endOfDay;
       }
       filters.createdAt = dateFilter;
     }
 
-    // Search filter
+    // Search filter (includes user and action fields)
     if (search) {
-      // Find matching users based on search query
+      const searchRegex = { $regex: `.*${search}.*`, $options: "i" }; // Case-insensitive search
+
       const searchUsers = await User.find({
         $or: [
-          { firstName: { $regex: `.*${search}.*`, $options: "i" } },
-          { lastName: { $regex: `.*${search}.*`, $options: "i" } },
-          { email: { $regex: `.*${search}.*`, $options: "i" } },
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { email: searchRegex },
         ],
       }).select("_id");
 
       const searchUserIds = searchUsers.map((user) => user._id);
 
-      // Include user filter if other filters are present
-      filters.user = filters.user
-        ? { $in: [...filters.user.$in, ...searchUserIds] }
-        : { $in: searchUserIds };
+      // Combine user and action filters into the search
+      filters.$or = [
+        { user: { $in: searchUserIds } },
+        { action: searchRegex },
+      ];
     }
 
     // Fetch logs with filters and pagination
