@@ -173,7 +173,7 @@ async function updateDependent(req, res) {
     }
 
     // Find the primary user and dependent in the database
-    const user = await User.findById(primaryUserId).populate("dependents");
+    const user = await User.findById(primaryUserId).populate(["dependents", "paymentHistory"]);
     const dependent = await Dependent.findById(dependentId).populate(
       "primaryUser",
       "plan"
