@@ -1095,7 +1095,7 @@ async function login(req, res) {
     // If not a user, check the Dependent schema
     const dependent = await Dependent.findOne({
       email: req.body.email,
-    }).populate("primaryUser", "plan"); // Populate the primaryUser field to access the plan
+    }).populate("primaryUser", "plan planKey status"); // Populate the primaryUser field to access the plan
 
     if (dependent && dependent.status === "Active") {
       // Check if password matches for the dependent

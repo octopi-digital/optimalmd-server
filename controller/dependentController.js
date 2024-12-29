@@ -10,65 +10,6 @@ const moment = require("moment");
 const API_LOGIN_ID = process.env.AUTHORIZE_NET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 
-// login dependent
-async function addDependent(req, res) {
-  try {
-    const { primaryUser, relation } = req.body;
-
-    // Validate input
-    if (!primaryUser || !relation) {
-      return res
-        .status(400)
-        .json({ message: "primaryUser and relation are required." });
-    }
-
-    // Check if primary user exists
-    const userExists = await User.findById(primaryUser);
-    if (!userExists) {
-      return res.status(404).json({ message: "Primary user not found." });
-    }
-
-    // Create new dependent
-    const newDependent = new Dependent({
-      primaryUser,
-      relation,
-    });
-    const savedDependent = await newDependent.save();
-
-    // Update the user to include this dependent in their `dependents` array
-    const updatedUser = await User.findByIdAndUpdate(
-      primaryUser,
-      { $push: { dependents: savedDependent._id } },
-      { new: true }
-    ).populate(["dependents", "paymentHistory"]);
-
-    if (!updatedUser) {
-      return res
-        .status(500)
-        .json({ message: "Failed to update user dependents." });
-    }
-
-    // Log for adding dependent
-    addLog(
-      "Dependent added",
-      primaryUser,
-      `New Dependent added to ${userExists.firstName} with the name ${savedDependent.firstName} ${savedDependent.lastName}`
-    );
-
-    // Remove sensitive fields before sending response
-    const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
-
-    res.status(201).json({
-      message: "Dependent added successfully",
-      user: userWithoutSensitiveData,
-      dependent: savedDependent,
-    });
-  } catch (error) {
-    console.error("Error adding dependent:", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-}
-
 // Add a new dependent
 async function addDependent(req, res) {
   try {
@@ -178,56 +119,56 @@ async function updateDependent(req, res) {
 
     if (userInfo?.email) {
       // Check if the email already exists
-      const existingUser = await User.findOne({ email: userInfo.email });
-      if (existingUser) {
-        return res.status(400).json({ error: "Email already exists" });
-      }
+      const existingUser = await Dependent.findOne({ email: userInfo.email });
+      console.log(existingUser);
 
-      const loginData = new FormData();
-      loginData.append(
-        "email",
-        `${
-          production
-            ? "mtmoptim01@mytelemedicine.com"
-            : "mtmstgopt01@mytelemedicine.com"
-        }`
-      );
-      loginData.append(
-        "password",
-        `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`
-      );
-      const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
-      const authToken = loginResponse.headers["authorization"];
+      if (existingUser && !existingUser?.rxvaletDependentId || !existingUser?.lyricDependentId) {
+        const loginData = new FormData();
+        loginData.append(
+          "email",
+          `${
+            production
+              ? "mtmoptim01@mytelemedicine.com"
+              : "mtmstgopt01@mytelemedicine.com"
+          }`
+        );
+        loginData.append(
+          "password",
+          `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`
+        );
+        const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
+        const authToken = loginResponse.headers["authorization"];
 
-      if (!authToken) {
-        return res
-          .status(401)
-          .json({ error: "Authorization token missing for getlyric" });
-      }
+        if (!authToken) {
+          return res
+            .status(401)
+            .json({ error: "Authorization token missing for getlyric" });
+        }
 
-      // check user in getlyrics
-      const validateEmail = new FormData();
-      validateEmail.append("email", userInfo.email);
-      const validateEmailResponse = await axios.post(
-        `${lyricURL}/census/validateEmail`,
-        validateEmail,
-        { headers: { Authorization: authToken } }
-      );
+        // check user in getlyrics
+        const validateEmail = new FormData();
+        validateEmail.append("email", userInfo.email);
+        const validateEmailResponse = await axios.post(
+          `${lyricURL}/census/validateEmail`,
+          validateEmail,
+          { headers: { Authorization: authToken } }
+        );
 
-      if (!validateEmailResponse?.data?.availableForUse) {
-        return res.status(400).json({ error: "Email already exists" });
-      }
+        if (!validateEmailResponse?.data?.availableForUse) {
+          return res.status(400).json({ error: "Email already exists" });
+        }
 
-      const validateRxEmail = new FormData();
-      validateRxEmail.append("Email", userInfo.email);
-      // check user in rxvalet
-      const emailCheck = await axios.post(
-        "https://rxvaletapi.com/api/omdrx/check_patient_already_exists.php",
-        validateRxEmail,
-        { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
-      );
-      if (emailCheck.data.StatusCode == "1") {
-        return res.status(400).json({ error: "Email already exists" });
+        const validateRxEmail = new FormData();
+        validateRxEmail.append("Email", userInfo.email);
+        // check user in rxvalet
+        const emailCheck = await axios.post(
+          "https://rxvaletapi.com/api/omdrx/check_patient_already_exists.php",
+          validateRxEmail,
+          { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
+        );
+        if (emailCheck.data.StatusCode == "1") {
+          return res.status(400).json({ error: "Email already exists" });
+        }
       }
     }
 
@@ -237,7 +178,6 @@ async function updateDependent(req, res) {
       "primaryUser",
       "plan"
     );
-    console.log(dependent);
 
     if (!user) return res.status(404).json({ message: "User not found" });
     if (!dependent)
@@ -464,8 +404,7 @@ async function updateDependent(req, res) {
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
     const updatedDependent = await Dependent.findById(dependentId).populate(
-      "primaryUser",
-      "plan"
+      "primaryUser", "plan planKey status"
     );
 
     if (newLyricDependentId && newRxvaletDependentId) {
@@ -522,9 +461,8 @@ async function getDependentsByUserId(req, res) {
 }
 async function getDependentById(req, res) {
   try {
-
     const dependent = await Dependent.findById(req.params.id);
-   
+
     if (!dependent) {
       return res
         .status(404)
