@@ -18,7 +18,9 @@ app.use(express.json({ limit: "50mb" })); // Increase required size
 const dbUser = process.env.DB_USER;
 const dbPass = process.env.DB_PASS;
 const dbName = process.env.DB_NAME;
-const mongodbUri = `mongodb+srv://${dbUser}:${dbPass}@cluster0.wvgg4.mongodb.net/${dbName}?retryWrites=true&w=majority&appName=Cluster0`;
+// const mongodbUri = `mongodb+srv://${dbUser}:${dbPass}@cluster0.wvgg4.mongodb.net/${dbName}?retryWrites=true&w=majority&appName=Cluster0`;
+
+const mongodbUri = `mongodb://127.0.0.1:27017/${dbName}?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+2.3.7`;
 
 mongoose
   .connect(mongodbUri)
@@ -399,6 +401,6 @@ app.get("/", (req, res) => {
   res.send("Optimal MD network is running...");
 });
 
-app.listen(port, (req, res) => {
+app.listen(port, `0.0.0.0`, () => {
   console.log(`Optimal MD network is running on port: ${port}`);
 });
