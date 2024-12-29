@@ -292,10 +292,10 @@ cron.schedule("0 0 * * *", async () => {
             headers: { Authorization: cenSusauthToken },
           });
 
-          addLog("Info", user?._id, `User GetLyric Api updated successfully.`);
+          addLog("Corn Info", user?._id, `User GetLyric Api updated successfully.`);
           console.log("lyric response: ", resp.data);
         } catch (err) {
-          addLog("Error", user?._id, `GetLyric API Error: ${err}`);
+          addLog("Corn Error", user?._id, `GetLyric API Error: ${err}`);
           console.error("GetLyric API Error:", err);
         }
 
@@ -313,10 +313,10 @@ cron.schedule("0 0 * * *", async () => {
             rxValetFormData,
             { headers: rxValetHeaders }
           );
-          addLog("Info", user?._id, `User RxValet Api updated successfully.`);
+          addLog("Corn Info", user?._id, `User RxValet Api updated successfully.`);
           console.log("rxvalet resp: ", resp.data);
         } catch (err) {
-          addLog("Error", user?._id, `RxValet API Error: ${err}`);
+          addLog("Corn Error", user?._id, `RxValet API Error: ${err}`);
           console.error("RxValet API Error:", err);
         }
 
@@ -355,10 +355,10 @@ cron.schedule("0 0 * * *", async () => {
           { headers: { Authorization: cenSusauthToken } }
         );
 
-        addLog("Info", user?._id, `User updated in Lyric system successfully.`);
+        addLog("Corn Info", user?._id, `User updated in Lyric system successfully.`);
         // console.log("lyrics data-: ", response.data);
         if (!response.data.success) {
-          addLog("Error", user?._id, `Failed to update user in Lyric system: ${response.data}`);
+          addLog("Corn Error", user?._id, `Failed to update user in Lyric system: ${response.data}`);
           return res.status(500).json({
             error: "Failed to update user in Lyric system",
             data: response.data,
@@ -381,11 +381,11 @@ cron.schedule("0 0 * * *", async () => {
           rxvaletFormData,
           { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
         );
-        addLog("Info", user?._id, `User updated in RxValet system successfully.`);
+        addLog("Corn Info", user?._id, `User updated in RxValet system successfully.`);
         // console.log("rxvalet data update plan: ", rxRespose.data);
         if (rxRespose.data.StatusCode !== "1") {
 
-          addLog("Error", user?._id, `Failed to update user plan in RxValet system: ${rxRespose.data}`);
+          addLog("Corn Error", user?._id, `Failed to update user plan in RxValet system: ${rxRespose.data}`);
           return res.status(500).json({
             error: "Failed to update user plan in RxValet system",
             data: rxRespose.data,
@@ -397,7 +397,7 @@ cron.schedule("0 0 * * *", async () => {
         user.planEndDate = terminationDate;
         await user.save();
 
-        addLog("Info", user?._id, `User plan updated to ${userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name} successfully.`);
+        addLog("Corn Info", user?._id, `User plan updated to ${userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name} successfully.`);
 
         await axios.post(
           "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/f5976b27-57b1-4d11-b024-8742f854e2e9",
@@ -408,7 +408,7 @@ cron.schedule("0 0 * * *", async () => {
           }
         );
       } catch (err) {
-        addLog("Error", user?._id, `Error processing user: ${err}`);
+        addLog("Corn Error", user?._id, `Error processing user: ${err}`);
         console.error(`Error processing user`, err);
       }
     }
