@@ -97,7 +97,7 @@ const getOrgs = async (req, res) => {
             search, // A single query parameter for all searchable fields
             orgType, // Separate filter for orgType
             paymentOption, // Filter for payment method (Card or Bank)
-            page = 1, 
+            page = 1,
             limit = 10,
             startDate,
             endDate
@@ -133,9 +133,12 @@ const getOrgs = async (req, res) => {
             filter.orgType = { $regex: orgType, $options: "i" }; // Case-insensitive search for orgType
         }
 
-        // If paymentOption is provided, add it to the filter (either 'Card' or 'Bank')
+        // Filter by paymentOption
         if (paymentOption) {
-            filter.paymentOption = paymentOption; // Match exactly 'Card' or 'Bank'
+            if (!["Bank", "Card"].includes(paymentOption)) {
+                return res.status(400).json({ error: "Invalid payment option specified. Allowed values are 'Bank' or 'Card'." });
+            }
+            filters.paymentOption = paymentOption;
         }
 
         // If startDate or endDate is provided, add date range filter
