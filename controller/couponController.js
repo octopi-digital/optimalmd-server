@@ -210,7 +210,7 @@ exports.createCoupon = async (req, res) => {
 
     const savedCoupon = await newCoupon.save();
     // Log the creation
-    addLog('Created Coupon', userId, `Created coupon with title: ${couponName}`);
+    addLog('Created Coupon', userId, `Created coupon with title: ${couponName}.`);
     res.status(201).json(savedCoupon);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -455,7 +455,7 @@ exports.updateCoupon = async (req, res) => {
     );
 
     // Log the update
-    addLog('Update Coupon', userId, `Updated coupon with title: ${updatedCoupon.couponName}`);
+    addLog('Update Coupon', userId, `Updated coupon with title: ${updatedCoupon.couponName}.`);
     res.status(200).json(updatedCoupon);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -471,7 +471,7 @@ exports.deleteCoupon = async (req, res) => {
       return res.status(404).json({ error: "Coupon not found" });
     }
     // Log the deletion
-    addLog('Delete Coupon', userId, `Deleted coupon with title: ${deletedCoupon.couponName}`);
+    addLog('Delete Coupon', userId, `Deleted coupon with title: ${deletedCoupon.couponName}.`);
     res.status(200).json({ message: "Coupon deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
