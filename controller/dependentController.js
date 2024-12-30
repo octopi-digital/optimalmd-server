@@ -122,7 +122,10 @@ async function updateDependent(req, res) {
       const existingUser = await Dependent.findOne({ email: userInfo.email });
       console.log(existingUser);
 
-      if (existingUser && !existingUser?.rxvaletDependentId || !existingUser?.lyricDependentId) {
+      if (
+        (existingUser && !existingUser?.rxvaletDependentId) ||
+        !existingUser?.lyricDependentId
+      ) {
         const loginData = new FormData();
         loginData.append(
           "email",
@@ -173,7 +176,10 @@ async function updateDependent(req, res) {
     }
 
     // Find the primary user and dependent in the database
-    const user = await User.findById(primaryUserId).populate(["dependents", "paymentHistory"]);
+    const user = await User.findById(primaryUserId).populate([
+      "dependents",
+      "paymentHistory",
+    ]);
     const dependent = await Dependent.findById(dependentId).populate(
       "primaryUser",
       "plan"
@@ -281,7 +287,7 @@ async function updateDependent(req, res) {
     if (role === "Dependent") {
       if (dependent?.relation === "Spouse") {
         relationShipId = "1";
-      } else if (dependent?.relation === "Child") {
+      } else if (dependent?.relation === "Children") {
         relationShipId = "2";
       } else if (dependent?.relation === "Other") {
         relationShipId = "3";
@@ -404,7 +410,8 @@ async function updateDependent(req, res) {
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
     const updatedDependent = await Dependent.findById(dependentId).populate(
-      "primaryUser", "plan planKey status"
+      "primaryUser",
+      "plan planKey status"
     );
 
     if (newLyricDependentId && newRxvaletDependentId) {
@@ -511,12 +518,13 @@ async function updateDependentImage(req, res) {
 
     const { password, ...userWithoutSensitiveData } = user.toObject();
     const dependent = await Dependent.findById(id).populate(
-      "primaryUser", "plan planKey status"
+      "primaryUser",
+      "plan planKey status"
     );
 
     res.status(200).json({
       message: "Dependent image updated successfully",
-      user: role==="Dependent" ? dependent : userWithoutSensitiveData,
+      user: role === "Dependent" ? dependent : userWithoutSensitiveData,
     });
   } catch (error) {
     console.error("Error updating dependent image:", error.message);
