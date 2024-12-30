@@ -417,7 +417,7 @@ async function paymentRefund(req, res) {
       // Use bank account payment
       paymentMethod = {
         bankAccount: {
-          accountType: "checking",
+          accountType: production ? "saving": "checking",
           routingNumber: customDecrypt(user.routingNumber),
           accountNumber: customDecrypt(user.accountNumber),
           nameOnAccount: user.accountName,
