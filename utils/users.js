@@ -78,7 +78,7 @@ const addMultipleUsers = async (req, res) => {
                 plan: dependent.plan,
                 dob: dependent.dob,
                 relation:
-                  dependent.relation === "Children" ? "Child" : "Spouse",
+                  dependent.relation === "Spouse" ? "Spouse" : "Child",
                 sex: dependent.sex,
                 org: orgId,
                 phone: dependent.phone,

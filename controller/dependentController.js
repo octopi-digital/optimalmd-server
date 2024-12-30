@@ -281,7 +281,7 @@ async function updateDependent(req, res) {
     if (role === "Dependent") {
       if (dependent?.relation === "Spouse") {
         relationShipId = "1";
-      } else if (dependent?.relation === "Children") {
+      } else if (dependent?.relation === "Child") {
         relationShipId = "2";
       } else if (dependent?.relation === "Other") {
         relationShipId = "3";
@@ -291,7 +291,7 @@ async function updateDependent(req, res) {
     } else {
       if (userInfo.relation === "Spouse") {
         relationShipId = "1";
-      } else if (userInfo.relation === "Children") {
+      } else if (userInfo.relation === "Child") {
         relationShipId = "2";
       } else if (userInfo.relation === "Other") {
         relationShipId = "3";
@@ -360,7 +360,7 @@ async function updateDependent(req, res) {
       Email: userInfo.email,
       DOB: formattedDob,
       Gender: userInfo.sex === "Male" ? "M" : "F",
-      Relationship: userInfo.relation === "Children" ? "Child" : "Spouse",
+      Relationship: userInfo.relation === "Spouse" ? "Spouse" : "Child",
       PhoneNumber: userInfo.phone,
       Address: userInfo.shipingAddress1,
       City: userInfo.shipingCity,
