@@ -315,6 +315,11 @@ exports.getCouponByCode = async (req, res) => {
     const { code } = req.body; // Destructure from body
     const { couponCode, planKey } = code; // Logs the coupon code
     // console.log("Plan Key:", planKey);
+
+    if(planKey===""){
+      return res.status(400).json({ message: "Please select a plan, To apply the coupon" });
+    }
+
     if (!couponCode) {
       return res.status(400).json({ message: "" });
     }
