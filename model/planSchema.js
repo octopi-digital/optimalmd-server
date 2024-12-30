@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const PlanSchema = new mongoose.Schema({
   name: { type: String, required: true },
   planKey: { type: String, enum: ["TRIAL", "ACCESS", "ACCESS PLUS"], required: true },
-  planType: { type: String, enum: ["Organization", "Normal"], required: true },
+  planType: { type: String, enum: ["Organization", "Individual"], required: true },
   price: { type: Number, required: true },
   subtitle: { type: String, required: true },
   benefits: [{ type: String }],
@@ -16,6 +16,7 @@ const PlanSchema = new mongoose.Schema({
     },
   },
   status: { type: String, enum: ["Active", "Inactive"], default: "Inactive" },
+  footer: { type: String, default: "" },
   tag: { type: String, default: "" },
   sortOrder: { type: Number, default: 0 }
 });

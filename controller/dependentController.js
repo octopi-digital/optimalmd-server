@@ -122,7 +122,10 @@ async function updateDependent(req, res) {
       const existingUser = await Dependent.findOne({ email: userInfo.email });
       // console.log(existingUser);
 
-      if (existingUser && !existingUser?.rxvaletDependentId || !existingUser?.lyricDependentId) {
+      if (
+        (existingUser && !existingUser?.rxvaletDependentId) ||
+        !existingUser?.lyricDependentId
+      ) {
         const loginData = new FormData();
         loginData.append(
           "email",
@@ -173,7 +176,10 @@ async function updateDependent(req, res) {
     }
 
     // Find the primary user and dependent in the database
-    const user = await User.findById(primaryUserId).populate("dependents");
+    const user = await User.findById(primaryUserId).populate([
+      "dependents",
+      "paymentHistory",
+    ]);
     const dependent = await Dependent.findById(dependentId).populate(
       "primaryUser",
       "plan"
@@ -291,7 +297,7 @@ async function updateDependent(req, res) {
     } else {
       if (userInfo.relation === "Spouse") {
         relationShipId = "1";
-      } else if (userInfo.relation === "Children") {
+      } else if (userInfo.relation === "Child") {
         relationShipId = "2";
       } else if (userInfo.relation === "Other") {
         relationShipId = "3";
@@ -360,7 +366,7 @@ async function updateDependent(req, res) {
       Email: userInfo.email,
       DOB: formattedDob,
       Gender: userInfo.sex === "Male" ? "M" : "F",
-      Relationship: userInfo.relation === "Children" ? "Child" : "Spouse",
+      Relationship: userInfo.relation === "Spouse" ? "Spouse" : "Child",
       PhoneNumber: userInfo.phone,
       Address: userInfo.shipingAddress1,
       City: userInfo.shipingCity,
@@ -404,7 +410,8 @@ async function updateDependent(req, res) {
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
     const updatedDependent = await Dependent.findById(dependentId).populate(
-      "primaryUser", "plan planKey status"
+      "primaryUser",
+      "plan planKey status"
     );
 
     if (newLyricDependentId && newRxvaletDependentId) {
@@ -479,7 +486,7 @@ async function getDependentById(req, res) {
 // update dependent image
 async function updateDependentImage(req, res) {
   try {
-    const { image, id } = req.body;
+    const { image, id, role } = req.body;
 
     // Update the dependent's image
     const updatedDependent = await Dependent.findByIdAndUpdate(
@@ -510,10 +517,14 @@ async function updateDependentImage(req, res) {
     );
 
     const { password, ...userWithoutSensitiveData } = user.toObject();
+    const dependent = await Dependent.findById(id).populate(
+      "primaryUser",
+      "plan planKey status"
+    );
 
     res.status(200).json({
       message: "Dependent image updated successfully",
-      user: userWithoutSensitiveData,
+      user: role === "Dependent" ? dependent : userWithoutSensitiveData,
     });
   } catch (error) {
     console.error("Error updating dependent image:", error.message);

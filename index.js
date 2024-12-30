@@ -7,6 +7,7 @@ const moment = require("moment");
 const axios = require("axios");
 const { customEncrypt, customDecrypt } = require("./hash");
 const { lyricURL, authorizedDotNetURL, production } = require("./baseURL");
+const { addLog } = require("./controller/logController");
 
 require("dotenv").config();
 const port = process.env.PORT || 5000;
@@ -19,6 +20,8 @@ const dbUser = process.env.DB_USER;
 const dbPass = process.env.DB_PASS;
 const dbName = process.env.DB_NAME;
 const mongodbUri = `mongodb+srv://${dbUser}:${dbPass}@cluster0.wvgg4.mongodb.net/${dbName}?retryWrites=true&w=majority&appName=Cluster0`;
+
+// const mongodbUri = `mongodb://127.0.0.1:27017/${dbName}?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+2.3.7`;
 
 mongoose
   .connect(mongodbUri)
@@ -38,9 +41,10 @@ const planRoutes = require("./router/planRoutes");
 const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 const orgRoutes = require("./router/orgRoutes");
 const blogRoutes = require("./router/blogRoutes");
-const couponRoutes = require('./router/couponRoutes');
+const couponRoutes = require("./router/couponRoutes");
 const Plan = require("./model/planSchema");
 const logRoutes = require("./router/logRoutes");
+const salesPartnerRoutes = require("./router/salesPartnerRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
@@ -51,8 +55,9 @@ app.use("/api/plans", planRoutes);
 app.use("/api/admin/stats", adminStatisticsRoutes);
 app.use("/api/org", orgRoutes);
 app.use("/api/blogs", blogRoutes);
-app.use('/api/coupons', couponRoutes);
+app.use("/api/coupons", couponRoutes);
 app.use("/api/logs", logRoutes);
+app.use("/api/sales-partners", salesPartnerRoutes);
 
 cron.schedule("0 0 * * *", async () => {
   try {
@@ -61,6 +66,7 @@ cron.schedule("0 0 * * *", async () => {
     const usersToUpdate = allUsers.filter((user) => {
       const formattedPlanEndDate = moment(user.planEndDate, "MM/DD/YYYY", true);
       if (!formattedPlanEndDate.isValid()) {
+        addLog("Error", user?._id, `Invalid planEndDate for user: ${user.firstName} ${user.lastName}`);
         console.error(`Invalid planEndDate for user: ${user._id}`);
         return false;
       }
@@ -77,8 +83,18 @@ cron.schedule("0 0 * * *", async () => {
 
     // Login to GetLyric API
     const cenSusloginData = new FormData();
-    cenSusloginData.append("email", `${production ? "mtmoptim01@mytelemedicine.com" : "mtmstgopt01@mytelemedicine.com"}`);
-    cenSusloginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
+    cenSusloginData.append(
+      "email",
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
+      }`
+    );
+    cenSusloginData.append(
+      "password",
+      `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`
+    );
 
     const effectiveDate = moment().format("MM/DD/YYYY");
     // const terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
@@ -90,12 +106,23 @@ cron.schedule("0 0 * * *", async () => {
     for (const user of usersToUpdate) {
       console.log("email: ", user.email);
       const planEndDate = moment(user.planEndDate, "MM/DD/YYYY");
-      const daysRemaining = planEndDate.diff(moment(currentDate, "MM/DD/YYYY"), "days");
+      const daysRemaining = planEndDate.diff(
+        moment(currentDate, "MM/DD/YYYY"),
+        "days"
+      );
       const userPlan = await Plan.findOne({ planKey: user.planKey });
       const plus = await Plan.findOne({ planKey: "ACCESS PLUS" });
-      const plan = userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name;
-      let amount = userPlan.planKey === "TRIAL" || plus.planKey ? plus.price : userPlan.price;
-      const terminationDate = moment().add(userPlan.duration.value, userPlan.duration.unit).format("MM/DD/YYYY");
+      const plan =
+        userPlan.planKey === "TRIAL" || plus.planKey
+          ? plus.name
+          : userPlan.name;
+      let amount =
+        userPlan.planKey === "TRIAL" || plus.planKey
+          ? plus.price
+          : userPlan.price;
+      const terminationDate = moment()
+        .add(userPlan.duration.value, userPlan.duration.unit)
+        .format("MM/DD/YYYY");
       // Send follow-up emails based on days remaining
       if (daysRemaining === 5 || daysRemaining === 2 || daysRemaining === 1) {
         try {
@@ -104,11 +131,15 @@ cron.schedule("0 0 * * *", async () => {
             {
               firstName: user.firstName,
               email: user.email,
-              message: `Your plan will expire in ${daysRemaining} day${daysRemaining > 1 ? "s" : ""}. We will automatically update your plan. If you don't want to update your plan, you can simply deactivate your account.`,
+              message: `Your plan will expire in ${daysRemaining} day${
+                daysRemaining > 1 ? "s" : ""
+              }. We will automatically update your plan. If you don't want to update your plan, you can simply deactivate your account.`,
             }
           );
           console.log(`Follow-up email sent to ${user.email} for ${daysRemaining} day(s) remaining.`);
+          addLog("Info", user?._id, `Follow-up email sent to ${user.email} for ${daysRemaining} day(s) remaining.`);
         } catch (err) {
+          addLog("Error", user?._id,`Error sending follow-up email to ${user.email}`);
           console.error(`Error sending follow-up email to ${user.email}:`, err);
         }
       }
@@ -119,6 +150,7 @@ cron.schedule("0 0 * * *", async () => {
 
       const cenSusauthToken = cenSusloginResponse.headers["authorization"];
       if (!cenSusauthToken) {
+        addLog("Error", user?._id, "Authorization token missing for GetLyric.");
         return res
           .status(401)
           .json({ error: "Authorization token missing for GetLyric." });
@@ -129,8 +161,13 @@ cron.schedule("0 0 * * *", async () => {
         let couponCode = "";
         let discount = 0;
 
-        if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
-          const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
+        if (
+          Array.isArray(user.appliedCoupon) &&
+          user.appliedCoupon.length > 0
+        ) {
+          const coupon = await Coupon.findOne({
+            couponCode: user.appliedCoupon[0],
+          });
 
           if (!coupon) {
             discount = 0;
@@ -138,8 +175,14 @@ cron.schedule("0 0 * * *", async () => {
             console.log("coupon: ", coupon);
             if (
               coupon.status === "Active" &&
-              (!coupon.selectedPlans.length || coupon.selectedPlans.includes(userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey)) &&
-              (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
+              (!coupon.selectedPlans.length ||
+                coupon.selectedPlans.includes(
+                  userPlan.planKey === "TRIAL" || plus.planKey
+                    ? plus.planKey
+                    : userPlan.planKey
+                )) &&
+              (coupon.numberOfRedeem === -1 ||
+                coupon.redemptionCount < coupon.numberOfRedeem) &&
               coupon.recurringOrFuturePayments
             ) {
               // Calculate the discount based on coupon type
@@ -153,12 +196,13 @@ cron.schedule("0 0 * * *", async () => {
 
               console.log("Discount: ", discount);
 
-              // Ensure the discount doesn't exceed the amount
-              if (discount > amount) {
-                discount = 0;
-              } else {
-                couponCode = coupon.couponCode;
+              // Apply the discount to the amount
+              amount -= discount;
+
+              if(amount < 0) {
+                amount = 0;
               }
+              couponCode = coupon.couponCode;
             } else {
               // Return an error if coupon is invalid or not applicable
               discount = 0;
@@ -166,9 +210,6 @@ cron.schedule("0 0 * * *", async () => {
             }
           }
         }
-
-        // Subtract the discount from the total amount
-        amount -= discount;
 
         console.log("After amount: ", amount);
         // Payment processing logic
@@ -195,9 +236,11 @@ cron.schedule("0 0 * * *", async () => {
           };
         }
         else {
+          addLog("Error", user?._id, "Invalid payment details. Provide either card or bank account information.");
           return res.status(400).json({
             success: false,
-            error: "Invalid payment details. Provide either card or bank account information.",
+            error:
+              "Invalid payment details. Provide either card or bank account information.",
           });
         }
         const paymentResponse = await axios.post(
@@ -233,7 +276,9 @@ cron.schedule("0 0 * * *", async () => {
             {
               firstName: user.firstName,
               email: user.email,
-              reason: paymentResponse.data?.transactionResponse?.errors || "Payment Failed !",
+              reason:
+                paymentResponse.data?.transactionResponse?.errors ||
+                "Payment Failed !",
             }
           );
 
@@ -245,12 +290,19 @@ cron.schedule("0 0 * * *", async () => {
         const payment = new Payment({
           userId: user._id,
           amount: amount,
-          plan: userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name ,
-          planKey: userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey ,
+          plan:
+            userPlan.planKey === "TRIAL" || plus.planKey
+              ? plus.name
+              : userPlan.name,
+          planKey:
+            userPlan.planKey === "TRIAL" || plus.planKey
+              ? plus.planKey
+              : userPlan.planKey,
           transactionId: result.transactionResponse.transId,
-          paymentReason: "User plan upgraded/Renew to Access Plus"
+          paymentReason: "User plan upgraded/Renew to Access Plus",
         });
         await payment.save();
+        addLog("Info", user?._id, `User new payment history saved successfully.`);
 
         // Save Coupon Redemption
         if (discount > 0 && couponCode) {
@@ -258,18 +310,31 @@ cron.schedule("0 0 * * *", async () => {
             { couponCode },
             { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
           );
+          addLog("Info", user?._id, `Coupon redeemed successfully.`);
 
         }
 
-        if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
-          user.appliedCoupon.push(couponCode)
+        if (
+          Array.isArray(user.appliedCoupon) &&
+          couponCode &&
+          !user.appliedCoupon.includes(couponCode)
+        ) {
+          user.appliedCoupon.push(couponCode);
         }
 
         // Add payment to user's payment history and update plan
         user.paymentHistory.push(payment._id);
-        user.plan = userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name;
-        user.planKey = userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey;
+        user.plan =
+          userPlan.planKey === "TRIAL" || plus.planKey
+            ? plus.name
+            : userPlan.name;
+        user.planKey =
+          userPlan.planKey === "TRIAL" || plus.planKey
+            ? plus.planKey
+            : userPlan.planKey;
         await user.save();
+
+        
 
         const formattedDob = moment(user.dob).format("MM/DD/YYYY");
 
@@ -277,14 +342,20 @@ cron.schedule("0 0 * * *", async () => {
         try {
           const getLyricFormData = new FormData();
           getLyricFormData.append("primaryExternalId", user._id);
-          getLyricFormData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
+          getLyricFormData.append(
+            "groupCode",
+            `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
+          );
           getLyricFormData.append("terminationDate", terminationDate);
           getLyricFormData.append("effectiveDate", effectiveDate);
           const resp = await axios.post(getLyricUrl, getLyricFormData, {
             headers: { Authorization: cenSusauthToken },
           });
+
+          addLog("Corn Info", user?._id, `User GetLyric Api updated successfully.`);
           console.log("lyric response: ", resp.data);
         } catch (err) {
+          addLog("Corn Error", user?._id, `GetLyric API Error: ${err}`);
           console.error("GetLyric API Error:", err);
         }
 
@@ -302,8 +373,10 @@ cron.schedule("0 0 * * *", async () => {
             rxValetFormData,
             { headers: rxValetHeaders }
           );
+          addLog("Corn Info", user?._id, `User RxValet Api updated successfully.`);
           console.log("rxvalet resp: ", resp.data);
         } catch (err) {
+          addLog("Corn Error", user?._id, `RxValet API Error: ${err}`);
           console.error("RxValet API Error:", err);
         }
 
@@ -313,8 +386,14 @@ cron.schedule("0 0 * * *", async () => {
         // update getlyric to plus plan
         const updateMemberData = new FormData();
         updateMemberData.append("primaryExternalId", user?._id);
-        updateMemberData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
-        updateMemberData.append("planId", production ? prodPlanId : stagingPlanId);
+        updateMemberData.append(
+          "groupCode",
+          `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
+        );
+        updateMemberData.append(
+          "planId",
+          production ? prodPlanId : stagingPlanId
+        );
         updateMemberData.append("planDetailsId", "3");
         updateMemberData.append("effectiveDate", effectiveDate);
         updateMemberData.append("terminationDate", terminationDate);
@@ -341,8 +420,11 @@ cron.schedule("0 0 * * *", async () => {
           updateMemberData,
           { headers: { Authorization: cenSusauthToken } }
         );
+
+        addLog("Corn Info", user?._id, `User updated in Lyric system successfully.`);
         // console.log("lyrics data-: ", response.data);
         if (!response.data.success) {
+          addLog("Corn Error", user?._id, `Failed to update user in Lyric system: ${response.data}`);
           return res.status(500).json({
             error: "Failed to update user in Lyric system",
             data: response.data,
@@ -351,7 +433,8 @@ cron.schedule("0 0 * * *", async () => {
 
         // update rxvalet to plus plan
         const rxvaletUserInfo = {
-          GroupID: userPlan.planKey === "TRIAL" || plus.planKey ? "OPT800" : "OPT125" ,
+          GroupID:
+            userPlan.planKey === "TRIAL" || plus.planKey ? "OPT800" : "OPT125",
           MemberGUID: user?.PrimaryMemberGUID,
         };
 
@@ -365,8 +448,11 @@ cron.schedule("0 0 * * *", async () => {
           rxvaletFormData,
           { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
         );
+        addLog("Corn Info", user?._id, `User updated in RxValet system successfully.`);
         // console.log("rxvalet data update plan: ", rxRespose.data);
         if (rxRespose.data.StatusCode !== "1") {
+
+          addLog("Corn Error", user?._id, `Failed to update user plan in RxValet system: ${rxRespose.data}`);
           return res.status(500).json({
             error: "Failed to update user plan in RxValet system",
             data: rxRespose.data,
@@ -378,6 +464,8 @@ cron.schedule("0 0 * * *", async () => {
         user.planEndDate = terminationDate;
         await user.save();
 
+        addLog("Corn Info", user?._id, `User plan updated to ${userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name} successfully.`);
+
         await axios.post(
           "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/f5976b27-57b1-4d11-b024-8742f854e2e9",
           {
@@ -387,6 +475,7 @@ cron.schedule("0 0 * * *", async () => {
           }
         );
       } catch (err) {
+        addLog("Corn Error", user?._id, `Error processing user: ${err}`);
         console.error(`Error processing user`, err);
       }
     }
@@ -399,6 +488,6 @@ app.get("/", (req, res) => {
   res.send("Optimal MD network is running...");
 });
 
-app.listen(port, (req, res) => {
+app.listen(port, () => {
   console.log(`Optimal MD network is running on port: ${port}`);
 });

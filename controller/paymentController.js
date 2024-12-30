@@ -87,7 +87,7 @@ const processPayment = async (req, res) => {
 // Get All Payments with Pagination and Filtering
 const getAllPayment = async (req, res) => {
   try {
-    let { page = 1, limit = 10, search = "", startDate, endDate } = req.query;
+    let { page = 1, limit = 10, search = "", startDate, endDate, isrefund } = req.query;
 
     // Pagination setup
     page = parseInt(page);
@@ -114,13 +114,11 @@ const getAllPayment = async (req, res) => {
     if (startDate || endDate) {
       const dateFilter = {};
       if (startDate) {
-        // Normalize startDate to the start of the day in UTC
         const startOfDay = new Date(startDate);
         startOfDay.setUTCHours(0, 0, 0, 0);
         dateFilter.$gte = startOfDay;
       }
       if (endDate) {
-        // Normalize endDate to the end of the day in UTC
         const endOfDay = new Date(endDate);
         endOfDay.setUTCHours(23, 59, 59, 999);
         dateFilter.$lte = endOfDay;
@@ -128,8 +126,15 @@ const getAllPayment = async (req, res) => {
       filters.push({ paymentDate: dateFilter });
     }
 
+    // Filter by isRefunded
+    if (isrefund !== undefined) {
+      filters.push({ isRefunded: isrefund === "true" });
+    }
+
+    // Combine filters
     const query = filters.length > 0 ? { $and: filters } : {};
-    // Fetch payments with search, date range, and pagination
+
+    // Fetch payments with search, date range, isRefunded filter, and pagination
     const payments = await Payment.find(query)
       .skip(skip)
       .limit(limit)
@@ -139,11 +144,35 @@ const getAllPayment = async (req, res) => {
       })
       .sort({ paymentDate: -1 });
 
+    // Count total payments matching the query
     const totalPayments = await Payment.countDocuments(query);
 
+
+
+    const totalStats = await Payment.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          totalPaid: { $sum: "$amount" },
+          totalRefunded: {
+            $sum: { $cond: [{ $eq: ["$isRefunded", true] }, "$amount", 0] },
+          },
+        },
+      },
+    ]);
+
+    const totalPaid = totalStats[0]?.totalPaid || 0;
+    const totalRefunded = totalStats[0]?.totalRefunded || 0;
+
+
+
+    // Respond with results
     res.status(200).json({
       success: true,
       total: totalPayments,
+      totalPaid,
+      totalRefunded,
       currentPage: page,
       totalPages: Math.ceil(totalPayments / limit),
       data: payments,
@@ -209,14 +238,18 @@ const getPaymentHistoryByUserId = async (req, res) => {
     if (startDate || endDate) {
       const dateFilter = {};
       if (startDate) {
-        dateFilter.$gte = new Date(startDate);
-        dateFilter.$gte.setHours(0, 0, 0, 0);
+        // Normalize startDate to the start of the day in UTC
+        const startOfDay = new Date(startDate);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        dateFilter.$gte = startOfDay;
       }
       if (endDate) {
+        // Normalize endDate to the end of the day in UTC
         const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        endOfDay.setUTCHours(23, 59, 59, 999);
         dateFilter.$lte = endOfDay;
       }
+      console.log("dateFilter:", dateFilter);
       filters.paymentDate = dateFilter;
     }
 
@@ -413,7 +446,7 @@ async function paymentRefund(req, res) {
       // Use bank account payment
       paymentMethod = {
         bankAccount: {
-          accountType: "checking",
+          accountType: production ? "saving": "checking",
           routingNumber: customDecrypt(user.routingNumber),
           accountNumber: customDecrypt(user.accountNumber),
           nameOnAccount: user.accountName,
@@ -422,12 +455,13 @@ async function paymentRefund(req, res) {
       };
     }
     else {
-      return res.status(400).json({
+      return res.status(500).json({
         success: false,
-        error: "Invalid payment details. Provide either card or bank account information.",
+        message:
+          "Refund failed",
       });
     }
-
+    // console.log(Math.ceil(payment.amount * percentage))
     const refundRequest = {
       createTransactionRequest: {
         merchantAuthentication: {
@@ -436,7 +470,7 @@ async function paymentRefund(req, res) {
         },
         transactionRequest: {
           transactionType: "refundTransaction",
-          amount: payment.amount * percentage,
+          amount: Math.ceil(payment.amount * percentage),
           payment: paymentMethod,
           refTransId: transactionId,
         },
@@ -514,12 +548,19 @@ async function paymentRefund(req, res) {
       );
 
       // Log the refund
-      addLog("Refund", currentUserId, `Refunded payment of $${payment.amount * percentage} for user ${user.firstName} ${user.lastName}.`);
+      addLog("Refund", currentUserId, `Refunded payment of $${Math.ceil(payment.amount * percentage)} for user ${user.firstName} ${user.lastName}.`);
 
       return res.status(200).json({
         success: true,
         message: "Refund processed successfully.",
         refundTransactionId: refundResult.transactionResponse.transId,
+      });
+    } else {
+      addLog("Filed to Refund", currentUserId, `Failed refunded payment of $${Math.ceil(payment.amount * percentage)} for user ${user.firstName} ${user.lastName}.`);
+      return res.status(500).json({
+        success: false,
+        error: "Internal server error.",
+        details: error.message,
       });
     }
   } catch (error) {

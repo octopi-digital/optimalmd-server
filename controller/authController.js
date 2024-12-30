@@ -317,15 +317,13 @@ async function register(req, res) {
       } else if (coupon.couponType === "Fixed Amount") {
         discount = coupon.discountOffered;
       }
-      // Check if the discount exceeds the original amount
-      if (discount > amount) {
-        return res
-          .status(400)
-          .json({ error: "This coupon cannot be execute to this plan" });
-      }
 
       // Adjust amount
       amount = amount - discount;
+
+      if (amount < 0) {
+        amount = 0;
+      }
 
       console.log("After Coupon: ", amount);
     }
@@ -421,7 +419,7 @@ async function register(req, res) {
       plan,
       planKey,
       transactionId,
-      paymentReason: "Plan Purchase(Registration)",
+      paymentReason: `${plan} Plan Purchase(Registration)`,
     });
     const savedPaymentRecord = await paymentRecord.save();
 
@@ -741,12 +739,15 @@ async function updateUserPlan(req, res) {
 
           console.log("Discount: ", discount);
 
-          // Ensure the discount doesn't exceed the amount
-          if (discount > amount) {
-            discount = 0;
-          } else {
-            couponCode = coupon.couponCode;
+
+          // Subtract the discount from the total amount
+          amount -= discount;
+
+          if (amount < 0) {
+            amount = 0;
           }
+          couponCode = coupon.couponCode;
+
         } else {
           // Return an error if coupon is invalid or not applicable
           discount = 0;
@@ -755,8 +756,6 @@ async function updateUserPlan(req, res) {
       }
     }
 
-    // Subtract the discount from the total amount
-    amount -= discount;
 
     console.log("After amount: ", amount);
 
@@ -1184,20 +1183,29 @@ async function changepassword(req, res) {
   }
 }
 
-// forget Password password
+// Forget Password
 async function forgetPassword(req, res) {
   try {
     const { email } = req.body;
 
-    const user = await User.findOne({ email });
+    // Check in User schema
+    let user = await User.findOne({ email });
+    let isDependent = false;
+
+    // If not found in User, check in Dependent schema
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      user = await Dependent.findOne({ email });
+      isDependent = true;
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: "Email not found" });
     }
 
     const resetToken = crypto.randomBytes(32).toString("hex");
 
     user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = Date.now() + 3600000;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
     await user.save();
 
     const frontendURL =
@@ -1210,9 +1218,9 @@ async function forgetPassword(req, res) {
       "https://services.leadconnectorhq.com/hooks/VrTTgjMoHCZk4jeKOm9F/webhook-trigger/283a2172-a198-427a-828d-fd38ed616722",
       {
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        phone: user.phone,
+        firstName: user.firstName || "Dependent",
+        lastName: user.lastName || "",
+        phone: user.phone || "",
         resetLink: resetLink,
       }
     );
@@ -1221,7 +1229,9 @@ async function forgetPassword(req, res) {
     addLog(
       "Password Reset Apply",
       user._id,
-      `Password reset email sent to user with title: ${user.firstName}`
+      `Password reset email sent to ${
+        isDependent ? "dependent" : "user"
+      } with title: ${user.firstName || "Dependent"}`
     );
 
     res.status(200).json({ message: "Password reset email sent" });
@@ -1231,15 +1241,26 @@ async function forgetPassword(req, res) {
   }
 }
 
-// reset Password password
+// Reset Password
 async function resetPassword(req, res) {
   try {
     const { token, newPassword } = req.body;
-
-    const user = await User.findOne({
+    
+    // Check for valid token in both User and Dependent schemas
+    let user = await User.findOne({
       resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() },
+      resetPasswordExpires: { $gte: Date.now() },
     });
+    let isDependent = false;
+
+    if (!user) {
+      user = await Dependent.findOne({
+        resetPasswordToken: token,
+        resetPasswordExpires: { $gte: Date.now() },
+      });
+      
+      isDependent = true;
+    }
 
     if (!user) {
       return res.status(400).json({ error: "Invalid or expired token" });
@@ -1256,8 +1277,11 @@ async function resetPassword(req, res) {
     addLog(
       "Password Reset",
       user._id,
-      `Password reset for user with title: ${user.firstName}`
+      `Password reset for ${
+        isDependent ? "dependent" : "user"
+      } with title: ${user.firstName || "Dependent"}`
     );
+
     res.status(200).json({ message: "Password reset successfully" });
   } catch (error) {
     console.error("Error resetting password:", error);
@@ -1283,6 +1307,8 @@ async function updateUserStatus(req, res) {
       "dependents",
       "paymentHistory",
     ]);
+    console.log("user before: ", user);
+
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
@@ -1331,10 +1357,7 @@ async function updateUserStatus(req, res) {
       );
 
       // Populate dependents and paymentHistory
-      await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
-
-      // Remove sensitive data before responding
-      const { password, ...userWithoutSensitiveData } = user.toObject();
+      await user.save();
 
       // sending email
       if (status === "Active") {
@@ -1369,12 +1392,15 @@ async function updateUserStatus(req, res) {
 
                 console.log("Discount: ", discount);
 
-                // Ensure the discount doesn't exceed the amount
-                if (discount > amount) {
-                  discount = 0;
-                } else {
-                  couponCode = coupon.couponCode;
+                // Subtract the discount from the total amount
+                amount -= discount;
+
+                if (amount < 0) {
+                  amount = 0;
                 }
+
+                couponCode = coupon.couponCode;
+
               } else {
                 // Return an error if coupon is invalid or not applicable
                 discount = 0;
@@ -1383,8 +1409,6 @@ async function updateUserStatus(req, res) {
             }
           }
 
-          // Subtract the discount from the total amount
-          amount -= discount;
 
           console.log("After amount: ", amount);
 
@@ -1467,11 +1491,16 @@ async function updateUserStatus(req, res) {
           }
         );
       }
+      const populatedUser = await user.populate(["paymentHistory", "dependents"])
+
+      const { password, ...userWithoutSensitiveData } = populatedUser.toObject();
       res.json({
         message: `User status successfully updated to ${status}.`,
         user: userWithoutSensitiveData,
       });
     } else {
+      console.log("else hit");
+      
       // Login to GetLyric API
       const cenSusloginData = new FormData();
       cenSusloginData.append(
@@ -1507,7 +1536,6 @@ async function updateUserStatus(req, res) {
         memberActive = "1";
         effectiveDate = moment().format("MM/DD/YYYY");
         getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
-        UpdatePlanGetLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
         // Process Payment
         let amount = userPlan.planKey === "TRIAL" || plus.planKey ? plus.price : userPlan.price;
         console.log("Before amount: ", amount);
@@ -1538,12 +1566,15 @@ async function updateUserStatus(req, res) {
 
               console.log("Discount: ", discount);
 
-              // Ensure the discount doesn't exceed the amount
-              if (discount > amount) {
-                discount = 0;
-              } else {
-                couponCode = coupon.couponCode;
+              // Subtract the discount from the total amount
+              amount -= discount;
+
+              if (amount < 0) {
+                amount = 0;
               }
+
+              couponCode = coupon.couponCode;
+
             } else {
               // Return an error if coupon is invalid or not applicable
               discount = 0;
@@ -1551,9 +1582,6 @@ async function updateUserStatus(req, res) {
             }
           }
         }
-
-        // Subtract the discount from the total amount
-        amount -= discount;
 
         console.log("After amount: ", amount);
         try {
@@ -1578,6 +1606,8 @@ async function updateUserStatus(req, res) {
           );
 
           const result = paymentResponse.data;
+          console.log(result);
+          
           if (paymentResponse.data?.transactionResponse?.transId === "0") {
             return res.status(500).json({
               success: false,
@@ -1784,7 +1814,10 @@ async function updateUserStatus(req, res) {
       user.planStartDate = effectiveDate || user.planStartDate;
       user.planEndDate = terminationDate;
       await user.save();
-      const { password, ...userWithoutSensitiveData } = user.toObject();
+      // Populate dependents and paymentHistory
+      const populatedUser = await user.populate(["paymentHistory", "dependents"])
+
+      const { password, ...userWithoutSensitiveData } = populatedUser.toObject();
 
       // Log the user status update
       addLog(
@@ -1793,8 +1826,7 @@ async function updateUserStatus(req, res) {
         `Updated user status to ${status} with title: ${user.firstName}`
       );
 
-      // Populate dependents and paymentHistory
-      await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
+      console.log("user after-2: ", userWithoutSensitiveData);
       res.json({
         message: `User status successfully updated to ${status}.`,
         user: userWithoutSensitiveData,

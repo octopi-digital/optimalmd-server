@@ -1,0 +1,62 @@
+[
+    {
+      "_id": { "$oid": "67690525ae43442a34be87b8" },
+      "name": "TRIAL",
+      "price": { "$numberInt": "10" },
+      "subtitle": "Give us a try! For only $10, unlock MANY the benefits of our Access Plus Plan for 10 days!  What's Included?",
+      "benefits": [
+        "Unlimited Primary and Urgent Care Virtual Doctor Visits - Available 24/7/365",
+        "125 Acute Care Prescriptions available at $0 copay. See what's included",
+        "Discount Rx Card for additional medications! Save on prescriptions at over 70k pharmacies",
+        "\"Message a Specialist\": Over 13 specialists give expert answers to your health questions!",
+        "Access talk therapy, behavioral and mental health support at no additional cost.",
+        "Dermatologist consults included, as well!  ⭐ To unlock even MORE value, check out our Access Plus membership."
+      ],
+      "duration": { "value": { "$numberInt": "10" }, "unit": "days" },
+      "status": "Active",
+      "__v": { "$numberInt": "0" },
+      "tag": "",
+      "sortOrder": { "$numberInt": "0" },
+      "planKey": "TRIAL",
+      "planType": "Individual"
+    },
+    {
+      "_id": { "$oid": "676907eaae43442a34be87c6" },
+      "name": "ACCESS",
+      "price": { "$numberInt": "47" },
+      "subtitle": "Includes 125 Medications at no cost",
+      "benefits": [
+        "Plan Covers the Entire Family",
+        "Unlimited Urgent Care Visits (Virtual)",
+        "FREE Annual Bloodwork through Quest (In Person)",
+        "Behavioral Health & Talk Therapy Included"
+      ],
+      "duration": { "value": { "$numberInt": "30" }, "unit": "days" },
+      "status": "Inactive",
+      "__v": { "$numberInt": "0" },
+      "tag": "",
+      "sortOrder": { "$numberInt": "4" },
+      "planKey": "ACCESS",
+      "planType": "Individual"
+    },
+    {
+      "_id": { "$oid": "67690834ae43442a34be87c9" },
+      "name": "ACCESS PLUS",
+      "price": { "$numberInt": "97" },
+      "subtitle": "Enjoy all the benefits from Day 1! Your Access Plus monthly membership includes everything from the 10-day Trial, PLUS additional exclusive services:",
+      "benefits": [
+        "Additional 1100+ of the most prescribed acute and routine medications for $0 extra. See included medications",
+        "Prescriptions can be filled at over 70k pharmacies nationwide.",
+        "Access to GLP-1 Weight Loss & Management programs - lowest pricing you can find!",
+        "Pre-negotiated & deeply discounted rates on labs, imaging and other diagnostic testing!"
+      ],
+      "duration": { "value": { "$numberInt": "30" }, "unit": "days" },
+      "status": "Active",
+      "__v": { "$numberInt": "0" },
+      "sortOrder": { "$numberInt": "0" },
+      "tag": "Popular",
+      "planKey": "ACCESS PLUS",
+      "planType": "Individual"
+    }
+  ]
+  

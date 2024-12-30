@@ -91,25 +91,23 @@ exports.createCoupon = async (req, res) => {
       recurringOrFuturePayments,
       userId,
     } = req.body;
-
-    console.log(req.body.userId);
     // Check required fields one by one
     if (!couponName) {
-      return res.status(400).json({ message: "Coupon name is required." });
+      return res.status(400).json({ error: "Coupon name is required." });
     }
     if (!couponCode) {
-      return res.status(400).json({ message: "Coupon code is required." });
+      return res.status(400).json({ error: "Coupon code is required." });
     }
 
     // Validate uniqueness of couponCode
     const existingCoupon = await Coupon.findOne({ couponCode });
     if (existingCoupon) {
-      return res.status(400).json({ message: "Coupon code must be unique." });
+      return res.status(400).json({ error: "Coupon code must be unique." });
     }
 
     if (!couponType || !["Percentage", "Fixed Amount"].includes(couponType)) {
       return res.status(400).json({
-        message:
+        error:
           'Coupon type is required and must be either "Percentage" or "Fixed Amount".',
       });
     }
@@ -122,7 +120,7 @@ exports.createCoupon = async (req, res) => {
         discountOffered > 100
       ) {
         return res.status(400).json({
-          message:
+          error:
             'For "Percentage" coupon type, discount must be between 0 and 100.',
         });
       }
@@ -133,7 +131,7 @@ exports.createCoupon = async (req, res) => {
         discountOffered < 0
       ) {
         return res.status(400).json({
-          message:
+          error:
             'For "Fixed Amount" coupon type, discount must be greater than or equal to 0.',
         });
       }
@@ -143,34 +141,34 @@ exports.createCoupon = async (req, res) => {
     if (!startDate || !startTime) {
       return res
         .status(400)
-        .json({ message: "Start date and time are required." });
+        .json({ error: "Start date and time are required." });
     }
 
     const startDateTime = new Date(`${startDate}T${startTime}`);
     if (startDateTime < new Date()) {
       return res
         .status(400)
-        .json({ message: "Start date and time cannot be in the past." });
+        .json({ error: "Start date and time cannot be in the past." });
     }
 
     // Validate end date and time
     if (!endDate || !endTime) {
       return res
         .status(400)
-        .json({ message: "End date and time are required." });
+        .json({ error: "End date and time are required." });
     }
 
     const endDateTime = new Date(`${endDate}T${endTime}`);
     if (endDateTime < new Date()) {
       return res
         .status(400)
-        .json({ message: "End date and time cannot be in the past." });
+        .json({ error: "End date and time cannot be in the past." });
     }
 
     // Ensure end date/time is after start date/time
     if (endDateTime <= startDateTime) {
       return res.status(400).json({
-        message: "End date and time must be after the start date and time.",
+        error: "End date and time must be after the start date and time.",
       });
     }
 
@@ -186,6 +184,13 @@ exports.createCoupon = async (req, res) => {
       couponStatus = "Expired"; // Coupon is expired
     }
 
+    let redeemNumber;
+    if (numberOfRedeem < 1 || numberOfRedeem === undefined || numberOfRedeem === null) {
+      redeemNumber = -1;
+    } else {
+      redeemNumber = numberOfRedeem;
+    }
+
     // If all checks pass, save the coupon
     const newCoupon = new Coupon({
       couponName,
@@ -196,7 +201,7 @@ exports.createCoupon = async (req, res) => {
       startTime,
       endDate,
       endTime,
-      numberOfRedeem,
+      numberOfRedeem: redeemNumber,
       selectedPlans,
       useLimit,
       recurringOrFuturePayments,
@@ -208,11 +213,11 @@ exports.createCoupon = async (req, res) => {
     addLog('Created Coupon', userId, `Created coupon with title: ${couponName}`);
     res.status(201).json(savedCoupon);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
-
+// Get all coupons with pagination, sorting, and filtering
 exports.getAllCoupons = async (req, res) => {
   try {
     const {
@@ -240,6 +245,15 @@ exports.getAllCoupons = async (req, res) => {
         return res.status(400).json({ error: "Invalid status specified." });
       }
       filters.status = status;
+    }
+
+    // If there's a search parameter, include it in the filter
+    if (search) {
+      const searchRegex = { $regex: search, $options: "i" }; // Case-insensitive search
+      filters.$or = [
+        { couponName: searchRegex },
+        { couponCode: searchRegex },
+      ];
     }
 
     // Date range filter for string dates
@@ -283,18 +297,16 @@ exports.getAllCoupons = async (req, res) => {
 };
 
 
-
-
 // Get a single coupon by ID
 exports.getCouponById = async (req, res) => {
   try {
     const coupon = await Coupon.findById(req.params.id);
     if (!coupon) {
-      return res.status(404).json({ message: "Coupon not found" });
+      return res.status(404).json({ error: "Coupon not found" });
     }
     res.status(200).json(coupon);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -303,6 +315,11 @@ exports.getCouponByCode = async (req, res) => {
     const { code } = req.body; // Destructure from body
     const { couponCode, planKey } = code; // Logs the coupon code
     // console.log("Plan Key:", planKey);
+
+    if(planKey===""){
+      return res.status(400).json({ message: "Please select a plan, To apply the coupon" });
+    }
+
     if (!couponCode) {
       return res.status(400).json({ message: "" });
     }
@@ -312,7 +329,7 @@ exports.getCouponByCode = async (req, res) => {
       return res.status(404).json({ message: "Coupon is invalid" });
     }
 
-    if (!coupon.selectedPlans.includes(planKey)) {
+    if (coupon.selectedPlans.length !== 0 && !coupon.selectedPlans.includes(planKey)) {
       return res.status(400).json({ message: "This coupon is not valid for the selected plan." });
     }
     if (!coupon.status === "Active") {
@@ -324,8 +341,6 @@ exports.getCouponByCode = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-
 
 
 // Update a coupon by ID
@@ -350,7 +365,7 @@ exports.updateCoupon = async (req, res) => {
     // Find the existing coupon by ID
     const existingCoupon = await Coupon.findById(req.params.id);
     if (!existingCoupon) {
-      return res.status(404).json({ message: "Coupon not found." });
+      return res.status(404).json({ error: "Coupon not found." });
     }
 
     // Validate start date/time only if modified
@@ -365,7 +380,7 @@ exports.updateCoupon = async (req, res) => {
         if (newStartDateTime < new Date()) {
           return res
             .status(400)
-            .json({ message: "Start date and time cannot be in the past." });
+            .json({ error: "Start date and time cannot be in the past." });
         }
       }
     }
@@ -382,21 +397,19 @@ exports.updateCoupon = async (req, res) => {
         if (newEndDateTime < new Date()) {
           return res
             .status(400)
-            .json({ message: "End date and time cannot be in the past." });
-        }
-
-        // Ensure end date/time is after the start date/time
-        const newStartDateTime = new Date(
-          `${startDate || existingCoupon.startDate}T${startTime || existingCoupon.startTime
-          }`
-        );
-        if (newEndDateTime <= newStartDateTime) {
-          return res.status(400).json({
-            message: "End date and time must be after the start date and time.",
-          });
+            .json({ error: "End date and time cannot be in the past." });
         }
       }
+
+      // Ensure end date/time is after the start date/time
+      const newStartDateTime = new Date(`${startDate}T${startTime}`);
+      if (newEndDateTime <= newStartDateTime) {
+        return res.status(400).json({
+          error: "End date and time must be after the start date and time.",
+        });
+      }
     }
+
 
     // Determine coupon status based on dates
     let couponStatus = existingCoupon.status; // Default to existing status
@@ -418,6 +431,13 @@ exports.updateCoupon = async (req, res) => {
       couponStatus = "Expired"; // Coupon is expired
     }
 
+    let redeemNumber;
+    if (numberOfRedeem < 1 || numberOfRedeem === undefined || numberOfRedeem === null) {
+      redeemNumber = -1;
+    } else {
+      redeemNumber = numberOfRedeem;
+    }
+
     // Update the coupon with the new details
     const updatedCoupon = await Coupon.findByIdAndUpdate(
       req.params.id,
@@ -430,7 +450,7 @@ exports.updateCoupon = async (req, res) => {
         startTime: startTime || existingCoupon.startTime,
         endDate: endDate || existingCoupon.endDate,
         endTime: endTime || existingCoupon.endTime,
-        numberOfRedeem,
+        numberOfRedeem: redeemNumber,
         selectedPlans,
         useLimit,
         recurringOrFuturePayments,
@@ -443,7 +463,7 @@ exports.updateCoupon = async (req, res) => {
     addLog('Update Coupon', userId, `Updated coupon with title: ${updatedCoupon.couponName}`);
     res.status(200).json(updatedCoupon);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -453,13 +473,13 @@ exports.deleteCoupon = async (req, res) => {
     const userId = req.body.userId;
     const deletedCoupon = await Coupon.findByIdAndDelete(req.params.id);
     if (!deletedCoupon) {
-      return res.status(404).json({ message: "Coupon not found" });
+      return res.status(404).json({ error: "Coupon not found" });
     }
     // Log the deletion
     addLog('Delete Coupon', userId, `Deleted coupon with title: ${deletedCoupon.couponName}`);
     res.status(200).json({ message: "Coupon deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -477,22 +497,22 @@ exports.applyCoupon = async (req, res) => {
       amount === null
     ) {
       return res.status(400).json({
-        message: "Coupon code, user ID, plan ID, and amount are required.",
+        error: "Coupon code, user ID, plan ID, and amount are required.",
       });
     }
 
     // Find the coupon by code
     const coupon = await Coupon.findOne({ couponCode });
     if (!coupon) {
-      return res.status(404).json({ message: "Invalid coupon code." });
+      return res.status(404).json({ error: "Invalid coupon code." });
     }
 
     // Check if the coupon is active
     if (coupon.status.toLowerCase() === "scheduled") {
-      return res.status(400).json({ message: "Coupon is not active yet." });
+      return res.status(400).json({ error: "Coupon is not active yet." });
     }
     if (coupon.status.toLowerCase() === "expired") {
-      return res.status(400).json({ message: "Coupon has expired." });
+      return res.status(400).json({ error: "Coupon has expired." });
     }
 
     // Check if the coupon is applicable to the selected plan
@@ -502,14 +522,14 @@ exports.applyCoupon = async (req, res) => {
     ) {
       return res
         .status(400)
-        .json({ message: "Coupon is not applicable for the selected plan." });
+        .json({ error: "Coupon is not applicable for the selected plan." });
     }
 
     // Check if the user has already applied the coupon (if useLimit is true)
     if (coupon.useLimit && coupon.appliedBy.includes(userId)) {
       return res
         .status(400)
-        .json({ message: "You have already used this coupon." });
+        .json({ error: "You have already used this coupon." });
     }
 
     // Check if the coupon has redemption limits
@@ -519,7 +539,7 @@ exports.applyCoupon = async (req, res) => {
     ) {
       return res
         .status(400)
-        .json({ message: "Coupon redemption limit has been reached." });
+        .json({ error: "Coupon redemption limit has been reached." });
     }
 
     // Calculate the discount and grand total
@@ -530,14 +550,12 @@ exports.applyCoupon = async (req, res) => {
       discount = coupon.discountOffered;
     }
 
-    // Check if the discount exceeds the original amount
-    if (discount > amount) {
-      return res
-        .status(400)
-        .json({ message: "This coupon cannot be execute to this plan" });
-    }
 
-    const grandTotal = amount - discount;
+    let grandTotal = amount - discount;
+
+    if (grandTotal < 0) {
+      grandTotal = 0;
+    }
 
     // Add the user to the appliedBy array and increment redemption count
     coupon.appliedBy.push(userId);
@@ -562,6 +580,6 @@ exports.applyCoupon = async (req, res) => {
       couponType: coupon.couponType,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    res.status(500).json({ error: "Server error", error });
   }
 };
