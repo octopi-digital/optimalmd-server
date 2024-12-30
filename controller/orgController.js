@@ -75,6 +75,8 @@ const createOrg = async (req, res) => {
             return res.status(500).json({ error: "Failed to save organization." });
         }
 
+        // Log the creation
+        addLog("Organization created", null, `Organization ${data?.orgName} created with email ${data?.orgEmail}.`);
         // Respond with success
         res.status(201).json(savedOrg);
     } catch (err) {
@@ -206,6 +208,9 @@ const updateOrg = async (req, res) => {
         const { id } = req.params;
         const updatedOrg = await Org.findByIdAndUpdate(id, req.body, { new: true });
         if (!updatedOrg) return res.status(404).json({ message: "Organization not found" });
+
+        // Log the update
+        addLog("Organization updated", null, `Organization ${updatedOrg?.orgName} updated.`);
         res.status(200).json(updatedOrg);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -218,6 +223,9 @@ const deleteOrg = async (req, res) => {
         const { id } = req.params;
         const deletedOrg = await Org.findByIdAndDelete(id);
         if (!deletedOrg) return res.status(404).json({ message: "Organization not found" });
+
+        // Log the deletion
+        addLog("Organization deleted", null, `Organization ${deletedOrg?.orgName} deleted.`);
         res.status(200).json({ message: "Organization deleted successfully" });
     } catch (err) {
         res.status(500).json({ error: err.message });

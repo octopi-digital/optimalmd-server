@@ -16,7 +16,7 @@ const addSalesPartner = async (req, res) => {
         .json({ message: "Sales partner with this email already exists" });
     }
 
-    addLog("Sales Partner", null, "Sales Partner added successfully")
+    addLog("Sales Partner", null, "Sales Partner added successfully.")
     // Create new Sales Partner
     const newSalesPartner = new SalesPartner({
       firstName,
@@ -82,7 +82,7 @@ const updateSalesPartner = async (req, res) => {
       return res.status(404).json({ message: "Sales Partner not found" });
     }
 
-    addLog("Update Sales Partner", null, "Sales Partner info updated successfully")
+    addLog("Update Sales Partner", null, "Sales Partner info updated successfully.")
 
     return res.status(200).json({
       message: "Sales Partner updated successfully",
@@ -104,7 +104,7 @@ const deleteSalesPartner = async (req, res) => {
       return res.status(404).json({ message: "Sales Partner not found" });
     }
 
-    addLog("Delete Sales Partner", null, "Sales Partner deleted successfully")
+    addLog("Delete Sales Partner", null, "Sales Partner deleted successfully.")
     return res
       .status(200)
       .json({ message: "Sales Partner deleted successfully" });
