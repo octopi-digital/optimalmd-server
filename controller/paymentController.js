@@ -426,9 +426,10 @@ async function paymentRefund(req, res) {
       };
     }
     else {
-      return res.status(400).json({
+      return res.status(500).json({
         success: false,
-        error: "Invalid payment details. Provide either card or bank account information.",
+        message:
+          "Refund failed",
       });
     }
 
@@ -524,6 +525,12 @@ async function paymentRefund(req, res) {
         success: true,
         message: "Refund processed successfully.",
         refundTransactionId: refundResult.transactionResponse.transId,
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        error: "Internal server error.",
+        details: error.message,
       });
     }
   } catch (error) {
