@@ -479,7 +479,7 @@ async function getDependentById(req, res) {
 // update dependent image
 async function updateDependentImage(req, res) {
   try {
-    const { image, id } = req.body;
+    const { image, id, role } = req.body;
 
     // Update the dependent's image
     const updatedDependent = await Dependent.findByIdAndUpdate(
@@ -510,10 +510,13 @@ async function updateDependentImage(req, res) {
     );
 
     const { password, ...userWithoutSensitiveData } = user.toObject();
+    const dependent = await Dependent.findById(id).populate(
+      "primaryUser", "plan planKey status"
+    );
 
     res.status(200).json({
       message: "Dependent image updated successfully",
-      user: userWithoutSensitiveData,
+      user: role==="Dependent" ? dependent : userWithoutSensitiveData,
     });
   } catch (error) {
     console.error("Error updating dependent image:", error.message);
