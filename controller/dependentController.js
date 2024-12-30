@@ -108,7 +108,7 @@ async function deleteDependent(req, res) {
 async function updateDependent(req, res) {
   try {
     const { primaryUserId, dependentId, role, ...userInfo } = req.body;
-
+     console.log(userInfo)
     if (!primaryUserId) {
       return res.status(400).json({ message: "User Id Is Required" });
     }
@@ -120,7 +120,7 @@ async function updateDependent(req, res) {
     if (userInfo?.email) {
       // Check if the email already exists
       const existingUser = await Dependent.findOne({ email: userInfo.email });
-      console.log(existingUser);
+      // console.log(existingUser);
 
       if (existingUser && !existingUser?.rxvaletDependentId || !existingUser?.lyricDependentId) {
         const loginData = new FormData();

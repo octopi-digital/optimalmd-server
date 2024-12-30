@@ -29,18 +29,18 @@ const dependentSchema = new mongoose.Schema({
   shipingState: { type: String, default: "" },
   shipingZip: { type: String, default: "" },
 
-  // Secondary address:
-  secondaryAddress1: { type: String, default: "" },
-  secondaryAddress2: { type: String, default: "" },
-  secondaryCity: { type: String, default: "" },
-  secondaryState: { type: String, default: "" },
-  secondaryZip: { type: String, default: "" },
-
-  role: {
-    type: String,
-    enum: ["Dependent"],
-    default: "Dependent",
-  },
+    // Secondary address:
+    secondaryAddress1: { type: String, default: "" },
+    secondaryAddress2: { type: String, default: "" },
+    secondaryCity: { type: String, default: "" },
+    secondaryState: { type: String, default: "" },
+    secondaryZip: { type: String, default: "" },
+    isUpdate: { type: Boolean, default: false, required: true },
+    role: {
+      type: String,
+      enum: ["Dependent"],
+      default: "Dependent",
+    },
 
   // lyric id:
   lyricDependentId: { type: String, default: "" },
