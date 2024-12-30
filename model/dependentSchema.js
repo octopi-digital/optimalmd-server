@@ -38,7 +38,7 @@ const dependentSchema = new mongoose.Schema(
     secondaryCity: { type: String, default: "" },
     secondaryState: { type: String, default: "" },
     secondaryZip: { type: String, default: "" },
-
+    isUpdate: { type: Boolean, default: false, required: true },
     role: {
       type: String,
       enum: ["Dependent"],
