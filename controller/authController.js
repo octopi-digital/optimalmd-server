@@ -1103,12 +1103,6 @@ async function login(req, res) {
       if (isPasswordMatch) {
         const { password, ...userWithoutSensitiveData } = user.toObject();
 
-        // Log the login
-        addLog(
-          "User Login",
-          user._id,
-          `User logged in with title: ${user.firstName}`
-        );
         return res.status(200).json({
           message: "User logged in successfully",
           user: userWithoutSensitiveData,
