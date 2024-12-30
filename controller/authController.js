@@ -419,7 +419,7 @@ async function register(req, res) {
       plan,
       planKey,
       transactionId,
-      paymentReason: "Plan Purchase(Registration)",
+      paymentReason: `${plan} Plan Purchase(Registration)`,
     });
     const savedPaymentRecord = await paymentRecord.save();
 
@@ -1282,8 +1282,8 @@ async function updateUserStatus(req, res) {
       "dependents",
       "paymentHistory",
     ]);
-    console.log("user before: ",user);
-    
+    console.log("user before: ", user);
+
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
@@ -1466,7 +1466,7 @@ async function updateUserStatus(req, res) {
           }
         );
       }
-      const populatedUser = await user.populate(["paymentHistory","dependents"])
+      const populatedUser = await user.populate(["paymentHistory", "dependents"])
 
       const { password, ...userWithoutSensitiveData } = populatedUser.toObject();
       res.json({
@@ -1546,9 +1546,9 @@ async function updateUserStatus(req, res) {
               if (amount < 0) {
                 amount = 0;
               }
-         
+
               couponCode = coupon.couponCode;
-              
+
             } else {
               // Return an error if coupon is invalid or not applicable
               discount = 0;
@@ -1787,7 +1787,7 @@ async function updateUserStatus(req, res) {
       user.planEndDate = terminationDate;
       await user.save();
       // Populate dependents and paymentHistory
-      const populatedUser = await user.populate(["paymentHistory","dependents"])
+      const populatedUser = await user.populate(["paymentHistory", "dependents"])
 
       const { password, ...userWithoutSensitiveData } = populatedUser.toObject();
 
