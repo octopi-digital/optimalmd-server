@@ -396,6 +396,7 @@ async function paymentRefund(req, res) {
     const timeDifference = currentDate - paymentDate;
     const daysDifference = timeDifference / (1000 * 3600 * 24);
     if (daysDifference > 7) {
+      addLog("Refund Error", currentUserId, `Refund failed for user ${user.firstName} ${user.lastName}. Payment date is more than 7 days ago.`);
       return res.status(400).json({
         success: false,
         message:
@@ -426,6 +427,7 @@ async function paymentRefund(req, res) {
       };
     }
     else {
+      addLog("Refund Error", userId, `Refund failed for user ${user.firstName} ${user.lastName}. Invalid payment details. Provide either card or bank account information.`);
       return res.status(400).json({
         success: false,
         error: "Invalid payment details. Provide either card or bank account information.",
@@ -473,6 +475,7 @@ async function paymentRefund(req, res) {
         );
         const cenSusauthToken = cenSusloginResponse.headers["authorization"];
         if (!cenSusauthToken) {
+          addLog("Refund Error", currentUserId, `Refund failed for user ${user.firstName} ${user.lastName}. Authorization token missing for GetLyric when refunding.`);
           return res
             .status(401)
             .json({ error: "Authorization token missing for GetLyric." });
