@@ -21,6 +21,8 @@ const dbPass = process.env.DB_PASS;
 const dbName = process.env.DB_NAME;
 const mongodbUri = `mongodb+srv://${dbUser}:${dbPass}@cluster0.wvgg4.mongodb.net/${dbName}?retryWrites=true&w=majority&appName=Cluster0`;
 
+// const mongodbUri = `mongodb://127.0.0.1:27017/${dbName}?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+2.3.7`;
+
 mongoose
   .connect(mongodbUri)
   .then(() => console.log("MongoDB connected successfully"))
@@ -39,9 +41,10 @@ const planRoutes = require("./router/planRoutes");
 const adminStatisticsRoutes = require("./router/adminStatisticRoutes");
 const orgRoutes = require("./router/orgRoutes");
 const blogRoutes = require("./router/blogRoutes");
-const couponRoutes = require('./router/couponRoutes');
+const couponRoutes = require("./router/couponRoutes");
 const Plan = require("./model/planSchema");
 const logRoutes = require("./router/logRoutes");
+const salesPartnerRoutes = require("./router/salesPartnerRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
@@ -52,8 +55,9 @@ app.use("/api/plans", planRoutes);
 app.use("/api/admin/stats", adminStatisticsRoutes);
 app.use("/api/org", orgRoutes);
 app.use("/api/blogs", blogRoutes);
-app.use('/api/coupons', couponRoutes);
+app.use("/api/coupons", couponRoutes);
 app.use("/api/logs", logRoutes);
+app.use("/api/sales-partners", salesPartnerRoutes);
 
 cron.schedule("0 0 * * *", async () => {
   try {
@@ -79,8 +83,18 @@ cron.schedule("0 0 * * *", async () => {
 
     // Login to GetLyric API
     const cenSusloginData = new FormData();
-    cenSusloginData.append("email", `${production ? "mtmoptim01@mytelemedicine.com" : "mtmstgopt01@mytelemedicine.com"}`);
-    cenSusloginData.append("password", `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`);
+    cenSusloginData.append(
+      "email",
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
+      }`
+    );
+    cenSusloginData.append(
+      "password",
+      `${production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"}`
+    );
 
     const effectiveDate = moment().format("MM/DD/YYYY");
     // const terminationDate = moment().add(1, "months").format("MM/DD/YYYY");
@@ -92,12 +106,23 @@ cron.schedule("0 0 * * *", async () => {
     for (const user of usersToUpdate) {
       console.log("email: ", user.email);
       const planEndDate = moment(user.planEndDate, "MM/DD/YYYY");
-      const daysRemaining = planEndDate.diff(moment(currentDate, "MM/DD/YYYY"), "days");
+      const daysRemaining = planEndDate.diff(
+        moment(currentDate, "MM/DD/YYYY"),
+        "days"
+      );
       const userPlan = await Plan.findOne({ planKey: user.planKey });
       const plus = await Plan.findOne({ planKey: "ACCESS PLUS" });
-      const plan = userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name;
-      let amount = userPlan.planKey === "TRIAL" || plus.planKey ? plus.price : userPlan.price;
-      const terminationDate = moment().add(userPlan.duration.value, userPlan.duration.unit).format("MM/DD/YYYY");
+      const plan =
+        userPlan.planKey === "TRIAL" || plus.planKey
+          ? plus.name
+          : userPlan.name;
+      let amount =
+        userPlan.planKey === "TRIAL" || plus.planKey
+          ? plus.price
+          : userPlan.price;
+      const terminationDate = moment()
+        .add(userPlan.duration.value, userPlan.duration.unit)
+        .format("MM/DD/YYYY");
       // Send follow-up emails based on days remaining
       if (daysRemaining === 5 || daysRemaining === 2 || daysRemaining === 1) {
         try {
@@ -106,7 +131,9 @@ cron.schedule("0 0 * * *", async () => {
             {
               firstName: user.firstName,
               email: user.email,
-              message: `Your plan will expire in ${daysRemaining} day${daysRemaining > 1 ? "s" : ""}. We will automatically update your plan. If you don't want to update your plan, you can simply deactivate your account.`,
+              message: `Your plan will expire in ${daysRemaining} day${
+                daysRemaining > 1 ? "s" : ""
+              }. We will automatically update your plan. If you don't want to update your plan, you can simply deactivate your account.`,
             }
           );
           console.log(`Follow-up email sent to ${user.email} for ${daysRemaining} day(s) remaining.`);
@@ -134,8 +161,13 @@ cron.schedule("0 0 * * *", async () => {
         let couponCode = "";
         let discount = 0;
 
-        if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
-          const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
+        if (
+          Array.isArray(user.appliedCoupon) &&
+          user.appliedCoupon.length > 0
+        ) {
+          const coupon = await Coupon.findOne({
+            couponCode: user.appliedCoupon[0],
+          });
 
           if (!coupon) {
             discount = 0;
@@ -143,8 +175,14 @@ cron.schedule("0 0 * * *", async () => {
             console.log("coupon: ", coupon);
             if (
               coupon.status === "Active" &&
-              (!coupon.selectedPlans.length || coupon.selectedPlans.includes(userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey)) &&
-              (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
+              (!coupon.selectedPlans.length ||
+                coupon.selectedPlans.includes(
+                  userPlan.planKey === "TRIAL" || plus.planKey
+                    ? plus.planKey
+                    : userPlan.planKey
+                )) &&
+              (coupon.numberOfRedeem === -1 ||
+                coupon.redemptionCount < coupon.numberOfRedeem) &&
               coupon.recurringOrFuturePayments
             ) {
               // Calculate the discount based on coupon type
@@ -201,7 +239,8 @@ cron.schedule("0 0 * * *", async () => {
           addLog("Cron Error", user?._id, "Invalid payment details. Provide either card or bank account information.");
           return res.status(400).json({
             success: false,
-            error: "Invalid payment details. Provide either card or bank account information.",
+            error:
+              "Invalid payment details. Provide either card or bank account information.",
           });
         }
         const paymentResponse = await axios.post(
@@ -237,7 +276,9 @@ cron.schedule("0 0 * * *", async () => {
             {
               firstName: user.firstName,
               email: user.email,
-              reason: paymentResponse.data?.transactionResponse?.errors || "Payment Failed !",
+              reason:
+                paymentResponse.data?.transactionResponse?.errors ||
+                "Payment Failed !",
             }
           );
 
@@ -249,10 +290,16 @@ cron.schedule("0 0 * * *", async () => {
         const payment = new Payment({
           userId: user._id,
           amount: amount,
-          plan: userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name ,
-          planKey: userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey ,
+          plan:
+            userPlan.planKey === "TRIAL" || plus.planKey
+              ? plus.name
+              : userPlan.name,
+          planKey:
+            userPlan.planKey === "TRIAL" || plus.planKey
+              ? plus.planKey
+              : userPlan.planKey,
           transactionId: result.transactionResponse.transId,
-          paymentReason: "User plan upgraded/Renew to Access Plus"
+          paymentReason: "User plan upgraded/Renew to Access Plus",
         });
         await payment.save();
         addLog("Cron Info", user?._id, `User new payment history saved successfully.`);
@@ -267,14 +314,24 @@ cron.schedule("0 0 * * *", async () => {
 
         }
 
-        if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
-          user.appliedCoupon.push(couponCode)
+        if (
+          Array.isArray(user.appliedCoupon) &&
+          couponCode &&
+          !user.appliedCoupon.includes(couponCode)
+        ) {
+          user.appliedCoupon.push(couponCode);
         }
 
         // Add payment to user's payment history and update plan
         user.paymentHistory.push(payment._id);
-        user.plan = userPlan.planKey === "TRIAL" || plus.planKey ? plus.name : userPlan.name;
-        user.planKey = userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey;
+        user.plan =
+          userPlan.planKey === "TRIAL" || plus.planKey
+            ? plus.name
+            : userPlan.name;
+        user.planKey =
+          userPlan.planKey === "TRIAL" || plus.planKey
+            ? plus.planKey
+            : userPlan.planKey;
         await user.save();
 
         
@@ -285,7 +342,10 @@ cron.schedule("0 0 * * *", async () => {
         try {
           const getLyricFormData = new FormData();
           getLyricFormData.append("primaryExternalId", user._id);
-          getLyricFormData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
+          getLyricFormData.append(
+            "groupCode",
+            `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
+          );
           getLyricFormData.append("terminationDate", terminationDate);
           getLyricFormData.append("effectiveDate", effectiveDate);
           const resp = await axios.post(getLyricUrl, getLyricFormData, {
@@ -326,8 +386,14 @@ cron.schedule("0 0 * * *", async () => {
         // update getlyric to plus plan
         const updateMemberData = new FormData();
         updateMemberData.append("primaryExternalId", user?._id);
-        updateMemberData.append("groupCode", `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`);
-        updateMemberData.append("planId", production ? prodPlanId : stagingPlanId);
+        updateMemberData.append(
+          "groupCode",
+          `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
+        );
+        updateMemberData.append(
+          "planId",
+          production ? prodPlanId : stagingPlanId
+        );
         updateMemberData.append("planDetailsId", "3");
         updateMemberData.append("effectiveDate", effectiveDate);
         updateMemberData.append("terminationDate", terminationDate);
@@ -367,7 +433,8 @@ cron.schedule("0 0 * * *", async () => {
 
         // update rxvalet to plus plan
         const rxvaletUserInfo = {
-          GroupID: userPlan.planKey === "TRIAL" || plus.planKey ? "OPT800" : "OPT125" ,
+          GroupID:
+            userPlan.planKey === "TRIAL" || plus.planKey ? "OPT800" : "OPT125",
           MemberGUID: user?.PrimaryMemberGUID,
         };
 
@@ -421,6 +488,6 @@ app.get("/", (req, res) => {
   res.send("Optimal MD network is running...");
 });
 
-app.listen(port, (req, res) => {
+app.listen(port, () => {
   console.log(`Optimal MD network is running on port: ${port}`);
 });

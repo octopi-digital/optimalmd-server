@@ -1307,6 +1307,8 @@ async function updateUserStatus(req, res) {
       "dependents",
       "paymentHistory",
     ]);
+    console.log("user before: ",user);
+    
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
@@ -1350,10 +1352,7 @@ async function updateUserStatus(req, res) {
       await user.save();
 
       // Populate dependents and paymentHistory
-      await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
-
-      // Remove sensitive data before responding
-      const { password, ...userWithoutSensitiveData } = user.toObject();
+      await user.save();
 
       // sending email
       if (status === "Active") {
@@ -1500,6 +1499,9 @@ async function updateUserStatus(req, res) {
       }
 
       addLog("Update User Status", user._id, `User status successfully updated to ${status}.`);
+      const populatedUser = await user.populate(["paymentHistory","dependents"])
+
+      const { password, ...userWithoutSensitiveData } = populatedUser.toObject();
       res.json({
         message: `User status successfully updated to ${status}.`,
         user: userWithoutSensitiveData,
@@ -1827,7 +1829,10 @@ async function updateUserStatus(req, res) {
       user.planStartDate = effectiveDate || user.planStartDate;
       user.planEndDate = terminationDate;
       await user.save();
-      const { password, ...userWithoutSensitiveData } = user.toObject();
+      // Populate dependents and paymentHistory
+      const populatedUser = await user.populate(["paymentHistory","dependents"])
+
+      const { password, ...userWithoutSensitiveData } = populatedUser.toObject();
 
       // Log the user status update
       addLog(
@@ -1836,8 +1841,7 @@ async function updateUserStatus(req, res) {
         `Updated user status to ${status} with title: ${user.firstName}`
       );
 
-      // Populate dependents and paymentHistory
-      await user.populate([{ path: "dependents" }, { path: "paymentHistory" }]);
+      console.log("user after-2: ", userWithoutSensitiveData);
       res.json({
         message: `User status successfully updated to ${status}.`,
         user: userWithoutSensitiveData,
