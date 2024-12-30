@@ -1183,20 +1183,29 @@ async function changepassword(req, res) {
   }
 }
 
-// forget Password password
+// Forget Password
 async function forgetPassword(req, res) {
   try {
     const { email } = req.body;
 
-    const user = await User.findOne({ email });
+    // Check in User schema
+    let user = await User.findOne({ email });
+    let isDependent = false;
+
+    // If not found in User, check in Dependent schema
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      user = await Dependent.findOne({ email });
+      isDependent = true;
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: "Email not found" });
     }
 
     const resetToken = crypto.randomBytes(32).toString("hex");
 
     user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = Date.now() + 3600000;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
     await user.save();
 
     const frontendURL =
@@ -1209,9 +1218,9 @@ async function forgetPassword(req, res) {
       "https://services.leadconnectorhq.com/hooks/VrTTgjMoHCZk4jeKOm9F/webhook-trigger/283a2172-a198-427a-828d-fd38ed616722",
       {
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        phone: user.phone,
+        firstName: user.firstName || "Dependent",
+        lastName: user.lastName || "",
+        phone: user.phone || "",
         resetLink: resetLink,
       }
     );
@@ -1220,7 +1229,9 @@ async function forgetPassword(req, res) {
     addLog(
       "Password Reset Apply",
       user._id,
-      `Password reset email sent to user with title: ${user.firstName}`
+      `Password reset email sent to ${
+        isDependent ? "dependent" : "user"
+      } with title: ${user.firstName || "Dependent"}`
     );
 
     res.status(200).json({ message: "Password reset email sent" });
@@ -1230,15 +1241,26 @@ async function forgetPassword(req, res) {
   }
 }
 
-// reset Password password
+// Reset Password
 async function resetPassword(req, res) {
   try {
     const { token, newPassword } = req.body;
-
-    const user = await User.findOne({
+    
+    // Check for valid token in both User and Dependent schemas
+    let user = await User.findOne({
       resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() },
+      resetPasswordExpires: { $gte: Date.now() },
     });
+    let isDependent = false;
+
+    if (!user) {
+      user = await Dependent.findOne({
+        resetPasswordToken: token,
+        resetPasswordExpires: { $gte: Date.now() },
+      });
+      
+      isDependent = true;
+    }
 
     if (!user) {
       return res.status(400).json({ error: "Invalid or expired token" });
@@ -1255,8 +1277,11 @@ async function resetPassword(req, res) {
     addLog(
       "Password Reset",
       user._id,
-      `Password reset for user with title: ${user.firstName}`
+      `Password reset for ${
+        isDependent ? "dependent" : "user"
+      } with title: ${user.firstName || "Dependent"}`
     );
+
     res.status(200).json({ message: "Password reset successfully" });
   } catch (error) {
     console.error("Error resetting password:", error);

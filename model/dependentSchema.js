@@ -12,6 +12,8 @@ const dependentSchema = new mongoose.Schema(
     },
     email: { type: String, default: "" },
     password: { type: String, default: "" },
+    resetPasswordToken: { type: String, default: "" },
+    resetPasswordExpires: { type: Date },
     phone: { type: String, default: "" },
     dob: { type: String, default: "" },
     image: { type: String, default: "" },
