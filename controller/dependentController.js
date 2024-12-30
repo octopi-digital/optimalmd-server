@@ -287,7 +287,7 @@ async function updateDependent(req, res) {
     if (role === "Dependent") {
       if (dependent?.relation === "Spouse") {
         relationShipId = "1";
-      } else if (dependent?.relation === "Child") {
+      } else if (dependent?.relation === "Children") {
         relationShipId = "2";
       } else if (dependent?.relation === "Other") {
         relationShipId = "3";
@@ -366,7 +366,7 @@ async function updateDependent(req, res) {
       Email: userInfo.email,
       DOB: formattedDob,
       Gender: userInfo.sex === "Male" ? "M" : "F",
-      Relationship: userInfo.relation === "Child" ? "Child" : "Spouse",
+      Relationship: userInfo.relation === "Spouse" ? "Spouse" : "Child",
       PhoneNumber: userInfo.phone,
       Address: userInfo.shipingAddress1,
       City: userInfo.shipingCity,
@@ -486,7 +486,7 @@ async function getDependentById(req, res) {
 // update dependent image
 async function updateDependentImage(req, res) {
   try {
-    const { image, id } = req.body;
+    const { image, id, role } = req.body;
 
     // Update the dependent's image
     const updatedDependent = await Dependent.findByIdAndUpdate(
@@ -517,10 +517,14 @@ async function updateDependentImage(req, res) {
     );
 
     const { password, ...userWithoutSensitiveData } = user.toObject();
+    const dependent = await Dependent.findById(id).populate(
+      "primaryUser",
+      "plan planKey status"
+    );
 
     res.status(200).json({
       message: "Dependent image updated successfully",
-      user: userWithoutSensitiveData,
+      user: role === "Dependent" ? dependent : userWithoutSensitiveData,
     });
   } catch (error) {
     console.error("Error updating dependent image:", error.message);
