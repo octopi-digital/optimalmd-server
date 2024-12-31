@@ -47,17 +47,20 @@ exports.getLogs = async (req, res) => {
 
     // Search filter (includes user and action fields)
     if (search) {
-      const searchRegex = { $regex: `.*${search}.*`, $options: "i" }; // Case-insensitive search
+      const searchRegex = new RegExp(`.*${search}.*`, "i"); // Case-insensitive search
 
-      const searchUsers = await User.find({
-        $or: [
-          { firstName: searchRegex },
-          { lastName: searchRegex },
-          { email: searchRegex },
-        ],
-      }).select("_id");
+      // Fetch all users to evaluate full name search
+      const searchUsers = await User.find({}).select("_id firstName lastName email");
 
-      const searchUserIds = searchUsers.map((user) => user._id);
+      const searchUserIds = searchUsers
+        .filter(
+          (user) =>
+            `${user.firstName} ${user.lastName}`.match(searchRegex) || // Full name match
+            user.firstName.match(searchRegex) || // First name match
+            user.lastName.match(searchRegex) || // Last name match
+            user.email.match(searchRegex) // Email match
+        )
+        .map((user) => user._id);
 
       // Combine user and action filters into the search
       filters.$or = [

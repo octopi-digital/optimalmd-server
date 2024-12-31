@@ -47,14 +47,23 @@ async function getAllUser(req, res) {
 
     // Add search functionality
     if (search) {
-      const searchRegex = { $regex: search, $options: "i" };
-      conditions.push({
-        $or: [
-          { email: searchRegex },
-          { firstName: searchRegex },
-          { lastName: searchRegex },
-        ],
-      });
+      const searchRegex = new RegExp(`.*${search}.*`, "i"); // Case-insensitive search
+
+      // Fetch all users to evaluate full name search
+      const allUsers = await User.find({}).select("email firstName lastName");
+
+      const matchedUserIds = allUsers
+        .filter(
+          (user) =>
+            `${user.firstName} ${user.lastName}`.match(searchRegex) || // Full name match
+            user.email.match(searchRegex) || // Email match
+            user.firstName.match(searchRegex) || // First name match
+            user.lastName.match(searchRegex) // Last name match
+        )
+        .map((user) => user._id);
+
+      // Add matched users to the conditions
+      conditions.push({ _id: { $in: matchedUserIds } });
     }
 
     // Add date range filter
@@ -461,7 +470,7 @@ async function register(req, res) {
     });
   } catch (error) {
     console.error("Error creating user:", error.message);
-    res.status(500).json({ detail: "Internal Server Error", error: error.message==="Request failed with status code 403" ? "Service is not available in your geographical location": error.message });
+    res.status(500).json({ detail: "Internal Server Error", error: error.message === "Request failed with status code 403" ? "Service is not available in your geographical location" : error.message });
   }
 }
 
@@ -1242,7 +1251,7 @@ async function forgetPassword(req, res) {
 async function resetPassword(req, res) {
   try {
     const { token, newPassword } = req.body;
-    
+
     // Check for valid token in both User and Dependent schemas
     let user = await User.findOne({
       resetPasswordToken: token,
@@ -1255,7 +1264,7 @@ async function resetPassword(req, res) {
         resetPasswordToken: token,
         resetPasswordExpires: { $gte: Date.now() },
       });
-      
+
       isDependent = true;
     }
 
@@ -1496,7 +1505,7 @@ async function updateUserStatus(req, res) {
       });
     } else {
       console.log("else hit");
-      
+
       // Login to GetLyric API
       const cenSusloginData = new FormData();
       cenSusloginData.append(
@@ -1604,7 +1613,7 @@ async function updateUserStatus(req, res) {
 
           const result = paymentResponse.data;
           console.log(result);
-          
+
           if (paymentResponse.data?.transactionResponse?.transId === "0") {
             return res.status(500).json({
               success: false,
