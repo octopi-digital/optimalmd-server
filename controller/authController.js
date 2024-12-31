@@ -161,7 +161,6 @@ async function register(req, res) {
     if (existingUser) {
       return res.status(400).json({ error: "Email already exists" });
     }
-    console.log("i am here")
 
     const loginData = new FormData();
     loginData.append(

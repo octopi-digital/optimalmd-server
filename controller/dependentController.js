@@ -108,7 +108,6 @@ async function deleteDependent(req, res) {
 async function updateDependent(req, res) {
   try {
     const { primaryUserId, dependentId, role, ...userInfo } = req.body;
-    console.log("here///////", userInfo);
     if (!primaryUserId) {
       return res.status(400).json({ message: "User Id Is Required" });
     }
@@ -117,11 +116,17 @@ async function updateDependent(req, res) {
       return res.status(400).json({ message: "Dependent Id Is Required" });
     }
 
+    // Check if the email already exists
+    const mainUser = await User.findOne({ email: userInfo.email });
+    if (mainUser) {
+      return res.status(400).json({ error: "Email already exists" });
+    }
+
     if (userInfo?.email) {
       // Check if the email already exists
       const existingUser = await Dependent.findOne({ email: userInfo.email });
       // console.log("hiiiiiiii",existingUser)
-      if (existingUser && existingUser.isUpdate === false ) {
+      if (existingUser && existingUser.isUpdate === false) {
         return res.status(400).json({ message: "Email already exists" });
       }
 
@@ -132,9 +137,10 @@ async function updateDependent(req, res) {
         const loginData = new FormData();
         loginData.append(
           "email",
-          `${production
-            ? "mtmoptim01@mytelemedicine.com"
-            : "mtmstgopt01@mytelemedicine.com"
+          `${
+            production
+              ? "mtmoptim01@mytelemedicine.com"
+              : "mtmstgopt01@mytelemedicine.com"
           }`
         );
         loginData.append(
@@ -265,9 +271,10 @@ async function updateDependent(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -416,17 +423,37 @@ async function updateDependent(req, res) {
     );
 
     if (newLyricDependentId && newRxvaletDependentId) {
-      const emailResponse = await axios.post(
-        "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/687a3cf7-89e8-4f8c-91a7-59abdf26e9c6",
-        {
-          firstName: userInfo?.firstName,
-          lastName: userInfo?.lastName,
-          email: userInfo?.email,
-          password: defaultPassword,
-          phone: userInfo?.phone,
+      if (userInfo.dob || userInfo.email) {
+        const dob = new Date(userInfo.dob);
+        const today = new Date();
+        const age = today.getFullYear() - dob.getFullYear();
+        const monthDiff = today.getMonth() - dob.getMonth();
+        const dayDiff = today.getDate() - dob.getDate();
+
+        // Adjust age if the current date is before the user's birthday in the current year
+        if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+          age--;
         }
-      );
-      console.log(emailResponse?.data);
+
+        // If age is greater than or equal to 18, proceed with the request
+        if (age >= 18) {
+          const emailResponse = await axios.post(
+            "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/687a3cf7-89e8-4f8c-91a7-59abdf26e9c6",
+            {
+              firstName: userInfo?.firstName,
+              lastName: userInfo?.lastName,
+              email: userInfo?.email,
+              password: defaultPassword,
+              phone: userInfo?.phone,
+            }
+          );
+          console.log(emailResponse?.data);
+        } else {
+          console.log("User is under 18. Request not sent.");
+        }
+      } else {
+        console.log("Date of birth or Email is not provided.");
+      }
     }
 
     // Log for updating dependent
