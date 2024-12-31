@@ -161,7 +161,6 @@ async function register(req, res) {
     if (existingUser) {
       return res.status(400).json({ error: "Email already exists" });
     }
-    console.log("i am here")
 
     const loginData = new FormData();
     loginData.append(
@@ -452,7 +451,7 @@ async function register(req, res) {
     });
   } catch (error) {
     console.error("Error creating user:", error.message);
-    res.status(500).json({ detail: "Internal Server Error", error: error });
+    res.status(500).json({ detail: "Internal Server Error", error: error.message==="Request failed with status code 403" ? "Service is not available in your geographical location": error.message });
   }
 }
 
