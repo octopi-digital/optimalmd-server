@@ -43,6 +43,7 @@ async function addDependent(req, res) {
     ).populate(["dependents", "paymentHistory"]);
 
     if (!updatedUser) {
+      addLog("Dependent Update Error", primaryUser, `Failed to update user dependents for ${userExists.firstName} ${userExists.lastName}.`);
       return res
         .status(500)
         .json({ message: "Failed to update user dependents." });
@@ -52,7 +53,7 @@ async function addDependent(req, res) {
     addLog(
       "Dependent added",
       primaryUser,
-      `New Dependent added to ${userExists.firstName} with the name ${savedDependent.firstName} ${savedDependent.lastName}`
+      `New Dependent added to ${userExists.firstName} ${userExists.lastName}.`
     );
 
     // Remove sensitive fields before sending response
@@ -94,7 +95,7 @@ async function deleteDependent(req, res) {
     addLog(
       "Dependent deleted",
       dependent.primaryUser,
-      `Dependent deleted with the name ${dependent.firstName} ${dependent.lastName}`
+      `Dependent deleted with the name ${dependent.firstName} ${dependent.lastName}.`
     );
 
     res.status(200).json({ message: "Dependent deleted successfully" });
@@ -151,6 +152,7 @@ async function updateDependent(req, res) {
         const authToken = loginResponse.headers["authorization"];
 
         if (!authToken) {
+          addLog("Dependent Update Error", primaryUserId, `Authorization token missing for getlyric at the time of updating dependent with email ${userInfo.email}.`);
           return res
             .status(401)
             .json({ error: "Authorization token missing for getlyric" });
@@ -285,7 +287,9 @@ async function updateDependent(req, res) {
     const loginResponse = await axios.post(`${lyricURL}/login`, loginData);
 
     const authToken = loginResponse.headers["authorization"];
+
     if (!authToken) {
+      addLog("Dependent Update Error", primaryUserId, `Authorization token missing for Lyric at the time of updating dependent with email ${userInfo.email}.`);
       return res
         .status(401)
         .json({ message: "Authorization token missing for Lyric" });
@@ -355,6 +359,8 @@ async function updateDependent(req, res) {
       newLyricDependentId = createDependentResponse.data.dependentUserId;
       updateData.lyricDependentId = newLyricDependentId;
       await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
+
+      addLog("Dependent Add Info", primaryUserId, `Dependent added to Lyric with the name ${userInfo.firstName} ${userInfo.lastName}.`);
     } else {
       // Update dependent on get lyric
       const updateDependentGetLyricResponse = await axios.post(
@@ -362,6 +368,8 @@ async function updateDependent(req, res) {
         createDependentData,
         { headers: { Authorization: authToken } }
       );
+
+      addLog("Dependent Update Info", primaryUserId, `Dependent updated on Lyric with the name ${userInfo.firstName} ${userInfo.lastName}.`);
       console.log(updateDependentGetLyricResponse.data);
     }
 
@@ -396,6 +404,7 @@ async function updateDependent(req, res) {
       updateData.rxvaletDependentId = newRxvaletDependentId;
       updateData.password = hashedPassword;
       await Dependent.findByIdAndUpdate(dependentId, updateData, { new: true });
+      addLog("Dependent Add Info", primaryUserId, `Dependent added to RxValet with the name ${userInfo.firstName} ${userInfo.lastName}.`);
     } else {
       // Update dependent on rx valet
       rxvaletDependentFormData.append(
@@ -407,6 +416,7 @@ async function updateDependent(req, res) {
         rxvaletDependentFormData,
         { headers: { api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8" } }
       );
+      addLog("Dependent Update Info", primaryUserId, `Dependent updated on RxValet with the name ${userInfo.firstName} ${userInfo.lastName}.`);
     }
     updateData.status = "Active";
     // update dependent on our db
@@ -458,9 +468,9 @@ async function updateDependent(req, res) {
 
     // Log for updating dependent
     addLog(
-      "Dependent updated",
+      "Dependent Update",
       primaryUserId,
-      `Dependent info updated for ${updatedDependent.firstName} ${updatedDependent.lastName}`
+      `Dependent info updated for ${updatedDependent.firstName} ${updatedDependent.lastName}.`
     );
 
     res.status(200).json({
@@ -494,6 +504,7 @@ async function getDependentsByUserId(req, res) {
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
+
 async function getDependentById(req, res) {
   try {
     const dependent = await Dependent.findById(req.params.id);
@@ -541,7 +552,7 @@ async function updateDependentImage(req, res) {
     addLog(
       "Dependent image updated",
       user._id,
-      `Dependent image updated for ${updatedDependent.firstName} ${updatedDependent.lastName}`
+      `Dependent image updated for ${updatedDependent.firstName} ${updatedDependent.lastName}.`
     );
 
     const { password, ...userWithoutSensitiveData } = user.toObject();

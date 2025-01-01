@@ -24,7 +24,16 @@ const TRANSACTION_KEY = process.env.AUTHORIZE_NET_TRANSACTION_KEY;
 // Get all users with pagination and filtering
 async function getAllUser(req, res) {
   try {
-    const { status, plan, search, role, page = 1, limit = 10, startDate, endDate } = req.query;
+    const {
+      status,
+      plan,
+      search,
+      role,
+      page = 1,
+      limit = 10,
+      startDate,
+      endDate,
+    } = req.query;
 
     // Build the filter array based on the provided query params
     let conditions = [];
@@ -149,7 +158,7 @@ async function register(req, res) {
       ...userData
     } = req.body;
     const userPlan = await Plan.findOne({ planKey });
-    console.log(userPlan)
+    console.log(userPlan);
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
     const rawRoutingNumber = customDecrypt(routingNumber);
@@ -165,9 +174,10 @@ async function register(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -178,6 +188,7 @@ async function register(req, res) {
     const authToken = loginResponse.headers["authorization"];
 
     if (!authToken) {
+      addLog("Registration Error", null, "Authorization token is missing for getlyric during login attempt.");
       return res
         .status(401)
         .json({ error: "Authorization token missing for getlyric" });
@@ -224,6 +235,8 @@ async function register(req, res) {
         routingNumber: routingNumber,
       });
       const newUser = await user.save();
+
+      addLog("User Registration", newUser?._id, `New SalesPartner registered: ${newUser?.firstName} ${newUser?.lastName}.`);
       // Send Email Notification
       const emailResponse = await axios.post(
         "https://services.leadconnectorhq.com/hooks/c4HwDVSDzA4oeLOnUvdK/webhook-trigger/d5158a62-4e43-440b-bb4a-f6ee715e97bc",
@@ -235,7 +248,10 @@ async function register(req, res) {
           phone: newUser.phone,
         }
       );
-      if (emailResponse.status !== 200) throw new Error("Failed to send email");
+      if (emailResponse.status !== 200) {
+        addLog("Registration Error", newUser?._id, `Failed to send email for new SalesPartner registration: ${newUser?.firstName} ${newUser?.lastName}.`);
+        throw new Error("Failed to send email");
+      }
       // Fetch all users with role SalesPartner
       const salesPartners = await User.find({ role: "SalesPartner" });
 
@@ -351,6 +367,7 @@ async function register(req, res) {
         },
       };
     } else {
+      addLog("Registration Error", null, "Invalid payment details: Either card or bank account information must be provided.");
       return res.status(400).json({
         success: false,
         error:
@@ -375,7 +392,7 @@ async function register(req, res) {
       },
       { headers: { "Content-Type": "application/json" } }
     );
-    console.log(paymentResponse)
+    console.log(paymentResponse);
 
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
 
@@ -409,6 +426,7 @@ async function register(req, res) {
         { couponCode },
         { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: newUser._id } }
       );
+      addLog("Coupon Redemption", newUser?._id, `${newUser?.firstName} ${newUser?.lastName} redeemed coupon: "${couponCode}".`);
     }
 
     // Save Payment Record
@@ -421,6 +439,8 @@ async function register(req, res) {
       paymentReason: `${plan} Plan Purchase(Registration)`,
     });
     const savedPaymentRecord = await paymentRecord.save();
+
+    addLog("Payment Record", newUser?._id, `Payment recorded for user: ${newUser?.firstName} ${newUser?.lastName}.`);
 
     // Add Payment Record to User's paymentHistory
     newUser.paymentHistory.push(savedPaymentRecord._id);
@@ -443,7 +463,7 @@ async function register(req, res) {
     addLog(
       "User Registration",
       newUser._id,
-      `New user registrar with title: ${newUser.firstName}`
+      `New user registered: ${newUser?.firstName} ${newUser?.lastName}.`
     );
 
     res.status(201).json({
@@ -481,9 +501,10 @@ async function updateUser(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -494,6 +515,7 @@ async function updateUser(req, res) {
     const authToken = loginResponse.headers["authorization"];
 
     if (!authToken) {
+      addLog("Update User Error", userId, `Failed to login to Lyric: Authorization token is missing for getlyric for user ${user?.firstName} ${user?.lastName}.`);
       return res
         .status(401)
         .json({ error: "Authorization token missing for getlyric" });
@@ -581,6 +603,7 @@ async function updateUser(req, res) {
       await User.findByIdAndUpdate(userId, { lyricsUserId });
 
       if (!createMemberResponse.data.userid) {
+        addLog("User Update Error", userId, `Failed to create a member in the Lyric system for user: ${user?.firstName} ${user?.lastName}.`);
         return res
           .status(500)
           .json({ error: "Failed to create member in Lyric system" });
@@ -593,6 +616,7 @@ async function updateUser(req, res) {
         { headers: { Authorization: authToken } }
       );
       if (!resp.data.success) {
+        addLog("User Update Error", userId, `Failed to update member in Lyric system for user: ${user.firstName} ${user.lastName}.`);
         return res
           .status(500)
           .json({ error: "Failed to update member in Lyric system" });
@@ -617,6 +641,7 @@ async function updateUser(req, res) {
       await User.findByIdAndUpdate(userId, { PrimaryMemberGUID: rxvaletID });
 
       if (rxvaletResponse.data.StatusCode !== "1") {
+        addLog("User Update Error", userId, `Failed to enroll member in RxValet system for user: ${user?.firstName} ${user?.lastName}.`);
         return res.status(500).json({
           error: rxvaletResponse.data.Message,
           data: rxvaletResponse.data,
@@ -648,6 +673,7 @@ async function updateUser(req, res) {
       );
       console.log("update response rx: ", resp.data);
       if (resp.data.StatusCode !== "1") {
+        addLog("User Update Error", userId, `Failed to update member in RxValet system for user: ${user?.firstName} ${user?.lastName}.`);
         return res
           .status(500)
           .json({ error: resp.data.Message, data: resp.data });
@@ -671,9 +697,9 @@ async function updateUser(req, res) {
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
 
     addLog(
-      "Update User",
+      "User Update",
       userId,
-      `Updated user with title: ${updatedUser.firstName}`
+      `Updated user info for: ${updatedUser?.firstName} ${updatedUser?.lastName}.`
     );
     res.status(200).json({
       message: "User updated successfully",
@@ -681,7 +707,9 @@ async function updateUser(req, res) {
     });
   } catch (error) {
     console.error("Error updating user:", error);
-    res.status(error.status).json({ error: error, message: error.response.data || error });
+    res
+      .status(error.status)
+      .json({ error: error, message: error.response.data || error });
   }
 }
 
@@ -715,7 +743,9 @@ async function updateUserPlan(req, res) {
     let discount = 0;
 
     if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
-      const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
+      const coupon = await Coupon.findOne({
+        couponCode: user.appliedCoupon[0],
+      });
 
       if (!coupon) {
         discount = 0;
@@ -723,8 +753,10 @@ async function updateUserPlan(req, res) {
         console.log("coupon: ", coupon);
         if (
           coupon.status === "Active" &&
-          (!coupon.selectedPlans.length || coupon.selectedPlans.includes(planKey)) &&
-          (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
+          (!coupon.selectedPlans.length ||
+            coupon.selectedPlans.includes(planKey)) &&
+          (coupon.numberOfRedeem === -1 ||
+            coupon.redemptionCount < coupon.numberOfRedeem) &&
           coupon.recurringOrFuturePayments
         ) {
           // Calculate the discount based on coupon type
@@ -738,7 +770,6 @@ async function updateUserPlan(req, res) {
 
           console.log("Discount: ", discount);
 
-
           // Subtract the discount from the total amount
           amount -= discount;
 
@@ -746,7 +777,6 @@ async function updateUserPlan(req, res) {
             amount = 0;
           }
           couponCode = coupon.couponCode;
-
         } else {
           // Return an error if coupon is invalid or not applicable
           discount = 0;
@@ -754,7 +784,6 @@ async function updateUserPlan(req, res) {
         }
       }
     }
-
 
     console.log("After amount: ", amount);
 
@@ -780,6 +809,7 @@ async function updateUserPlan(req, res) {
         },
       };
     } else {
+      addLog("Plan Update Error", userId, `Invalid payment details for user: ${user?.firstName} ${user?.lastName}.`);
       return res.status(400).json({
         success: false,
         error:
@@ -825,6 +855,8 @@ async function updateUserPlan(req, res) {
     });
     const paymentResp = await payment.save();
 
+    addLog("Payment Record", user?._id, `Payment recorded for user: ${user?.firstName} ${user?.lastName}.`);
+
 
     // Save Coupon Redemption
     if (discount > 0 && couponCode) {
@@ -832,10 +864,15 @@ async function updateUserPlan(req, res) {
         { couponCode },
         { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
       );
+      addLog("Coupon Redemption", user?._id, `${user?.firstName} ${user?.lastName} redeemed coupon: "${couponCode}"`);
     }
 
-    if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
-      user.appliedCoupon.push(couponCode)
+    if (
+      Array.isArray(user.appliedCoupon) &&
+      couponCode &&
+      !user.appliedCoupon.includes(couponCode)
+    ) {
+      user.appliedCoupon.push(couponCode);
     }
     // Add payment to user's payment history
     user.paymentHistory.push(paymentResp._id);
@@ -850,9 +887,10 @@ async function updateUserPlan(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${production
-        ? "mtmoptim01@mytelemedicine.com"
-        : "mtmstgopt01@mytelemedicine.com"
+      `${
+        production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -864,6 +902,7 @@ async function updateUserPlan(req, res) {
     const authToken = loginResponse.headers["authorization"];
 
     if (!authToken) {
+      addLog("User Plan Update Error", userId, `Failed to log in to Lyric. Authorization token missing for getlyric for user: ${user?.firstName} ${user?.lastName}.`);
       return res
         .status(401)
         .json({ error: "Authorization token missing for getlyric" });
@@ -887,6 +926,7 @@ async function updateUserPlan(req, res) {
     );
     console.log("rxvalet data: ", rxRespose.data);
     if (rxRespose.data.StatusCode !== "1") {
+      addLog("User Plan Update Error", userId, `Failed to update user plan in the RxValet system for user: ${user?.firstName} ${user?.lastName}.`);
       return res.status(500).json({
         error: "Failed to update user plan in RxValet system",
         data: rxRespose.data,
@@ -936,6 +976,7 @@ async function updateUserPlan(req, res) {
     );
     console.log("lyrics data-: ", response.data);
     if (!response.data.success) {
+      addLog("User Plan Update Error", userId, `Failed to update user in the Lyric system for user: ${user?.firstName} ${user?.lastName}.`);
       return res.status(500).json({
         error: "Failed to update user in Lyric system",
         data: response.data,
@@ -968,9 +1009,9 @@ async function updateUserPlan(req, res) {
     );
 
     addLog(
-      "Update User Plan",
+      "User Plan Update",
       userId,
-      `Updated user plan with title: ${updatedUser.firstName}`
+      `Updated user plan for: ${updatedUser?.firstName} ${updatedUser?.lastName}.`
     );
     res.status(200).json({
       message: "User Plan updated successfully",
@@ -1003,15 +1044,16 @@ async function updateUserImage(req, res) {
     ).populate(["dependents", "paymentHistory"]);
 
     if (!updatedUser) {
+      addLog("Image Update Error", id, `User image update failed for user: ${user?.firstName} ${user?.lastName}.`);
       return res.status(400).json({ error: "User update failed" });
     }
 
     const { password, ...userWithoutSensitiveData } = updatedUser.toObject();
 
     addLog(
-      "Update User Image",
+      "User Image Update",
       id,
-      `Updated user image with user title: ${updatedUser.firstName}`
+      `Updated user image for: ${updatedUser?.firstName} ${updatedUser?.lastName}.`
     );
 
     res.status(200).json({
@@ -1049,6 +1091,9 @@ async function deleteUser(req, res) {
     // Delete the user
     await User.findByIdAndDelete(id);
 
+    // Log the deletion
+    addLog("Delete User", id, `Deleted user: ${user?.firstName} ${user?.lastName}.`);
+
     res
       .status(200)
       .json({ message: "User and their dependents deleted successfully" });
@@ -1077,12 +1122,6 @@ async function login(req, res) {
       if (isPasswordMatch) {
         const { password, ...userWithoutSensitiveData } = user.toObject();
 
-        // Log the login
-        addLog(
-          "User Login",
-          user._id,
-          `User logged in with title: ${user.firstName}`
-        );
         return res.status(200).json({
           message: "User logged in successfully",
           user: userWithoutSensitiveData,
@@ -1106,12 +1145,6 @@ async function login(req, res) {
         const { password, ...dependentWithoutSensitiveData } =
           dependent.toObject();
 
-        // Log the login
-        addLog(
-          "Dependent Login",
-          dependent._id,
-          `Dependent logged in with title: ${dependent.firstName}`
-        );
         return res.status(200).json({
           message: "Dependent logged in successfully",
           user: {
@@ -1166,13 +1199,6 @@ async function changepassword(req, res) {
     user.password = hashedNewPassword;
     await user.save();
 
-    // Log the password change
-    addLog(
-      "Password Change",
-      userId,
-      `Password changed for user with title: ${user.firstName}`
-    );
-
     res.status(200).json({ message: "Password updated successfully" });
   } catch (error) {
     console.error("Error during password change:", error.message);
@@ -1224,15 +1250,6 @@ async function forgetPassword(req, res) {
       }
     );
 
-    // Log the password reset apply
-    addLog(
-      "Password Reset Apply",
-      user._id,
-      `Password reset email sent to ${
-        isDependent ? "dependent" : "user"
-      } with title: ${user.firstName || "Dependent"}`
-    );
-
     res.status(200).json({ message: "Password reset email sent" });
   } catch (error) {
     console.error("Error in forgot password:", error);
@@ -1271,15 +1288,6 @@ async function resetPassword(req, res) {
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
-
-    // Log the password reset
-    addLog(
-      "Password Reset",
-      user._id,
-      `Password reset for ${
-        isDependent ? "dependent" : "user"
-      } with title: ${user.firstName || "Dependent"}`
-    );
 
     res.status(200).json({ message: "Password reset successfully" });
   } catch (error) {
@@ -1337,6 +1345,8 @@ async function updateUserStatus(req, res) {
         },
       };
     } else {
+
+      addLog("User Update Error", currentUserId, `Invalid payment details for user: ${user?.firstName} ${user?.lastName}.`);
       return res.status(400).json({
         success: false,
         error:
@@ -1347,13 +1357,6 @@ async function updateUserStatus(req, res) {
       // Update user status and plan in the database
       user.status = status;
       await user.save();
-
-      // Log the user status update
-      addLog(
-        "Update User Status",
-        currentUserId,
-        `Updated user status to ${status} with title: ${user.firstName}`
-      );
 
       // Populate dependents and paymentHistory
       await user.save();
@@ -1367,8 +1370,13 @@ async function updateUserStatus(req, res) {
           let couponCode = "";
           let discount = 0;
 
-          if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
-            const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
+          if (
+            Array.isArray(user.appliedCoupon) &&
+            user.appliedCoupon.length > 0
+          ) {
+            const coupon = await Coupon.findOne({
+              couponCode: user.appliedCoupon[0],
+            });
 
             if (!coupon) {
               discount = 0;
@@ -1376,8 +1384,10 @@ async function updateUserStatus(req, res) {
               console.log("coupon: ", coupon);
               if (
                 coupon.status === "Active" &&
-                (!coupon.selectedPlans.length || coupon.selectedPlans.includes(plus.planKey)) &&
-                (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
+                (!coupon.selectedPlans.length ||
+                  coupon.selectedPlans.includes(plus.planKey)) &&
+                (coupon.numberOfRedeem === -1 ||
+                  coupon.redemptionCount < coupon.numberOfRedeem) &&
                 coupon.recurringOrFuturePayments
               ) {
                 // Calculate the discount based on coupon type
@@ -1399,7 +1409,6 @@ async function updateUserStatus(req, res) {
                 }
 
                 couponCode = coupon.couponCode;
-
               } else {
                 // Return an error if coupon is invalid or not applicable
                 discount = 0;
@@ -1407,7 +1416,6 @@ async function updateUserStatus(req, res) {
               }
             }
           }
-
 
           console.log("After amount: ", amount);
 
@@ -1448,6 +1456,8 @@ async function updateUserStatus(req, res) {
           });
           await payment.save();
 
+          addLog("Payment Record", user?._id, `Payment recorded for user: ${user?.firstName} ${user?.lastName}.`);
+
           const resp = await axios.post(
             "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/698a9213-ee99-4676-a8cb-8bea390e1bf1",
             {
@@ -1463,18 +1473,34 @@ async function updateUserStatus(req, res) {
           if (discount > 0 && couponCode) {
             await Coupon.updateOne(
               { couponCode },
-              { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
+              {
+                $inc: { redemptionCount: 1 },
+                $addToSet: { appliedBy: user._id },
+              }
             );
+
+            addLog("Coupon Redemption", user?._id, `${user?.firstName} ${user?.lastName} redeemed coupon: "${couponCode}".`);
 
           }
 
-          if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
-            user.appliedCoupon.push(couponCode)
+          if (
+            Array.isArray(user.appliedCoupon) &&
+            couponCode &&
+            !user.appliedCoupon.includes(couponCode)
+          ) {
+            user.appliedCoupon.push(couponCode);
           }
 
           // Add payment to user's payment history
           user.paymentHistory.push(payment._id);
           await user.save();
+
+          // Log the user status update
+          addLog(
+            "User Status Update",
+            currentUserId,
+            `Updated user status to "${status}" for: ${user?.firstName} ${user?.lastName}.`
+          );
         } catch (err) {
           console.log("payment failed while active: ", err);
         }
@@ -1490,23 +1516,27 @@ async function updateUserStatus(req, res) {
           }
         );
       }
+
+      addLog("User Status Update", user._id, `Status successfully updated to "${status}" for: ${user?.firstName} ${user?.lastName}.`);
       const populatedUser = await user.populate(["paymentHistory", "dependents"])
 
-      const { password, ...userWithoutSensitiveData } = populatedUser.toObject();
+      const { password, ...userWithoutSensitiveData } =
+        populatedUser.toObject();
       res.json({
         message: `User status successfully updated to ${status}.`,
         user: userWithoutSensitiveData,
       });
     } else {
       console.log("else hit");
-      
+
       // Login to GetLyric API
       const cenSusloginData = new FormData();
       cenSusloginData.append(
         "email",
-        `${production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+        `${
+          production
+            ? "mtmoptim01@mytelemedicine.com"
+            : "mtmstgopt01@mytelemedicine.com"
         }`
       );
       cenSusloginData.append(
@@ -1520,6 +1550,7 @@ async function updateUserStatus(req, res) {
       );
       const cenSusauthToken = cenSusloginResponse.headers["authorization"];
       if (!cenSusauthToken) {
+        addLog("User Update Error", currentUserId, `Failed to login to Lyric. Authorization token missing for GetLyric for user: ${user?.firstName} ${user?.lastName}.`);
         return res
           .status(401)
           .json({ error: "Authorization token missing for GetLyric." });
@@ -1536,13 +1567,21 @@ async function updateUserStatus(req, res) {
         effectiveDate = moment().format("MM/DD/YYYY");
         getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
         // Process Payment
-        let amount = userPlan.planKey === "TRIAL" || plus.planKey ? plus.price : userPlan.price;
+        let amount =
+          userPlan.planKey === "TRIAL" || plus.planKey
+            ? plus.price
+            : userPlan.price;
         console.log("Before amount: ", amount);
         let couponCode = "";
         let discount = 0;
 
-        if (Array.isArray(user.appliedCoupon) && user.appliedCoupon.length > 0) {
-          const coupon = await Coupon.findOne({ couponCode: user.appliedCoupon[0] });
+        if (
+          Array.isArray(user.appliedCoupon) &&
+          user.appliedCoupon.length > 0
+        ) {
+          const coupon = await Coupon.findOne({
+            couponCode: user.appliedCoupon[0],
+          });
 
           if (!coupon) {
             discount = 0;
@@ -1550,8 +1589,14 @@ async function updateUserStatus(req, res) {
             console.log("coupon: ", coupon);
             if (
               coupon.status === "Active" &&
-              (!coupon.selectedPlans.length || coupon.selectedPlans.includes(userPlan.planKey === "TRIAL" || plus.planKey ? plus.planKey : userPlan.planKey)) &&
-              (coupon.numberOfRedeem === -1 || coupon.redemptionCount < coupon.numberOfRedeem) &&
+              (!coupon.selectedPlans.length ||
+                coupon.selectedPlans.includes(
+                  userPlan.planKey === "TRIAL" || plus.planKey
+                    ? plus.planKey
+                    : userPlan.planKey
+                )) &&
+              (coupon.numberOfRedeem === -1 ||
+                coupon.redemptionCount < coupon.numberOfRedeem) &&
               coupon.recurringOrFuturePayments
             ) {
               // Calculate the discount based on coupon type
@@ -1573,7 +1618,6 @@ async function updateUserStatus(req, res) {
               }
 
               couponCode = coupon.couponCode;
-
             } else {
               // Return an error if coupon is invalid or not applicable
               discount = 0;
@@ -1606,7 +1650,7 @@ async function updateUserStatus(req, res) {
 
           const result = paymentResponse.data;
           console.log(result);
-          
+
           if (paymentResponse.data?.transactionResponse?.transId === "0") {
             return res.status(500).json({
               success: false,
@@ -1642,17 +1686,26 @@ async function updateUserStatus(req, res) {
           });
           await payment.save();
 
+          addLog("Payment Record", user?._id, `Payment recorded for user: ${user?.firstName} ${user?.lastName}.`);
 
           // Save Coupon Redemption
           if (discount > 0 && couponCode) {
             await Coupon.updateOne(
               { couponCode },
-              { $inc: { redemptionCount: 1 }, $addToSet: { appliedBy: user._id } }
+              {
+                $inc: { redemptionCount: 1 },
+                $addToSet: { appliedBy: user._id },
+              }
             );
+            addLog("Coupon Redemption", user?._id, `${user?.firstName} ${user?.lastName} redeemed coupon: "${couponCode}".`);
           }
           // Add coupon code to user's appliedCoupon array
-          if (Array.isArray(user.appliedCoupon) && couponCode && !user.appliedCoupon.includes(couponCode)) {
-            user.appliedCoupon.push(couponCode)
+          if (
+            Array.isArray(user.appliedCoupon) &&
+            couponCode &&
+            !user.appliedCoupon.includes(couponCode)
+          ) {
+            user.appliedCoupon.push(couponCode);
           }
           // Add payment to user's payment history
           user.paymentHistory.push(payment._id);
@@ -1666,6 +1719,8 @@ async function updateUserStatus(req, res) {
               ? plus.planKey
               : userPlan.planKey;
           await user.save();
+
+          addLog("User Status Update", user._id, `Status successfully updated to "${status}" for user: ${user?.firstName} ${user?.lastName}.`);
         } catch (error) {
           console.error("Payment Processing Error:", error.message);
           return res
@@ -1691,10 +1746,13 @@ async function updateUserStatus(req, res) {
         });
         console.log("get lyrics account status resp: ", resp.data);
       } catch (err) {
+
+        addLog("User Update Error", currentUserId, `Failed update status to "${status === "Active" ? "reactivate" : "terminate"}" user on GetLyric API for user: ${user?.firstName} ${user?.lastName}.`);
         console.error("GetLyric API Error:", err);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on GetLyric API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on GetLyric API.`,
           error: err,
         });
       }
@@ -1715,10 +1773,12 @@ async function updateUserStatus(req, res) {
         );
         console.log("get rxvalet account status resp: ", resp.data);
       } catch (err) {
+        addLog("User Update Error", currentUserId, `Failed update status to "${status === "Active" ? "reactivate" : "terminate"}" user on RxValet API for user: ${user?.firstName} ${user?.lastName}.`);
         console.error("RxValet API Error:", err.message);
         return res.status(500).json({
-          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
-            } user on RxValet API.`,
+          message: `Failed to ${
+            status === "Active" ? "reactivate" : "terminate"
+          } user on RxValet API.`,
           error: err.message,
         });
       }
@@ -1766,6 +1826,7 @@ async function updateUserStatus(req, res) {
         );
         console.log("lyrics data-: ", response.data);
         if (!response.data.success) {
+          addLog("User Update Error", user?._id, `Failed to update user in Lyric system for user: ${user?.firstName} ${user?.lastName}.`);
           return res.status(500).json({
             error: "Failed to update user in Lyric system",
             data: response.data,
@@ -1790,6 +1851,7 @@ async function updateUserStatus(req, res) {
         );
         console.log("rxvalet data update plan: ", rxRespose.data);
         if (rxRespose.data.StatusCode !== "1") {
+          addLog("User Update Error", user?._id, `Failed to update user plan in RxValet system for user: ${user?.firstName} ${user?.lastName}.`);
           return res.status(500).json({
             error: "Failed to update user plan in RxValet system",
             data: rxRespose.data,
@@ -1814,15 +1876,19 @@ async function updateUserStatus(req, res) {
       user.planEndDate = terminationDate;
       await user.save();
       // Populate dependents and paymentHistory
-      const populatedUser = await user.populate(["paymentHistory", "dependents"])
+      const populatedUser = await user.populate([
+        "paymentHistory",
+        "dependents",
+      ]);
 
-      const { password, ...userWithoutSensitiveData } = populatedUser.toObject();
+      const { password, ...userWithoutSensitiveData } =
+        populatedUser.toObject();
 
       // Log the user status update
       addLog(
-        "Update User Status",
+        "User Status Update",
         currentUserId,
-        `Updated user status to ${status} with title: ${user.firstName}`
+        `Updated user status to "${status}" for user: ${user?.firstName} ${user?.lastName}.`
       );
 
       console.log("user after-2: ", userWithoutSensitiveData);
@@ -1869,7 +1935,7 @@ async function manageUserRole(req, res) {
     addLog(
       "Update User Role",
       currentUserId,
-      `Updated user role to ${role} with title: ${user.firstName}`
+      `Updated user role to "${role}" for user: ${user?.firstName} ${user?.lastName}.`
     );
 
     res.json({
@@ -1884,7 +1950,94 @@ async function manageUserRole(req, res) {
   }
 }
 
+async function checkUserExistence(req, res) {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+
+  try {
+    // Check if the email exists in your database
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(200).json({ doesExist: true });
+    }
+
+    // Log in to GetLyric to get an authorization token
+    const loginData = new FormData();
+    loginData.append(
+      "email",
+      production
+        ? "mtmoptim01@mytelemedicine.com"
+        : "mtmstgopt01@mytelemedicine.com"
+    );
+    loginData.append(
+      "password",
+      production ? "KCV(-uq0hIvGr%RCPRv5" : "xQnIq|TH=*}To(JX&B1r"
+    );
+
+    const loginResponse = await axios.post(`${lyricURL}/login`, loginData, {
+      headers: loginData.getHeaders(),
+    });
+    const authToken = loginResponse.headers["authorization"];
+
+    if (!authToken) {
+      return res.status(200).json({ doesExist: false });
+    }
+
+    // Check user in GetLyric
+    const validateEmail = new FormData();
+    validateEmail.append("email", email);
+
+    const validateEmailResponse = await axios.post(
+      `${lyricURL}/census/validateEmail`,
+      validateEmail,
+      {
+        headers: {
+          Authorization: authToken,
+          ...validateEmail.getHeaders(),
+        },
+      }
+    );
+
+    if (!validateEmailResponse?.data?.availableForUse) {
+      return res.status(200).json({ doesExist: true });
+    }
+
+    // Check user in RxValet
+    const validateRxEmail = new FormData();
+    validateRxEmail.append("Email", email);
+
+    const emailCheck = await axios.post(
+      "https://rxvaletapi.com/api/omdrx/check_patient_already_exists.php",
+      validateRxEmail,
+      {
+        headers: {
+          api_key: "AIA9FaqcAP7Kl1QmALkaBKG3-pKM2I5tbP6nMz8",
+          ...validateRxEmail.getHeaders(),
+        },
+      }
+    );
+
+    if (emailCheck.data.StatusCode === "1") {
+      return res.status(200).json({ doesExist: true });
+    }
+
+    // If email is available in all systems
+    return res.status(200).json({ doesExist: false });
+  } catch (error) {
+    console.error("Error checking user existence:", error.message);
+    return res
+      .status(500)
+      .json({ error: "An error occurred while checking email existence" });
+  }
+}
+
+module.exports = { checkUserExistence };
+
 module.exports = {
+  checkUserExistence,
   register,
   login,
   getAllUser,
