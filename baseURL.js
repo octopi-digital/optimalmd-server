@@ -1,6 +1,6 @@
-const production = false;
+const production = true;
 const baseURL = production
-  ? "https://optimalmd-server.vercel.app"
+  ? "https://portal.optimalmd.com"
   : "http://localhost:5000";
 const lyricURL = production
   ? "https://clinic.optimal.md/go/api"
@@ -10,7 +10,7 @@ const authorizedDotNetURL = production
   : "https://apitest.authorize.net";
 
 // const frontendBaseURL = production ?  "https://optimalmd.vercel.app" : "http://localhost:5173"
-const frontendBaseURL = "https://optimalmd.vercel.app";
+const frontendBaseURL = "https://portal.optimalmd.com";
 
 module.exports = {
   production,
