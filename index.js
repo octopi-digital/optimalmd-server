@@ -56,7 +56,7 @@ const logRoutes = require("./router/logRoutes");
 const salesPartnerRoutes = require("./router/salesPartnerRoutes");
 
 app.use((req, res, next) => {
-  if (req.hostname === "login.optimalmd.com") {
+  if (req.hostname === "portal.optimalmd.com") {
     express.static(path.join(__dirname, "dist"))(req, res, next);
   } else {
     next();
@@ -504,7 +504,7 @@ cron.schedule("0 0 * * *", async () => {
 
 
 app.get("*", (req, res) => {
-  if (req.hostname === "login.optimalmd.com") {
+  if (req.hostname === "portal.optimalmd.com") {
     res.sendFile(path.join(__dirname, "dist", "index.html"));
   } else {
     res.status(404).send("Not Found");
