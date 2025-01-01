@@ -89,6 +89,9 @@ const getAllPayment = async (req, res) => {
   try {
     let { page = 1, limit = 10, search = "", startDate, endDate, isrefund } = req.query;
 
+    console.log("startDate:", startDate);
+    console.log("endDate:", endDate);
+
     // Validate and sanitize pagination inputs
     page = Math.max(1, parseInt(page) || 1);
     limit = Math.max(1, parseInt(limit) || 10);
@@ -102,7 +105,7 @@ const getAllPayment = async (req, res) => {
       const searchRegex = new RegExp(`.*${search}.*`, "i"); // Case-insensitive search
 
       // Fetch all users to evaluate full name search
-      const searchUsers = await User.find({}).select("_id firstName lastName email");
+      const searchUsers = await User.find({}).select("_id firstName lastName email phone");
 
       const searchUserIds = searchUsers
         .filter(
@@ -110,7 +113,8 @@ const getAllPayment = async (req, res) => {
             `${user.firstName} ${user.lastName}`.match(searchRegex) || // Full name match
             user.firstName.match(searchRegex) || // First name match
             user.lastName.match(searchRegex) || // Last name match
-            user.email.match(searchRegex) // Email match
+            user.email.match(searchRegex) || // Email match
+            user.phone.match(searchRegex) // Phone match
         )
         .map((user) => user._id);
 
