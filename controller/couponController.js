@@ -332,8 +332,11 @@ exports.getCouponByCode = async (req, res) => {
     if (coupon.selectedPlans.length !== 0 && !coupon.selectedPlans.includes(planKey)) {
       return res.status(400).json({ message: "This coupon is not valid for the selected plan." });
     }
-    if (!coupon.status === "Active") {
+    if (coupon.status !== "Active") {
       return res.status(400).json({ message: `This coupon is ${coupon.status}` });
+    }
+    if (coupon.numberOfRedeem < 0 ) {
+      return res.status(400).json({ message: `This coupon is Expired` });
     }
 
     res.status(200).json(coupon);
