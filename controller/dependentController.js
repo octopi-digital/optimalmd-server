@@ -455,6 +455,7 @@ async function updateDependent(req, res) {
               email: userInfo?.email,
               password: defaultPassword,
               phone: userInfo?.phone,
+              primaryUserName: user.firstName + " " + user.lastName || ""
             }
           );
           console.log(emailResponse?.data);
