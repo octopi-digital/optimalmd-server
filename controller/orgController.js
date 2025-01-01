@@ -107,8 +107,8 @@ const createOrg = async (req, res) => {
       return res.status(500).json({ error: "Failed to save organization." });
     }
 
-        // Log the creation
-        addLog("Organization created", null, `Organization ${data?.orgName} created with email ${data?.orgEmail}.`);
+    // Log the creation
+    addLog("Organization created", null, `Organization ${data?.orgName} created with email ${data?.orgEmail}.`);
     // Respond with success
     res.status(201).json(savedOrg);
   } catch (err) {
@@ -245,18 +245,104 @@ const getOrgById = async (req, res) => {
 // Update an organization by ID
 const updateOrg = async (req, res) => {
   try {
-    const { id } = req.params;
-    const updatedOrg = await Org.findByIdAndUpdate(id, req.body, { new: true });
-    if (!updatedOrg)
-      return res.status(404).json({ message: "Organization not found" });
+    const { id } = req.params; // Get the organization ID from the URL
+    const updateData = req.body; // Get the data to update from the request body
 
-        // Log the update
-        addLog("Organization updated", null, `Organization ${updatedOrg?.orgName} updated.`);
+    // Validate that at least one field is being updated
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: "No data provided for update." });
+    }
+
+    // Validate email formats if provided
+    if (updateData.orgEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updateData.orgEmail)) {
+      return res.status(400).json({ error: "Invalid organization email." });
+    }
+    if (
+      updateData.primaryContactEmail &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updateData.primaryContactEmail)
+    ) {
+      return res.status(400).json({ error: "Invalid primary contact email." });
+    }
+
+    // Validate phone formats (10-15 digits) if provided
+    const phoneRegex = /^\d{10,15}$/;
+    if (updateData.orgPhone && !phoneRegex.test(updateData.orgPhone)) {
+      return res.status(400).json({
+        error: "Invalid organization phone number format. Must be 10-15 digits.",
+      });
+    }
+    if (
+      updateData.primaryContactPhone &&
+      !phoneRegex.test(updateData.primaryContactPhone)
+    ) {
+      return res.status(400).json({
+        error: "Invalid primary contact phone number format. Must be 10-15 digits.",
+      });
+    }
+
+    // Ensure that if paymentOption is "Card", card details are provided
+    if (updateData.paymentOption === "Card") {
+      if (!updateData.cardNumber || !updateData.expiration || !updateData.cvc) {
+        return res.status(400).json({
+          error: "Card details are required when payment option is 'Card'.",
+        });
+      }
+    }
+
+    // Ensure that if paymentOption is "Bank", bank details are provided
+    if (updateData.paymentOption === "Bank") {
+      if (
+        !updateData.bankName ||
+        !updateData.accountName ||
+        !updateData.accountNumber ||
+        !updateData.routingNumber
+      ) {
+        return res.status(400).json({
+          error: "Bank details are required when payment option is 'Bank'.",
+        });
+      }
+    }
+
+    // Check for unique fields (if provided)
+    const uniqueChecks = [];
+    if (updateData.orgName) uniqueChecks.push({ orgName: updateData.orgName });
+    if (updateData.orgEmail) uniqueChecks.push({ orgEmail: updateData.orgEmail });
+    if (updateData.primaryContactEmail)
+      uniqueChecks.push({ primaryContactEmail: updateData.primaryContactEmail });
+
+    if (uniqueChecks.length > 0) {
+      const existingOrg = await Org.findOne({
+        $or: uniqueChecks,
+        _id: { $ne: id }, // Ensure we're not checking against the same org
+      });
+      if (existingOrg) {
+        return res.status(409).json({
+          error:
+            "An organization with the same name, email, or primary contact email already exists.",
+        });
+      }
+    }
+
+    // Perform the update operation
+    const updatedOrg = await Org.findByIdAndUpdate(id, updateData, {
+      new: true, // Return the updated document
+      runValidators: true, // Ensure schema validators are applied
+    });
+
+    if (!updatedOrg) {
+      return res.status(404).json({ error: "Organization not found." });
+    }
+
+    // Log the update
+    addLog("Organization updated", null, `Organization ${updatedOrg?.orgName} updated.`);
+
+    // Respond with the updated organization
     res.status(200).json(updatedOrg);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Internal Server Error", details: err.message });
   }
 };
+
 
 // Delete an organization by ID
 const deleteOrg = async (req, res) => {
@@ -266,8 +352,8 @@ const deleteOrg = async (req, res) => {
     if (!deletedOrg)
       return res.status(404).json({ message: "Organization not found" });
 
-        // Log the deletion
-        addLog("Organization deleted", null, `Organization ${deletedOrg?.orgName} deleted.`);
+    // Log the deletion
+    addLog("Organization deleted", null, `Organization ${deletedOrg?.orgName} deleted.`);
     res.status(200).json({ message: "Organization deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
