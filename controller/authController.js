@@ -395,9 +395,11 @@ async function register(req, res) {
     console.log(paymentResponse);
 
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
+    console.log(paymentResponse?.data?.transactionResponse);
+    
 
     if (!transactionId || transactionId == "0") {
-      return res.status(400).json({ error: "Payment failed" });
+      return res.status(400).json({ error: "Payment failed", response: paymentResponse?.data });
     }
 
     // Create User
