@@ -5,6 +5,9 @@ const mongoose = require("mongoose");
 const cron = require("node-cron");
 const moment = require("moment");
 const axios = require("axios");
+const fs = require('fs');
+const https = require('https');
+const path = require("path");
 const { customEncrypt, customDecrypt } = require("./hash");
 const { lyricURL, authorizedDotNetURL, production } = require("./baseURL");
 const { addLog } = require("./controller/logController");
@@ -14,7 +17,7 @@ const port = process.env.PORT || 5000;
 
 // middle ware:
 app.use(cors());
-app.use(express.json({ limit: "50mb" })); // Increase required size
+app.use(express.json({ limit: "50mb" }));
 
 const dbUser = process.env.DB_USER;
 const dbPass = process.env.DB_PASS;
@@ -27,6 +30,12 @@ mongoose
   .connect(mongodbUri)
   .then(() => console.log("MongoDB connected successfully"))
   .catch((error) => console.error("MongoDB connection error:", error));
+
+
+const options = {
+  pfx: fs.readFileSync('./optimalmd.pfx'),
+  passphrase: 'test987123',
+};
 
 const User = require("./model/userSchema");
 const Payment = require("./model/paymentSchema");
@@ -46,6 +55,15 @@ const Plan = require("./model/planSchema");
 const logRoutes = require("./router/logRoutes");
 const salesPartnerRoutes = require("./router/salesPartnerRoutes");
 
+app.use((req, res, next) => {
+  if (req.hostname === "login.optimalmd.com") {
+    express.static(path.join(__dirname, "dist"))(req, res, next);
+  } else {
+    next();
+  }
+});
+
+// Backend API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/dependent", dependentRoutes);
 app.use("/api/rxvalet", rxvaletRoutes);
@@ -58,6 +76,9 @@ app.use("/api/blogs", blogRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/logs", logRoutes);
 app.use("/api/sales-partners", salesPartnerRoutes);
+app.get("/", (req, res) => {
+  res.send("Optimal MD network is running...");
+});
 
 cron.schedule("0 0 * * *", async () => {
   try {
@@ -85,10 +106,9 @@ cron.schedule("0 0 * * *", async () => {
     const cenSusloginData = new FormData();
     cenSusloginData.append(
       "email",
-      `${
-        production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+      `${production
+        ? "mtmoptim01@mytelemedicine.com"
+        : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     cenSusloginData.append(
@@ -131,15 +151,14 @@ cron.schedule("0 0 * * *", async () => {
             {
               firstName: user.firstName,
               email: user.email,
-              message: `Your plan will expire in ${daysRemaining} day${
-                daysRemaining > 1 ? "s" : ""
-              }. We will automatically update your plan. If you don't want to update your plan, you can simply deactivate your account.`,
+              message: `Your plan will expire in ${daysRemaining} day${daysRemaining > 1 ? "s" : ""
+                }. We will automatically update your plan. If you don't want to update your plan, you can simply deactivate your account.`,
             }
           );
           console.log(`Follow-up email sent to ${user.email} for ${daysRemaining} day(s) remaining.`);
           addLog("Info", user?._id, `Follow-up email sent to ${user.email} for ${daysRemaining} day(s) remaining.`);
         } catch (err) {
-          addLog("Error", user?._id,`Error sending follow-up email to ${user.email}`);
+          addLog("Error", user?._id, `Error sending follow-up email to ${user.email}`);
           console.error(`Error sending follow-up email to ${user.email}:`, err);
         }
       }
@@ -199,7 +218,7 @@ cron.schedule("0 0 * * *", async () => {
               // Apply the discount to the amount
               amount -= discount;
 
-              if(amount < 0) {
+              if (amount < 0) {
                 amount = 0;
               }
               couponCode = coupon.couponCode;
@@ -334,7 +353,7 @@ cron.schedule("0 0 * * *", async () => {
             : userPlan.planKey;
         await user.save();
 
-        
+
 
         const formattedDob = moment(user.dob).format("MM/DD/YYYY");
 
@@ -484,10 +503,16 @@ cron.schedule("0 0 * * *", async () => {
   }
 });
 
-app.get("/", (req, res) => {
-  res.send("Optimal MD network is running...");
+
+app.get("*", (req, res) => {
+  if (req.hostname === "login.optimalmd.com") {
+    res.sendFile(path.join(__dirname, "dist", "index.html"));
+  } else {
+    res.status(404).send("Not Found");
+  }
 });
 
-app.listen(port, "0.0.0.0",() => {
-  console.log(`Optimal MD network is running on port: ${port}`);
+// Create HTTPS server
+https.createServer(options, app).listen(443, () => {
+  console.log("HTTPS server running on port 443");
 });
