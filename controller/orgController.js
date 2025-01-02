@@ -7,7 +7,7 @@ const Plan = require("../model/planSchema");
 // Create a new organization
 const createOrg = async (req, res) => {
   try {
-    const data = req.body;
+    const { data, userId} = req.body;
 
     const requiredFields = [
       "orgName",
@@ -108,7 +108,7 @@ const createOrg = async (req, res) => {
     }
 
     // Log the creation
-    addLog("Organization created", null, `Organization ${data?.orgName} created with email ${data?.orgEmail}.`);
+    addLog("Organization created", userId, `Organization ${data?.orgName} created with email ${data?.orgEmail}.`);
     // Respond with success
     res.status(201).json(savedOrg);
   } catch (err) {
@@ -246,7 +246,7 @@ const getOrgById = async (req, res) => {
 const updateOrg = async (req, res) => {
   try {
     const { id } = req.params; // Get the organization ID from the URL
-    const updateData = req.body; // Get the data to update from the request body
+    const { updateData, userId } = req.body; // Get the data to update from the request body
 
     // Validate that at least one field is being updated
     if (Object.keys(updateData).length === 0) {
@@ -334,7 +334,7 @@ const updateOrg = async (req, res) => {
     }
 
     // Log the update
-    addLog("Organization updated", null, `Organization ${updatedOrg?.orgName} updated.`);
+    addLog("Organization updated", userId, `Organization ${updatedOrg?.orgName} updated.`);
 
     // Respond with the updated organization
     res.status(200).json(updatedOrg);
@@ -348,12 +348,13 @@ const updateOrg = async (req, res) => {
 const deleteOrg = async (req, res) => {
   try {
     const { id } = req.params;
+    const { userId } = req.body;
     const deletedOrg = await Org.findByIdAndDelete(id);
     if (!deletedOrg)
       return res.status(404).json({ message: "Organization not found" });
 
     // Log the deletion
-    addLog("Organization deleted", null, `Organization ${deletedOrg?.orgName} deleted.`);
+    addLog("Organization deleted", userId, `Organization ${deletedOrg?.orgName} deleted.`);
     res.status(200).json({ message: "Organization deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

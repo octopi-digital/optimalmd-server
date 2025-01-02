@@ -4,7 +4,7 @@ const { addLog } = require("./logController")
 
 // Create a new plan
 exports.createPlan = async (req, res) => {
-  const { name, price, subtitle, benefits, duration, planKey, planType, footer } = req.body;
+  const { name, price, subtitle, benefits, duration, planKey, planType, footer, userId } = req.body;
   // Validate inputs
   if (!name || !price || !subtitle || !benefits || !duration || !planKey || !planType || !footer) {
     return res.status(400).json({ message: "Invalid data provided" });
@@ -14,7 +14,7 @@ exports.createPlan = async (req, res) => {
     const newPlan = new Plan({ name, price, subtitle, benefits, duration, planKey, planType, footer });
     await newPlan.save();
 
-    addLog("Plan created", null,`Plan ${name} created with price: $${price}, subtitle: ${subtitle}.`);
+    addLog("Plan created", userId,`Plan ${name} created with price: $${price}, subtitle: ${subtitle}.`);
     res
       .status(201)
       .json({ message: "Plan created successfully", plan: newPlan });
@@ -57,7 +57,7 @@ exports.getPlanById = async (req, res) => {
 // Update a plan
 exports.updatePlan = async (req, res) => {
   const { id } = req.params;
-  const { name, price, subtitle, benefits, duration, planKey, planType, footer } = req.body;
+  const { name, price, subtitle, benefits, duration, planKey, planType, footer, userId } = req.body;
 
   try {
     const updatedPlan = await Plan.findByIdAndUpdate(
@@ -69,7 +69,7 @@ exports.updatePlan = async (req, res) => {
     if (!updatedPlan) {
       return res.status(404).json({ message: "Plan not found" });
     }
-    addLog("Plan updated", null,`Plan ${name} updated with price: $${price}, subtitle: ${subtitle}.`);
+    addLog("Plan updated", userId,`Plan ${name} updated with price: $${price}, subtitle: ${subtitle}.`);
     res
       .status(200)
       .json({ message: "Plan updated successfully", plan: updatedPlan });
@@ -83,13 +83,14 @@ exports.updatePlan = async (req, res) => {
 // Delete a plan
 exports.deletePlan = async (req, res) => {
   const { id } = req.params;
+  const { userId } = req.body;
 
   try {
     const deletedPlan = await Plan.findByIdAndDelete(id);
     if (!deletedPlan) {
       return res.status(404).json({ message: "Plan not found" });
     }
-    addLog("Plan deleted", null,`Plan ${deletedPlan?.name} deleted.`);
+    addLog("Plan deleted", userId,`Plan ${deletedPlan?.name} deleted.`);
     res.status(200).json({ message: "Plan deleted successfully" });
   } catch (error) {
     res
@@ -101,7 +102,7 @@ exports.deletePlan = async (req, res) => {
 // update status
 exports.updatePlanStatus = async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, userId } = req.body;
   if (!status || !["Active", "Inactive"].includes(status)) {
     return res.status(400).json({ message: "Invalid status provided" });
   }
@@ -110,7 +111,7 @@ exports.updatePlanStatus = async (req, res) => {
       const activePlansCount = await Plan.countDocuments({ status: "Active" });
 
       if (activePlansCount >= 3) {
-        addLog("Plan activation failed", null,`Cannot activate more than 3 plans. Please deactivate an existing active plan first.`);
+        addLog("Plan activation failed", userId,`Cannot activate more than 3 plans. Please deactivate an existing active plan first.`);
         return res.status(400).json({
           message: "Cannot activate more than 3 plans. Please deactivate an existing active plan first."
         });
@@ -125,7 +126,7 @@ exports.updatePlanStatus = async (req, res) => {
       return res.status(404).json({ message: "Plan not found" });
     }
 
-    addLog("Plan status updated", null,`Plan ${updatedPlan?.name} status updated to ${status}.`);
+    addLog("Plan status updated", userId,`Plan ${updatedPlan?.name} status updated to ${status}.`);
     res.status(200).json({
       message: "Plan status updated successfully",
       plan: updatedPlan
@@ -140,7 +141,7 @@ exports.updatePlanStatus = async (req, res) => {
 
 exports.updatePlanPosition = async (req, res) => {
   const { id } = req.params;
-  const { newPosition } = req.body;
+  const { newPosition, userId } = req.body;
 
   console.log('Received newPosition:', newPosition); // Debugging line
 
@@ -176,7 +177,7 @@ exports.updatePlanPosition = async (req, res) => {
     planToMove.sortOrder = newPosition;
     await planToMove.save();
 
-    addLog("Plan position updated", null,`Plan ${planToMove?.name} position updated to ${newPosition}.`);
+    addLog("Plan position updated", userId,`Plan ${planToMove?.name} position updated to ${newPosition}.`);
 
     res.status(200).json({
       message: "Plan position updated successfully",
@@ -192,7 +193,7 @@ exports.updatePlanPosition = async (req, res) => {
 // Update a plan's tag (set it to "Popular" or empty)
 exports.updatePlanTag = async (req, res) => {
   const { id } = req.params;
-  const { tag } = req.body; // Assuming tag is sent in the body
+  const { tag, userId } = req.body; // Assuming tag is sent in the body
 
   // Validate tag value
   if (tag !== "Popular" && tag !== "") {
@@ -212,7 +213,7 @@ exports.updatePlanTag = async (req, res) => {
     plan.tag = tag;
     await plan.save();
 
-    addLog("Plan tag updated", null,`Plan ${plan?.name} tag updated to ${tag}.`);
+    addLog("Plan tag updated", userId,`Plan ${plan?.name} tag updated to ${tag}.`);
 
     res.status(200).json({
       message: "Plan tag updated successfully",
