@@ -1249,7 +1249,7 @@ async function forgetPassword(req, res) {
 
     const resetLink = `${frontendURL}/reset-password?token=${resetToken}`;
     await axios.post(
-      "https://services.leadconnectorhq.com/hooks/VrTTgjMoHCZk4jeKOm9F/webhook-trigger/283a2172-a198-427a-828d-fd38ed616722",
+      "https://services.leadconnectorhq.com/hooks/fXZotDuybTTvQxQ4Yxkp/webhook-trigger/1db91082-bc4e-49db-b580-aed6547dfd3f",
       {
         email: user.email,
         firstName: user.firstName || "Dependent",
