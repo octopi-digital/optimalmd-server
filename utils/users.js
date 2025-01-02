@@ -13,18 +13,7 @@ const addMultipleUsers = async (req, res) => {
       });
     }
 
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required.",
-      });
-    }
-
-    const organization = await Org.findById(orgId);
-    if (!organization) {
-      return res.status(404).json({
-        message: "Organization not found.",
-      });
-    }
+    const organization = orgId && (await Org.findById(orgId));
 
     const successfulUsers = [];
     const failedUsers = [];
@@ -56,7 +45,6 @@ const addMultipleUsers = async (req, res) => {
           plan,
           dob,
           sex,
-          org: orgId,
           phone,
           shipingAddress1,
           shipingAddress2,
@@ -64,6 +52,9 @@ const addMultipleUsers = async (req, res) => {
           shipingState,
           shipingZip,
         });
+        if (orgId) {
+          newUser.org = orgId; // Add org only if orgId exists
+        }
         const savedUser = await newUser.save();
         allUserIds.push(savedUser._id);
 
@@ -77,10 +68,9 @@ const addMultipleUsers = async (req, res) => {
                 email: dependent.email,
                 plan: dependent.plan,
                 dob: dependent.dob,
-                relation:
-                  dependent.relation === "Spouse" ? "Spouse" : "Child",
+                relation: dependent.relation === "Spouse" ? "Spouse" : "Child",
                 sex: dependent.sex,
-                org: orgId,
+
                 phone: dependent.phone,
                 shipingAddress1: dependent.shipingAddress1,
                 shipingAddress2: dependent.shipingAddress2,
@@ -89,6 +79,9 @@ const addMultipleUsers = async (req, res) => {
                 shipingZip: dependent.shipingZip,
                 primaryUser: savedUser._id,
               });
+              if (orgId) {
+                newDependent.org = orgId; // Add org only if orgId exists
+              }
               const savedDependent = await newDependent.save();
               dependentIds.push(savedDependent._id);
               allUserIds.push(savedDependent._id); // Add dependent ID to the org
@@ -109,9 +102,11 @@ const addMultipleUsers = async (req, res) => {
       }
     }
 
-    // Update the organization with all user and dependent IDs
-    organization.users = [...organization.users, ...allUserIds];
-    await organization.save();
+    if (orgId) {
+      // Update the organization with all user and dependent IDs
+      organization.users = [...organization.users, ...allUserIds];
+      await organization.save();
+    }
 
     return res.status(201).json({
       message: "Users processing complete.",
