@@ -14,7 +14,7 @@ exports.createPlan = async (req, res) => {
     const newPlan = new Plan({ name, price, subtitle, benefits, duration, planKey, planType, footer });
     await newPlan.save();
 
-    addLog("Plan created", null,`Plan ${name} created with price $${price} and subtitle ${subtitle}.`);
+    addLog("Plan created", null,`Plan ${name} created with price: $${price}, subtitle: ${subtitle}.`);
     res
       .status(201)
       .json({ message: "Plan created successfully", plan: newPlan });
@@ -69,7 +69,7 @@ exports.updatePlan = async (req, res) => {
     if (!updatedPlan) {
       return res.status(404).json({ message: "Plan not found" });
     }
-    addLog("Plan updated", null,`Plan ${name} updated with price $${price} and subtitle :${subtitle}.`);
+    addLog("Plan updated", null,`Plan ${name} updated with price: $${price}, subtitle: ${subtitle}.`);
     res
       .status(200)
       .json({ message: "Plan updated successfully", plan: updatedPlan });
@@ -89,7 +89,7 @@ exports.deletePlan = async (req, res) => {
     if (!deletedPlan) {
       return res.status(404).json({ message: "Plan not found" });
     }
-    addLog("Plan deleted", null,`Plan ${deletedPlan.name} deleted.`);
+    addLog("Plan deleted", null,`Plan ${deletedPlan?.name} deleted.`);
     res.status(200).json({ message: "Plan deleted successfully" });
   } catch (error) {
     res
@@ -125,7 +125,7 @@ exports.updatePlanStatus = async (req, res) => {
       return res.status(404).json({ message: "Plan not found" });
     }
 
-    addLog("Plan status updated", null,`Plan ${updatedPlan.name} status updated to ${status}.`);
+    addLog("Plan status updated", null,`Plan ${updatedPlan?.name} status updated to ${status}.`);
     res.status(200).json({
       message: "Plan status updated successfully",
       plan: updatedPlan
@@ -176,7 +176,7 @@ exports.updatePlanPosition = async (req, res) => {
     planToMove.sortOrder = newPosition;
     await planToMove.save();
 
-    addLog("Plan position updated", null,`Plan ${planToMove.name} position updated to ${newPosition}.`);
+    addLog("Plan position updated", null,`Plan ${planToMove?.name} position updated to ${newPosition}.`);
 
     res.status(200).json({
       message: "Plan position updated successfully",
@@ -212,7 +212,7 @@ exports.updatePlanTag = async (req, res) => {
     plan.tag = tag;
     await plan.save();
 
-    addLog("Plan tag updated", null,`Plan ${plan.name} tag updated to ${tag}.`);
+    addLog("Plan tag updated", null,`Plan ${plan?.name} tag updated to ${tag}.`);
 
     res.status(200).json({
       message: "Plan tag updated successfully",

@@ -197,7 +197,7 @@ async function register(req, res) {
     const authToken = loginResponse.headers["authorization"];
 
     if (!authToken) {
-      addLog("Registration Error", null, "Authorization token is missing for getlyric during login attempt.");
+      addLog("Registration Error", null, `Authorization token is missing for getlyric during login attempt for user: ${userData.firstName} ${userData.lastName}.`);
       return res
         .status(401)
         .json({ error: "Authorization token missing for getlyric" });
@@ -406,6 +406,7 @@ async function register(req, res) {
     const transactionId = paymentResponse?.data?.transactionResponse?.transId;
 
     if (!transactionId || transactionId == "0") {
+      addLog("Registration Error", null, `Payment failed at the time of registration. User: ${userData.firstName} ${userData.lastName}, Email: ${userData.email} Phone: ${userData.phone}.`);
       return res.status(400).json({ error: "Payment failed" });
     }
 
@@ -847,6 +848,8 @@ async function updateUserPlan(req, res) {
     );
 
     if (paymentResponse?.data?.transactionResponse?.transId === "0") {
+
+      addLog("Plan Update Error", userId, `Payment failed at the time of updating plan for user: ${user?.firstName} ${user?.lastName}, Email: ${user?.email}, Phone: ${user?.phone}.`);
       return res.status(500).json({
         success: false,
         error: "Payment Failed",
@@ -1448,6 +1451,7 @@ async function updateUserStatus(req, res) {
             }
           );
           if (paymentResponse.data?.transactionResponse?.transId === "0") {
+            addLog("Payment Error", currentUserId, `Payment failed at the time of user status updating time for user: ${user?.firstName} ${user?.lastName}, Email: ${user?.email}, Phone: ${user?.phone}.`);
             return res.status(500).json({
               success: false,
               error: "Payment Failed!",
@@ -1661,6 +1665,8 @@ async function updateUserStatus(req, res) {
           console.log(result);
 
           if (paymentResponse.data?.transactionResponse?.transId === "0") {
+
+            addLog("Payment Error", currentUserId, `Payment failed at the time of updating status for user: ${user?.firstName} ${user?.lastName}, Email: ${user?.email}, Phone: ${user?.phone}.`);
             return res.status(500).json({
               success: false,
               error: "Payment Failed!",

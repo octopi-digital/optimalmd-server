@@ -266,6 +266,7 @@ cron.schedule("0 0 * * *", async () => {
         // console.log(result);
 
         if (paymentResponse?.data?.transactionResponse?.transId === "0") {
+          addLog("Cron Payment Error", user?._id, `Payment failed at the time of cron payment for user: ${user?.firstName} ${user?.lastName}, Email: ${user?.email}, Phone: ${user?.phone}.`);
           // return res.status(500).json({ error: paymentResponse.data.transactionResponse.errors, message: paymentResponse.data.messages.message});
 
           user.status = "Canceled";

@@ -501,7 +501,7 @@ exports.updateCoupon = async (req, res) => {
 
     // Log the update action
     try {
-      addLog('Update Coupon', userId, `Updated coupon with title: ${updatedCoupon.couponName}.`);
+      addLog('Update Coupon', userId, `Updated coupon with title: ${updatedCoupon?.couponName}.`);
     } catch (logError) {
       console.error("Failed to log action:", logError.message);
     }
@@ -522,7 +522,7 @@ exports.deleteCoupon = async (req, res) => {
       return res.status(404).json({ error: "Coupon not found" });
     }
     // Log the deletion
-    addLog('Delete Coupon', userId, `Deleted coupon with title: ${deletedCoupon.couponName}.`);
+    addLog('Delete Coupon', userId, `Deleted coupon with title: ${deletedCoupon?.couponName}.`);
     res.status(200).json({ message: "Coupon deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -187,7 +187,7 @@ exports.updateBlog = async (req, res) => {
     }
 
     // Log the update
-    addLog('Update Blog', userId, `Updated blog with title: ${updatedBlog.title}.`);
+    addLog('Update Blog', userId, `Updated blog with title: ${updatedBlog?.title}.`);
 
     // Success response
     res.status(200).json(updatedBlog);
@@ -217,7 +217,7 @@ exports.deleteBlog = async (req, res) => {
     await Blog.findByIdAndDelete(id);
 
     // Log the deletion
-    addLog('Delete Blog', userId, `Deleted blog with title: ${blog.title}.`);
+    addLog('Delete Blog', userId, `Deleted blog with title: ${blog?.title}.`);
 
     res.status(200).json({ message: "Blog deleted successfully" });
   } catch (error) {

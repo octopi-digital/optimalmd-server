@@ -573,7 +573,7 @@ async function paymentRefund(req, res) {
         refundTransactionId: refundResult.transactionResponse.transId,
       });
     } else {
-      addLog("Filed to Refund", currentUserId, `Failed refunded payment of $${Math.ceil(payment.amount * percentage)} for user ${user.firstName} ${user.lastName}.`);
+      addLog("Filed to Refund", currentUserId, `Failed refunded payment of $${Math.ceil(payment?.amount * percentage)} for user ${user?.firstName} ${user?.lastName}, Email: ${user?.email}, Phone: ${user?.phone}.`);
       return res.status(500).json({
         success: false,
         error: "Internal server error.",
