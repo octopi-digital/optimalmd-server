@@ -53,21 +53,5 @@ const dependentSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-// Pre-update hook: Trigger when updating the document
-dependentSchema.pre("update", function (next) {
-  this.set({ isUpdate: true }); // Set `isUpdate` to true
-  next();
-});
 
-// Pre-updateOne hook: For specific updateOne operations
-dependentSchema.pre("updateOne", function (next) {
-  this.set({ isUpdate: true }); // Set `isUpdate` to true
-  next();
-});
-
-// Pre-findOneAndUpdate hook: For findOneAndUpdate operations
-dependentSchema.pre("findOneAndUpdate", function (next) {
-  this.set({ isUpdate: true }); // Set `isUpdate` to true
-  next();
-});
 module.exports = mongoose.model("Dependent", dependentSchema);

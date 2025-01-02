@@ -13,17 +13,13 @@ const addMultipleUsers = async (req, res) => {
       });
     }
 
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required.",
-      });
-    }
-
-    const organization = await Org.findById(orgId);
-    if (!organization) {
-      return res.status(404).json({
-        message: "Organization not found.",
-      });
+    if (orgId) {
+      const organization = await Org.findById(orgId);
+      if (!organization) {
+        return res.status(404).json({
+          message: "Organization not found.",
+        });
+      }
     }
 
     const successfulUsers = [];
@@ -77,8 +73,7 @@ const addMultipleUsers = async (req, res) => {
                 email: dependent.email,
                 plan: dependent.plan,
                 dob: dependent.dob,
-                relation:
-                  dependent.relation === "Spouse" ? "Spouse" : "Child",
+                relation: dependent.relation === "Spouse" ? "Spouse" : "Child",
                 sex: dependent.sex,
                 org: orgId,
                 phone: dependent.phone,
@@ -109,9 +104,11 @@ const addMultipleUsers = async (req, res) => {
       }
     }
 
-    // Update the organization with all user and dependent IDs
-    organization.users = [...organization.users, ...allUserIds];
-    await organization.save();
+    if (orgId) {
+      // Update the organization with all user and dependent IDs
+      organization.users = [...organization.users, ...allUserIds];
+      await organization.save();
+    }
 
     return res.status(201).json({
       message: "Users processing complete.",
