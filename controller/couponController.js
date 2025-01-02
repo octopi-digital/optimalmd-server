@@ -156,7 +156,7 @@ exports.createCoupon = async (req, res) => {
     const endTimeValue = endDate ? (endTime || "23:59:59") : ""; // Default to end of the day if not provided
 
     // Handle and validate startTime and endTime defaults
-    
+
 
 
     const startDateTime = moment.utc(`${startDate}T${startTimeValue}`);
@@ -428,22 +428,29 @@ exports.updateCoupon = async (req, res) => {
     const newStartDateTime = moment.utc(`${startDate}T${startTime}`);
     const endDateTime = endDate ? moment.utc(`${endDate}T${endTime}`) : null;
 
-    if (existingStartDateTime < newStartDateTime) {
-      return res.status(400).json({ error: "Start date cannot be in the past." });
-    } else if (existingStartDateTime > newStartDateTime) {
-        if (newStartDateTime < currentDateTime) {
-          return res.status(400).json({ error: "Start date cannot be in the past." });
-        }
+    // Validate new start date
+    if (!existingStartDateTime.isBefore(currentDateTime, "day")) {
+      if (newStartDateTime.isBefore(existingStartDateTime)) {
+        return res.status(400).json({ error: "Start date cannot be earlier than the existing start date." });
+      }
+      if (newStartDateTime.isBefore(currentDateTime, "day")) {
+        return res.status(400).json({ error: "Start date cannot be in the past." });
+      }
+    } else {
+      return res.status(400).json({ error: "Cannot update a coupon that has already started." });
     }
 
-    // Validate endDate and endTime only if modified
-    if(endDateTime && endDateTime.isBefore(currentDateTime, "day")) {
-      return res.status(400).json({ error: "End date cannot be in the past." });
+    // Validate end date and time only if modified
+    if (endDateTime) {
+      if (endDateTime.isBefore(currentDateTime, "day")) {
+        return res.status(400).json({ error: "End date cannot be in the past." });
+      }
+      if (endDateTime.isBefore(newStartDateTime)) {
+        return res.status(400).json({ error: "End date and time must be after the start date and time." });
+      }
     }
-    if (endDateTime && endDateTime.isBefore(newStartDateTime)) {
-      return res.status(400).json({ error: "End date and time must be after the start date and time." });
-    }
-   
+
+
 
     // Determine coupon status based on dates
     let couponStatus;
