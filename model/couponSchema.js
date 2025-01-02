@@ -7,9 +7,9 @@ const couponSchema = new mongoose.Schema(
     couponType: { type: String, enum: ['Percentage', 'Fixed Amount'], required: true },
     discountOffered: { type: Number, required: true },
     startDate: { type: String, required: true },
-    startTime: { type: String, default: ""}, // Format: "HH:mm:ss"
-    endDate: { type: String, default: ""},
-    endTime: { type: String, default: ""}, // Format: "HH:mm:ss"
+    startTime: { type: String, required: true }, // Format: "HH:mm:ss"
+    endDate: { type: String, required: true },
+    endTime: { type: String, required: true }, // Format: "HH:mm:ss"
     numberOfRedeem: { type: Number, default: -1 }, // Number of times the coupon can be redeemed
     selectedPlans: { type: [String] }, // Array of plan IDs
     appliedBy: { type: [String], default: [] }, // Array of user IDs
@@ -27,4 +27,4 @@ const couponSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Coupon', couponSchema);
+module.exports = mongoose.model('Coupon', couponSchema);

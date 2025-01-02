@@ -15,17 +15,12 @@ cron.schedule("* * * * *", async () => {
     // Update expired coupons
     const expiredCoupons = await Coupon.updateMany(
       {
-        $and: [
+        $or: [
+          { endDate: { $lt: currentDate } }, // End date is in the past
           {
-            $or: [
-              { endDate: { $lt: currentDate } }, // End date is in the past
-              {
-                endDate: { $eq: currentDate }, // Same date
-                endTime: { $lt: currentTime }, // Time is in the past
-              },
-            ],
+            endDate: { $eq: currentDate }, // Same date
+            endTime: { $lt: currentTime }, // Time is in the past
           },
-          { endDate: { $ne: null } }, // Only consider coupons where endDate is not null
         ],
         status: { $ne: "Expired" },
       },
@@ -74,8 +69,8 @@ cron.schedule("* * * * *", async () => {
       );
     }
   } catch (error) {
-    console.error("Error updating coupon statuses:", error);
-  }
+    console.error("Error updating coupon statuses:", error);
+  }
 });
 
 // Create a new coupon
@@ -96,8 +91,7 @@ exports.createCoupon = async (req, res) => {
       recurringOrFuturePayments,
       userId,
     } = req.body;
-
-    // Validate required fields
+    // Check required fields one by one
     if (!couponName) {
       return res.status(400).json({ error: "Coupon name is required." });
     }
@@ -105,12 +99,10 @@ exports.createCoupon = async (req, res) => {
       return res.status(400).json({ error: "Coupon code is required." });
     }
 
-    // Ensure unique couponCode and optionally couponName
+    // Validate uniqueness of couponCode
     const existingCoupon = await Coupon.findOne({ couponCode });
     if (existingCoupon) {
-      return res
-        .status(400)
-        .json({ error: "Coupon code and name must be unique." });
+      return res.status(400).json({ error: "Coupon code must be unique." });
     }
 
     if (!couponType || !["Percentage", "Fixed Amount"].includes(couponType)) {
@@ -119,56 +111,62 @@ exports.createCoupon = async (req, res) => {
           'Coupon type is required and must be either "Percentage" or "Fixed Amount".',
       });
     }
-
     // Validate discountOffered based on couponType
     if (couponType === "Percentage") {
       if (
         discountOffered === undefined ||
         discountOffered === null ||
-        discountOffered < 1 ||
-        discountOffered > 99
+        discountOffered < 0 ||
+        discountOffered > 100
       ) {
         return res.status(400).json({
           error:
-            'For Percentage coupon type, discount must be between 1 and 99.',
+            'For "Percentage" coupon type, discount must be between 0 and 100.',
         });
       }
     } else if (couponType === "Fixed Amount") {
       if (
         discountOffered === undefined ||
         discountOffered === null ||
-        discountOffered < 1
+        discountOffered < 0
       ) {
         return res.status(400).json({
           error:
-            'For Fixed Amount coupon type, discount must be greater than or equal to 1.',
+            'For "Fixed Amount" coupon type, discount must be greater than or equal to 0.',
         });
       }
     }
 
-
-    if (!startDate) {
-      return res.status(400).json({ error: "Start date is required." });
+    // Validate start date and time
+    if (!startDate || !startTime) {
+      return res
+        .status(400)
+        .json({ error: "Start date and time are required." });
     }
 
-    const startTimeValue = startTime || "00:00:00"; // Default to midnight if not provided
-
-    const endTimeValue = endDate ? (endTime || "23:59:59") : ""; // Default to end of the day if not provided
-
-    // Handle and validate startTime and endTime defaults
-
-
-
-    const startDateTime = moment.utc(`${startDate}T${startTimeValue}`);
-    const currentDateTime = moment.utc();
-    if (startDateTime.toISOString().split('T')[0] < currentDateTime.toISOString().split('T')[0]) {
-      return res.status(400).json({
-        error: "Start date cannot be in the past.",
-      });
+    const startDateTime = new Date(`${startDate}T${startTime}`);
+    if (startDateTime < new Date()) {
+      return res
+        .status(400)
+        .json({ error: "Start date and time cannot be in the past." });
     }
-    let endDateTime = endDate ? moment.utc(`${endDate}T${endTimeValue}`) : null;
 
-    if (endDateTime && endDateTime < startDateTime) {
+    // Validate end date and time
+    if (!endDate || !endTime) {
+      return res
+        .status(400)
+        .json({ error: "End date and time are required." });
+    }
+
+    const endDateTime = new Date(`${endDate}T${endTime}`);
+    if (endDateTime < new Date()) {
+      return res
+        .status(400)
+        .json({ error: "End date and time cannot be in the past." });
+    }
+
+    // Ensure end date/time is after start date/time
+    if (endDateTime <= startDateTime) {
       return res.status(400).json({
         error: "End date and time must be after the start date and time.",
       });
@@ -176,37 +174,33 @@ exports.createCoupon = async (req, res) => {
 
     // Determine coupon status based on dates
     let couponStatus;
+    const currentDateTime = new Date();
+
     if (startDateTime > currentDateTime) {
       couponStatus = "Scheduled"; // Coupon is scheduled for future
-    } else if (!endDateTime || endDateTime > currentDateTime) {
+    } else if (endDateTime > currentDateTime) {
       couponStatus = "Active"; // Coupon is active
     } else {
       couponStatus = "Expired"; // Coupon is expired
     }
 
-    // Parse and validate numberOfRedeem
-    let redeemNumber = parseInt(numberOfRedeem, 10);
-    if (isNaN(redeemNumber)) {
-      redeemNumber = -1; // Unlimited redemptions
+    let redeemNumber;
+    if (numberOfRedeem < 1 || numberOfRedeem === undefined || numberOfRedeem === null) {
+      redeemNumber = -1;
+    } else {
+      redeemNumber = numberOfRedeem;
     }
 
-    // Validate redemptions if not unlimited
-    if (redeemNumber !== -1 && redeemNumber < 1) {
-      return res.status(400).json({
-        error: "Number of redemptions must be greater than 0, unless unlimited.",
-      });
-    }
-
-    // Create and save the coupon
+    // If all checks pass, save the coupon
     const newCoupon = new Coupon({
       couponName,
       couponCode,
       couponType,
       discountOffered,
       startDate,
-      startTime: startTimeValue,
+      startTime,
       endDate,
-      endTime: endTimeValue,
+      endTime,
       numberOfRedeem: redeemNumber,
       selectedPlans,
       useLimit,
@@ -215,22 +209,12 @@ exports.createCoupon = async (req, res) => {
     });
 
     const savedCoupon = await newCoupon.save();
-
-    // Log the creation action
-    try {
-      addLog(
-        "Created Coupon",
-        userId,
-        `Created coupon with title: ${couponName}.`
-      );
-    } catch (logError) {
-      console.error("Failed to log action:", logError.message);
-    }
-
+    // Log the creation
+    addLog('Created Coupon', userId, `Created coupon with title: ${couponName}.`);
     res.status(201).json(savedCoupon);
   } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    res.status(500).json({ error: error.message });
+  }
 };
 
 // Get all coupons with pagination, sorting, and filtering
@@ -386,96 +370,77 @@ exports.updateCoupon = async (req, res) => {
       return res.status(404).json({ error: "Coupon not found." });
     }
 
-    // Ensure unique couponCode (ignoring the current coupon being updated)
-    const existingCouponCode = await Coupon.findOne({
-      couponCode,
-      _id: { $ne: req.params.id },
-    });
-    if (existingCouponCode) {
-      return res.status(400).json({ error: "Coupon code must be unique." });
+    // Validate start date/time only if modified
+    if (startDate && startTime) {
+      const existingStartDateTime = new Date(
+        `${existingCoupon.startDate}T${existingCoupon.startTime}`
+      );
+      const newStartDateTime = new Date(`${startDate}T${startTime}`);
+
+      if (newStartDateTime.getTime() !== existingStartDateTime.getTime()) {
+        // Validate new start date/time is not in the past
+        if (newStartDateTime < new Date()) {
+          return res
+            .status(400)
+            .json({ error: "Start date and time cannot be in the past." });
+        }
+      }
     }
 
-    // Validate couponType
-    if (!couponType || !["Percentage", "Fixed Amount"].includes(couponType)) {
-      return res.status(400).json({
-        error: 'Coupon type is required and must be either "Percentage" or "Fixed Amount".',
-      });
-    }
+    // Validate end date/time only if modified
+    if (endDate && endTime) {
+      const existingEndDateTime = new Date(
+        `${existingCoupon.endDate}T${existingCoupon.endTime}`
+      );
+      const newEndDateTime = new Date(`${endDate}T${endTime}`);
 
-    // Validate discountOffered based on couponType
-    if (couponType === "Percentage") {
-      if (
-        discountOffered === undefined ||
-        discountOffered === null ||
-        discountOffered < 1 ||
-        discountOffered > 99
-      ) {
+      if (newEndDateTime.getTime() !== existingEndDateTime.getTime()) {
+        // Validate new end date/time is not in the past
+        if (newEndDateTime < new Date()) {
+          return res
+            .status(400)
+            .json({ error: "End date and time cannot be in the past." });
+        }
+      }
+
+      // Ensure end date/time is after the start date/time
+      const newStartDateTime = new Date(`${startDate}T${startTime}`);
+      if (newEndDateTime <= newStartDateTime) {
         return res.status(400).json({
-          error: 'For Percentage coupon type, discount must be between 1 and 99.',
+          error: "End date and time must be after the start date and time.",
         });
       }
-    } else if (couponType === "Fixed Amount") {
-      if (
-        discountOffered === undefined ||
-        discountOffered === null ||
-        discountOffered < 1
-      ) {
-        return res.status(400).json({
-          error: 'For Fixed Amount coupon type, discount must be greater than or equal to 1.',
-        });
-      }
     }
-
-    const currentDateTime = moment.utc();
-    const existingStartDateTime = moment.utc(`${existingCoupon.startDate}T${existingCoupon.startTime}`);
-    const newStartDateTime = moment.utc(`${startDate}T${startTime}`);
-    const endDateTime = endDate ? moment.utc(`${endDate}T${endTime}`) : null;
-
-    // Validate new start date
-    if (!existingStartDateTime.isBefore(currentDateTime, "day")) {
-      if (newStartDateTime.isBefore(existingStartDateTime)) {
-        return res.status(400).json({ error: "Start date cannot be earlier than the existing start date." });
-      }
-      if (newStartDateTime.isBefore(currentDateTime, "day")) {
-        return res.status(400).json({ error: "Start date cannot be in the past." });
-      }
-    } else if(!newStartDateTime.isSame(existingStartDateTime)) {
-      return res.status(400).json({ error: "Cannot update a coupon that has already started." });
-    }
-
-    // Validate end date and time only if modified
-    if (endDateTime) {
-      if (endDateTime.isBefore(currentDateTime, "day")) {
-        return res.status(400).json({ error: "End date cannot be in the past." });
-      }
-      if (endDateTime.isBefore(newStartDateTime)) {
-        return res.status(400).json({ error: "End date and time must be after the start date and time." });
-      }
-    }
-
 
 
     // Determine coupon status based on dates
-    let couponStatus;
-    if (newStartDateTime.isAfter(currentDateTime)) {
-      couponStatus = "Scheduled";
-    } else if (!endDateTime || endDateTime.isAfter(currentDateTime)) {
-      couponStatus = "Active";
+    let couponStatus = existingCoupon.status; // Default to existing status
+    const currentDateTime = new Date();
+    const newStartDateTime = new Date(
+      `${startDate || existingCoupon.startDate}T${startTime || existingCoupon.startTime
+      }`
+    );
+    const newEndDateTime = new Date(
+      `${endDate || existingCoupon.endDate}T${endTime || existingCoupon.endTime
+      }`
+    );
+
+    if (newStartDateTime > currentDateTime) {
+      couponStatus = "Scheduled"; // Coupon is scheduled for future
+    } else if (newEndDateTime > currentDateTime) {
+      couponStatus = "Active"; // Coupon is active
     } else {
-      couponStatus = "Expired";
+      couponStatus = "Expired"; // Coupon is expired
     }
 
-    // Parse and validate numberOfRedeem
-    let redeemNumber = parseInt(numberOfRedeem, 10);
-    if (isNaN(redeemNumber)) {
-      redeemNumber = -1; // Unlimited redemptions
+    let redeemNumber;
+    if ( numberOfRedeem === undefined || numberOfRedeem === null) {
+      redeemNumber = -1;
+    } else if(numberOfRedeem < 1) {
+      return res.status(400).json({ error: "Number of redeem must be greater than 0." });
     }
-
-    // Validate redemptions if not unlimited
-    if (redeemNumber !== -1 && redeemNumber < 1) {
-      return res.status(400).json({
-        error: "Number of redemptions must be greater than 0, unless unlimited.",
-      });
+    else {
+      redeemNumber = numberOfRedeem;
     }
 
     // Update the coupon with the new details
@@ -499,17 +464,12 @@ exports.updateCoupon = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    // Log the update action
-    try {
-      addLog('Update Coupon', userId, `Updated coupon with title: ${updatedCoupon?.couponName}.`);
-    } catch (logError) {
-      console.error("Failed to log action:", logError.message);
-    }
-
+    // Log the update
+    addLog('Update Coupon', userId, `Updated coupon with title: ${updatedCoupon.couponName}.`);
     res.status(200).json(updatedCoupon);
   } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    res.status(500).json({ error: error.message });
+  }
 };
 
 
