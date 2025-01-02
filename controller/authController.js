@@ -26,7 +26,7 @@ async function getAllUser(req, res) {
   try {
     const {
       status,
-      plan,
+      planKey,
       search,
       role,
       page = 1,
@@ -42,8 +42,8 @@ async function getAllUser(req, res) {
       conditions.push({ status });
     }
 
-    if (plan) {
-      conditions.push({ plan });
+    if (planKey) {
+      conditions.push({ planKey });
     }
 
     // Filter by role (User, Admin, SuperAdmin, SalesPartner)
