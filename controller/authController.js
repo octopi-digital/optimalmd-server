@@ -56,14 +56,23 @@ async function getAllUser(req, res) {
 
     // Add search functionality
     if (search) {
-      const searchRegex = { $regex: search, $options: "i" };
-      conditions.push({
-        $or: [
-          { email: searchRegex },
-          { firstName: searchRegex },
-          { lastName: searchRegex },
-        ],
-      });
+      const searchRegex = new RegExp(`.*${search}.*`, "i"); // Case-insensitive search
+
+      // Fetch all users to evaluate full name search
+      const allUsers = await User.find({}).select("email firstName lastName");
+
+      const matchedUserIds = allUsers
+        .filter(
+          (user) =>
+            `${user.firstName} ${user.lastName}`.match(searchRegex) || // Full name match
+            user.email.match(searchRegex) || // Email match
+            user.firstName.match(searchRegex) || // First name match
+            user.lastName.match(searchRegex) // Last name match
+        )
+        .map((user) => user._id);
+
+      // Add matched users to the conditions
+      conditions.push({ _id: { $in: matchedUserIds } });
     }
 
     // Add date range filter
