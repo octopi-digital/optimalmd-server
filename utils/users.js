@@ -13,14 +13,7 @@ const addMultipleUsers = async (req, res) => {
       });
     }
 
-    if (orgId) {
-      const organization = await Org.findById(orgId);
-      if (!organization) {
-        return res.status(404).json({
-          message: "Organization not found.",
-        });
-      }
-    }
+    const organization = orgId && (await Org.findById(orgId));
 
     const successfulUsers = [];
     const failedUsers = [];
@@ -52,7 +45,7 @@ const addMultipleUsers = async (req, res) => {
           plan,
           dob,
           sex,
-          org: orgId,
+          org: orgId || "",
           phone,
           shipingAddress1,
           shipingAddress2,
@@ -75,7 +68,7 @@ const addMultipleUsers = async (req, res) => {
                 dob: dependent.dob,
                 relation: dependent.relation === "Spouse" ? "Spouse" : "Child",
                 sex: dependent.sex,
-                org: orgId,
+                org: orgId || "",
                 phone: dependent.phone,
                 shipingAddress1: dependent.shipingAddress1,
                 shipingAddress2: dependent.shipingAddress2,
