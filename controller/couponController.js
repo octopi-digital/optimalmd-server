@@ -423,7 +423,7 @@ exports.updateCoupon = async (req, res) => {
       }
     }
 
-    const currentDateTime = moment;
+    const currentDateTime = moment();
     const existingStartDateTime = moment.utc(`${existingCoupon.startDate}T${existingCoupon.startTime}`);
     const newStartDateTime = moment.utc(`${startDate}T${startTime}`);
     const endDateTime = endDate ? moment.utc(`${endDate}T${endTime ? endTime : "23:59:59"}`) : null;
