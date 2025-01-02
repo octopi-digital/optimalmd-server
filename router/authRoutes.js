@@ -15,6 +15,7 @@ const {
   updateUserPlan,
   manageUserRole,
   getAllSalesPartners,
+  checkUserExistence,
 } = require("../controller/authController");
 const { addMultipleUsers, deleteUsers } = require("../utils/users");
 
@@ -57,6 +58,9 @@ router.patch("/update-plan", updateUserPlan);
 
 // change user status:
 router.patch("/manage-role/:id", manageUserRole);
+
+//
+router.post("/check-user-exists", checkUserExistence);
 
 // add users in bulk
 router.post("/users/delete", deleteUsers);

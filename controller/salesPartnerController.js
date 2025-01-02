@@ -1,6 +1,7 @@
 // controllers/salesPartnerController.js
 const SalesPartner = require("../model/salesPartnerSchema");
 const { validationResult } = require("express-validator");
+const { addLog } = require("./logController")
 
 // Add a new Sales Partner
 const addSalesPartner = async (req, res) => {
@@ -15,6 +16,7 @@ const addSalesPartner = async (req, res) => {
         .json({ message: "Sales partner with this email already exists" });
     }
 
+    addLog("Sales Partner", null, "Sales Partner added successfully.")
     // Create new Sales Partner
     const newSalesPartner = new SalesPartner({
       firstName,
@@ -80,6 +82,8 @@ const updateSalesPartner = async (req, res) => {
       return res.status(404).json({ message: "Sales Partner not found" });
     }
 
+    addLog("Update Sales Partner", null, "Sales Partner info updated successfully.")
+
     return res.status(200).json({
       message: "Sales Partner updated successfully",
       data: salesPartner,
@@ -99,6 +103,8 @@ const deleteSalesPartner = async (req, res) => {
     if (!salesPartner) {
       return res.status(404).json({ message: "Sales Partner not found" });
     }
+
+    addLog("Delete Sales Partner", null, "Sales Partner deleted successfully.")
     return res
       .status(200)
       .json({ message: "Sales Partner deleted successfully" });

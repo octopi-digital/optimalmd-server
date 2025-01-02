@@ -210,7 +210,7 @@ exports.createCoupon = async (req, res) => {
 
     const savedCoupon = await newCoupon.save();
     // Log the creation
-    addLog('Created Coupon', userId, `Created coupon with title: ${couponName}`);
+    addLog('Created Coupon', userId, `Created coupon with title: ${couponName}.`);
     res.status(201).json(savedCoupon);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -332,8 +332,11 @@ exports.getCouponByCode = async (req, res) => {
     if (coupon.selectedPlans.length !== 0 && !coupon.selectedPlans.includes(planKey)) {
       return res.status(400).json({ message: "This coupon is not valid for the selected plan." });
     }
-    if (!coupon.status === "Active") {
+    if (coupon.status !== "Active") {
       return res.status(400).json({ message: `This coupon is ${coupon.status}` });
+    }
+    if (coupon.numberOfRedeem < 0 ) {
+      return res.status(400).json({ message: `This coupon is Expired` });
     }
 
     res.status(200).json(coupon);
@@ -460,7 +463,7 @@ exports.updateCoupon = async (req, res) => {
     );
 
     // Log the update
-    addLog('Update Coupon', userId, `Updated coupon with title: ${updatedCoupon.couponName}`);
+    addLog('Update Coupon', userId, `Updated coupon with title: ${updatedCoupon.couponName}.`);
     res.status(200).json(updatedCoupon);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -476,7 +479,7 @@ exports.deleteCoupon = async (req, res) => {
       return res.status(404).json({ error: "Coupon not found" });
     }
     // Log the deletion
-    addLog('Delete Coupon', userId, `Deleted coupon with title: ${deletedCoupon.couponName}`);
+    addLog('Delete Coupon', userId, `Deleted coupon with title: ${deletedCoupon.couponName}.`);
     res.status(200).json({ message: "Coupon deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
