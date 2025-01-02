@@ -16,21 +16,29 @@ cron.schedule("* * * * *", async () => {
     const expiredCoupons = await Coupon.updateMany(
       {
         $and: [
+          // Check if the coupon has a valid endDate and it has expired
           {
             $or: [
-              { endDate: { $lt: currentDate } }, // End date is in the past
-              {
-                endDate: { $eq: currentDate }, // Same date
-                endTime: { $lt: currentTime }, // Time is in the past
+              { 
+                $and: [ 
+                  { endDate: { $lt: currentDate } } // End date is in the past
+                ] 
               },
-            ],
+              {
+                $and: [
+                  { endDate: { $eq: currentDate } }, // Same date
+                  { endTime: { $lt: currentTime } } // Time is in the past
+                ]
+              }
+            ]
           },
-          { endDate: { $ne: null } }, // Only consider coupons where endDate is not null
-        ],
-        status: { $ne: "Expired" },
+          { endDate: { $ne: null } }, // Ensure endDate is not empty
+          { status: { $ne: "Expired" } }, // Only update non-expired coupons
+        ]
       },
       { $set: { status: "Expired" } }
     );
+    
 
     if (expiredCoupons.nModified > 0) {
       console.log(
@@ -429,6 +437,10 @@ exports.updateCoupon = async (req, res) => {
     const endDateTime = endDate ? moment.utc(`${endDate}T${endTime ? endTime : "23:59:59"}`) : null;
 
     console.log("Current Date Time:", currentDateTime);
+    console.log("Existing Start Date Time:", existingStartDateTime);
+    console.log(!existingStartDateTime.isBefore(currentDateTime, "day"))
+    console.log(!newStartDateTime.isSame(existingStartDateTime));
+    console.log("End Start Date Time:", endDateTime);
 
     // Validate new start date
     if (!existingStartDateTime.isBefore(currentDateTime, "day")) {
@@ -444,10 +456,10 @@ exports.updateCoupon = async (req, res) => {
 
     // Validate end date and time only if modified
     if (endDateTime) {
-      if (endDateTime.isBefore(currentDateTime, "day")) {
+      if (endDateTime.isBefore(currentDateTime)) {
         return res.status(400).json({ error: "End date cannot be in the past." });
       }
-      if (endDateTime.isBefore(newStartDateTime)) {
+      if (!endDateTime.isAfter(newStartDateTime)) {
         return res.status(400).json({ error: "End date and time must be after the start date and time." });
       }
     }
@@ -488,7 +500,7 @@ exports.updateCoupon = async (req, res) => {
         startDate: startDate || existingCoupon.startDate,
         startTime: startTime || existingCoupon.startTime,
         endDate: endDate || existingCoupon.endDate,
-        endTime: endTime || existingCoupon.endTime,
+        endTime: (endTime ? endTime : "23:59:59") || existingCoupon.endTime,
         numberOfRedeem: redeemNumber,
         selectedPlans,
         useLimit,
