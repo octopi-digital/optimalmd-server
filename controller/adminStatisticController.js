@@ -97,7 +97,6 @@ async function getAllStats(req, res) {
 
 
 
-// get last 12 month data
 async function getLast12MonthsStats(req, res) {
   try {
     // Get the current date and calculate the start date of the last 12 months
@@ -148,7 +147,7 @@ async function getLast12MonthsStats(req, res) {
     // Count total unique users for the last 12 months
     const totalLast12MonthsUsers = allUniqueUsers.size;
 
-    // Generate the response data for the last 12 months, ensuring no missing month
+    // Generate the response data for the last 12 months
     const monthNames = [
       "January",
       "February",
@@ -165,10 +164,12 @@ async function getLast12MonthsStats(req, res) {
     ];
 
     const monthlyStatsMap = Array.from({ length: 12 }, (_, index) => {
-      // Calculate the current month in the 12-month range
-      const month = (currentDate.getMonth() - 11 + index + 12) % 12;
-      // Adjust the year if crossing into the previous calendar year
-      const year = currentDate.getFullYear() - Math.floor((11 - index) / 12);
+      // Calculate the correct month and year for the last 12 months
+      const date = new Date(currentDate);
+      date.setMonth(date.getMonth() - (11 - index)); // Adjust back to the correct month-year
+
+      const month = date.getMonth(); // Get the month (0-indexed)
+      const year = date.getFullYear(); // Get the year
 
       // Find revenue and user count for the given year and month
       const monthStats = last12MonthsStats.find(
@@ -198,6 +199,7 @@ async function getLast12MonthsStats(req, res) {
 }
 
 
+
 async function getLast30DaysStats(req, res) {
   try {
     const currentDate = new Date();
@@ -207,7 +209,7 @@ async function getLast30DaysStats(req, res) {
     startOfLast30Days.setDate(currentDate.getDate() - 29); // Inclusive of today
 
     // Fetch revenue and user count for the last 30 days grouped by day
-    const dailyStats = await Payment.aggregate([
+    const result = await Payment.aggregate([
       {
         $match: {
           paymentDate: { $gte: startOfLast30Days },
@@ -219,17 +221,41 @@ async function getLast30DaysStats(req, res) {
           month: { $month: "$paymentDate" },
           date: { $dayOfMonth: "$paymentDate" },
           amount: 1,
-          userId: 1, // Ensure userId is available
+          userId: 1,
         },
       },
       {
         $group: {
           _id: { year: "$year", month: "$month", date: "$date" },
           totalAmount: { $sum: "$amount" },
-          uniqueUsers: { $addToSet: "$userId" }, // Collect unique userIds for each day
+          uniqueUsers: { $addToSet: "$userId" }, // Collect unique users for each day
+        },
+      },
+      {
+        $group: {
+          _id: null, // Global grouping to collect all unique users
+          dailyStats: {
+            $push: {
+              date: "$_id",
+              totalAmount: "$totalAmount",
+              uniqueUsers: "$uniqueUsers",
+            },
+          },
+          allUniqueUsers: { $addToSet: "$uniqueUsers" }, // Collect all unique users globally
+        },
+      },
+      {
+        $project: {
+          dailyStats: 1,
+          totalUniqueUsers: {
+            $size: { $setUnion: "$allUniqueUsers" }, // Flatten and count unique users
+          },
         },
       },
     ]);
+
+    // Extract dailyStats and total unique users
+    const { dailyStats, totalUniqueUsers } = result[0];
 
     // Prepare an array for the last 30 days
     const allLast30Days = Array.from({ length: 30 }, (_, i) => {
@@ -243,12 +269,11 @@ async function getLast30DaysStats(req, res) {
 
     // Map daily statistics to revenue and user count
     const statsMap = dailyStats.reduce((acc, stat) => {
-      const { year, month, date } = stat._id;
+      const { year, month, date } = stat.date;
       const key = `${year}-${month}-${date}`;
       acc[key] = {
         totalAmount: stat.totalAmount,
         userCount: stat.uniqueUsers.length,
-        year : year
       };
       return acc;
     }, {});
@@ -260,13 +285,9 @@ async function getLast30DaysStats(req, res) {
       userCount: statsMap[day.key]?.userCount || 0, // Default to 0 if no users
     }));
 
-    // Calculate total revenue and total users for the last 30 days
+    // Calculate total revenue for the last 30 days
     const totalLast30DaysRevenue = last30DaysStats.reduce(
       (sum, day) => sum + day.totalAmount,
-      0
-    );
-    const totalLast30DaysUsers = last30DaysStats.reduce(
-      (sum, day) => sum + day.userCount,
       0
     );
 
@@ -274,7 +295,7 @@ async function getLast30DaysStats(req, res) {
     res.status(200).json({
       last30DaysRevenue: last30DaysStats,
       totalLast30DaysRevenue,
-      totalLast30DaysUsers, // Total users for the last 30 days
+      totalLast30DaysUsers: totalUniqueUsers, // Total unique users for the last 30 days
     });
   } catch (error) {
     console.error("Error fetching last 30 days stats:", error.message);
@@ -283,6 +304,7 @@ async function getLast30DaysStats(req, res) {
       .json({ detail: "Internal Server Error", error: error.message });
   }
 }
+
 
 
 

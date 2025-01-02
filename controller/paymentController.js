@@ -89,53 +89,69 @@ const getAllPayment = async (req, res) => {
   try {
     let { page = 1, limit = 10, search = "", startDate, endDate, isrefund } = req.query;
 
-    // Pagination setup
-    page = parseInt(page);
-    limit = parseInt(limit);
+    console.log("startDate:", startDate);
+    console.log("endDate:", endDate);
+
+    // Validate and sanitize pagination inputs
+    page = Math.max(1, parseInt(page) || 1);
+    limit = Math.max(1, parseInt(limit) || 10);
     const skip = (page - 1) * limit;
 
-    // Build filters for searching
-    const filters = [];
+    // Build filters
+    const filters = {};
 
-    // Search filter
+    // Search filter (includes user and action fields)
     if (search) {
-      filters.push({
-        $or: [
-          { "userId.firstName": { $regex: `.*${search}.*`, $options: "i" } },
-          { "userId.lastName": { $regex: `.*${search}.*`, $options: "i" } },
-          { "userId.email": { $regex: `.*${search}.*`, $options: "i" } },
-          { "userId.phone": { $regex: `.*${search}.*`, $options: "i" } },
-          { transactionId: { $regex: `.*${search}.*`, $options: "i" } },
-        ],
-      });
+      const searchRegex = new RegExp(`.*${search}.*`, "i"); // Case-insensitive search
+
+      // Fetch all users to evaluate full name search
+      const searchUsers = await User.find({}).select("_id firstName lastName email phone");
+
+      const searchUserIds = searchUsers
+        .filter(
+          (user) =>
+            `${user.firstName} ${user.lastName}`.match(searchRegex) || // Full name match
+            user.firstName.match(searchRegex) || // First name match
+            user.lastName.match(searchRegex) || // Last name match
+            user.email.match(searchRegex) || // Email match
+            user.phone.match(searchRegex) // Phone match
+        )
+        .map((user) => user._id);
+
+      // Combine user and action filters into the search
+      filters.$or = [
+        { userId: { $in: searchUserIds } }, // Filter by user IDs found
+        { transactionId: searchRegex }, // Filter by transaction ID
+      ];
     }
 
     // Date range filter
     if (startDate || endDate) {
       const dateFilter = {};
       if (startDate) {
+        // Normalize startDate to the start of the day in UTC
         const startOfDay = new Date(startDate);
         startOfDay.setUTCHours(0, 0, 0, 0);
         dateFilter.$gte = startOfDay;
       }
       if (endDate) {
+        // Normalize endDate to the end of the day in UTC
         const endOfDay = new Date(endDate);
         endOfDay.setUTCHours(23, 59, 59, 999);
         dateFilter.$lte = endOfDay;
       }
-      filters.push({ paymentDate: dateFilter });
+
+      console.log("dateFilter:", dateFilter);
+      filters.paymentDate = dateFilter;
     }
 
-    // Filter by isRefunded
-    if (isrefund !== undefined) {
-      filters.push({ isRefunded: isrefund === "true" });
+    // isRefunded filter
+    if (isrefund === "true" || isrefund === "false") {
+      filters.isRefunded = isrefund === "true";
     }
 
-    // Combine filters
-    const query = filters.length > 0 ? { $and: filters } : {};
-
-    // Fetch payments with search, date range, isRefunded filter, and pagination
-    const payments = await Payment.find(query)
+    // Fetch payments with filters and pagination
+    const payments = await Payment.find(filters)
       .skip(skip)
       .limit(limit)
       .populate({
@@ -144,13 +160,12 @@ const getAllPayment = async (req, res) => {
       })
       .sort({ paymentDate: -1 });
 
-    // Count total payments matching the query
-    const totalPayments = await Payment.countDocuments(query);
+    // Count total matching payments
+    const totalPayments = await Payment.countDocuments(filters);
 
-
-
+    // Aggregate total stats
     const totalStats = await Payment.aggregate([
-      { $match: query },
+      { $match: filters },
       {
         $group: {
           _id: null,
@@ -162,10 +177,8 @@ const getAllPayment = async (req, res) => {
       },
     ]);
 
-    const totalPaid = totalStats[0]?.totalPaid || 0;
-    const totalRefunded = totalStats[0]?.totalRefunded || 0;
-
-
+    const totalPaid = totalStats.length > 0 ? totalStats[0].totalPaid : 0;
+    const totalRefunded = totalStats.length > 0 ? totalStats[0].totalRefunded : 0;
 
     // Respond with results
     res.status(200).json({
@@ -186,6 +199,7 @@ const getAllPayment = async (req, res) => {
     });
   }
 };
+
 
 // Get Single Payment by ID
 const getSinglePayment = async (req, res) => {
