@@ -600,7 +600,7 @@ async function updateUser(req, res) {
     const rxvaletUserInfo = {
       CompanyID: "12212",
       Testing: production ? "0" : "1",
-      GroupID: user.planKey === "ACCESS" ? "OPT125" : "OPT800",
+      GroupID: user.planKey === "TRIAL" ? "OPT125" : "OPT800",
       MemberID: user?._id,
       PersonCode: "1",
       CoverageType: "EF",
