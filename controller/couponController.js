@@ -436,7 +436,7 @@ exports.updateCoupon = async (req, res) => {
       if (newStartDateTime.isBefore(currentDateTime, "day")) {
         return res.status(400).json({ error: "Start date cannot be in the past." });
       }
-    } else {
+    } else if(!newStartDateTime.isSame(existingStartDateTime)) {
       return res.status(400).json({ error: "Cannot update a coupon that has already started." });
     }
 
