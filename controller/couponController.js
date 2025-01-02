@@ -426,10 +426,16 @@ exports.updateCoupon = async (req, res) => {
       }
     }
 
+
     const currentDateTime = moment.utc();
     const existingStartDateTime = moment.utc(`${existingCoupon.startDate}T${existingCoupon.startTime}`);
     const newStartDateTime = moment.utc(`${startDate}T${startTime}`);
-    const endDateTime = endDate ? moment.utc(`${endDate}T${endTime}`) : null;
+    const endDateTime = endDate ? moment.utc(`${endDate}T${endTime ? endTime:"23:59:59"}`) : null;
+
+    console.log("Current Date Time:", currentDateTime);
+    console.log("Existing Start Date Time:", existingStartDateTime);
+    console.log("New Start Date Time:", newStartDateTime);
+    console.log("End Date Time:", endDateTime);
 
     // Validate new start date
     if (!existingStartDateTime.isBefore(currentDateTime, "day")) {
