@@ -112,7 +112,7 @@ async function updateDependent(req, res) {
     if (!primaryUserId) {
       return res.status(400).json({ message: "User Id Is Required" });
     }
-    console.log("user info>>>>>",userInfo)
+    // console.log("user info>>>>>",userInfo)
 
     if (!dependentId) {
       return res.status(400).json({ message: "Dependent Id Is Required" });
@@ -127,7 +127,7 @@ async function updateDependent(req, res) {
     if (userInfo?.email) {
       // Check if the email already exists
       const existingUser = await Dependent.findOne({ email: userInfo.email });
-      console.log("find one with email",existingUser)
+      // console.log("find one with email",existingUser)
       if (existingUser && userInfo.isUpdate === false) {
         return res.status(400).json({ message: "Email already exists" });
       }
@@ -445,7 +445,7 @@ async function updateDependent(req, res) {
         if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
           age--;
         }
-       console.log("dependent age>>>>>>",age)
+      //  console.log("dependent age>>>>>>",age)
         // If age is greater than or equal to 18, proceed with the request
         if (age >= 18) {
           const emailResponse = await axios.post(
@@ -458,7 +458,7 @@ async function updateDependent(req, res) {
               phone: userInfo?.phone,
             }
           );
-          console.log("email sending response>>>>>", emailResponse?.data);
+          // console.log("email sending response>>>>>", emailResponse?.data);
         } else {
           console.log("User is under 18. Request not sent.");
         }
