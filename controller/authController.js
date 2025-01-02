@@ -1209,7 +1209,7 @@ async function forgetPassword(req, res) {
 
     const frontendURL =
       process.env.NODE_ENV === "production"
-        ? "https://optimalmd.vercel.app"
+        ? "https://portal.optimalmd.com"
         : "http://localhost:5173";
 
     const resetLink = `${frontendURL}/reset-password?token=${resetToken}`;
