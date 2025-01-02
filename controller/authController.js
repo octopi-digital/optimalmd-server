@@ -39,10 +39,16 @@ async function getAllUser(req, res) {
     let conditions = [];
 
     if (status) {
+      if (!["Active", "Canceled"].includes(status)) {
+        return res.status(400).json({ error: "Invalid status specified." });
+      }
       conditions.push({ status });
     }
 
     if (planKey) {
+      if (!["TRIAL", "ACCESS", "ACCESS PLUS"].includes(planKey)) {
+        return res.status(400).json({ error: "Invalid plan specified." });
+      }
       conditions.push({ planKey });
     }
 
