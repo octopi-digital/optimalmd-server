@@ -31,7 +31,7 @@ cron.schedule("* * * * *", async () => {
       },
       { $set: { status: "Expired" } }
     );
-    
+
     if (expiredCoupons.nModified > 0) {
       console.log(
         `${expiredCoupons.nModified} coupons have been marked as expired.`
@@ -146,14 +146,18 @@ exports.createCoupon = async (req, res) => {
       }
     }
 
-    
+
     if (!startDate) {
       return res.status(400).json({ error: "Start date is required." });
     }
 
-    // Handle and validate startTime and endTime defaults
     const startTimeValue = startTime || "00:00:00"; // Default to midnight if not provided
-    const endTimeValue = endTime || "23:59:59"; // Default to end of the day if not provided
+
+    const endTimeValue = endDate ? (endTime || "23:59:59") : ""; // Default to end of the day if not provided
+
+    // Handle and validate startTime and endTime defaults
+    
+
 
     const startDateTime = moment.utc(`${startDate}T${startTimeValue}`);
     const currentDateTime = moment.utc();
@@ -180,10 +184,17 @@ exports.createCoupon = async (req, res) => {
       couponStatus = "Expired"; // Coupon is expired
     }
 
-    // Validate and handle numberOfRedeem
+    // Parse and validate numberOfRedeem
     let redeemNumber = parseInt(numberOfRedeem, 10);
-    if (isNaN(redeemNumber) || redeemNumber < 0) {
+    if (isNaN(redeemNumber)) {
       redeemNumber = -1; // Unlimited redemptions
+    }
+
+    // Validate redemptions if not unlimited
+    if (redeemNumber !== -1 && redeemNumber < 1) {
+      return res.status(400).json({
+        error: "Number of redemptions must be greater than 0, unless unlimited.",
+      });
     }
 
     // Create and save the coupon
@@ -301,7 +312,6 @@ exports.getAllCoupons = async (req, res) => {
   }
 };
 
-
 // Get a single coupon by ID
 exports.getCouponById = async (req, res) => {
   try {
@@ -321,7 +331,7 @@ exports.getCouponByCode = async (req, res) => {
     const { couponCode, planKey } = code; // Logs the coupon code
     // console.log("Plan Key:", planKey);
 
-    if(planKey===""){
+    if (planKey === "") {
       return res.status(400).json({ message: "Please select a plan, To apply the coupon" });
     }
 
@@ -413,24 +423,31 @@ exports.updateCoupon = async (req, res) => {
       }
     }
 
-    // Validate startDate and startTime only if modified
-    const startTimeValue = startTime || existingCoupon.startTime;
-    const endTimeValue = endTime || existingCoupon.endTime;
-    const startDateTime = moment.utc(`${startDate || existingCoupon.startDate}T${startTimeValue}`);
     const currentDateTime = moment.utc();
-    if (startDateTime.isBefore(currentDateTime, "day")) {
+    const existingStartDateTime = moment.utc(`${existingCoupon.startDate}T${existingCoupon.startTime}`);
+    const newStartDateTime = moment.utc(`${startDate}T${startTime}`);
+    const endDateTime = endDate ? moment.utc(`${endDate}T${endTime}`) : null;
+
+    if (existingStartDateTime < newStartDateTime) {
       return res.status(400).json({ error: "Start date cannot be in the past." });
+    } else if (existingStartDateTime > newStartDateTime) {
+        if (newStartDateTime < currentDateTime) {
+          return res.status(400).json({ error: "Start date cannot be in the past." });
+        }
     }
 
     // Validate endDate and endTime only if modified
-    let endDateTime = endDate ? moment.utc(`${endDate}T${endTimeValue}`) : null;
-    if (endDateTime && endDateTime.isBefore(startDateTime)) {
+    if(endDateTime && endDateTime.isBefore(currentDateTime, "day")) {
+      return res.status(400).json({ error: "End date cannot be in the past." });
+    }
+    if (endDateTime && endDateTime.isBefore(newStartDateTime)) {
       return res.status(400).json({ error: "End date and time must be after the start date and time." });
     }
+   
 
     // Determine coupon status based on dates
     let couponStatus;
-    if (startDateTime.isAfter(currentDateTime)) {
+    if (newStartDateTime.isAfter(currentDateTime)) {
       couponStatus = "Scheduled";
     } else if (!endDateTime || endDateTime.isAfter(currentDateTime)) {
       couponStatus = "Active";
@@ -438,10 +455,17 @@ exports.updateCoupon = async (req, res) => {
       couponStatus = "Expired";
     }
 
-    // Validate and handle numberOfRedeem
+    // Parse and validate numberOfRedeem
     let redeemNumber = parseInt(numberOfRedeem, 10);
-    if (isNaN(redeemNumber) || redeemNumber < 0) {
+    if (isNaN(redeemNumber)) {
       redeemNumber = -1; // Unlimited redemptions
+    }
+
+    // Validate redemptions if not unlimited
+    if (redeemNumber !== -1 && redeemNumber < 1) {
+      return res.status(400).json({
+        error: "Number of redemptions must be greater than 0, unless unlimited.",
+      });
     }
 
     // Update the coupon with the new details
@@ -453,9 +477,9 @@ exports.updateCoupon = async (req, res) => {
         couponType,
         discountOffered,
         startDate: startDate || existingCoupon.startDate,
-        startTime: startTimeValue,
+        startTime: startTime || existingCoupon.startTime,
         endDate: endDate || existingCoupon.endDate,
-        endTime: endTimeValue,
+        endTime: endTime || existingCoupon.endTime,
         numberOfRedeem: redeemNumber,
         selectedPlans,
         useLimit,
