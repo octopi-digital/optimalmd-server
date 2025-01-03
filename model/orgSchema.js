@@ -67,6 +67,7 @@ const orgSchema = new mongoose.Schema({
         type: Number,
         required: true,
       },
+      _id: false,
     },
   ],
   joiningDate: { type: Date, default: Date.now, required: true },
