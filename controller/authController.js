@@ -160,6 +160,7 @@ async function register(req, res) {
     const {
       plan,
       planKey,
+      planId,
       dob,
       cardNumber,
       cvc,
@@ -172,7 +173,7 @@ async function register(req, res) {
       couponCode,
       ...userData
     } = req.body;
-    const userPlan = await Plan.findOne({ planKey });
+    const userPlan = await Plan.findById(planId);
     console.log(userPlan);
     const rawCardNumber = customDecrypt(cardNumber);
     const rawCvc = customDecrypt(cvc);
@@ -189,10 +190,9 @@ async function register(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${
-        production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+      `${production
+        ? "mtmoptim01@mytelemedicine.com"
+        : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -206,7 +206,11 @@ async function register(req, res) {
       addLog(
         "Registration Error",
         null,
-        "Authorization token is missing for getlyric during login attempt."
+        `Authorization token is missing for getlyric during login attempt.
+       Name:  ${userData.firstName + " " + userData.lastName}n\
+       Email: ${userData.email} n\
+       Phone:  ${userData.email}n\
+       Selected plan:  ${userData.plan}n\ `
       );
       return res
         .status(401)
@@ -397,7 +401,13 @@ async function register(req, res) {
       addLog(
         "Registration Error",
         null,
-        "Invalid payment details: Either card or bank account information must be provided."
+        ` Invalid payment details: Either card or bank account information must be provided.n\
+       Name:  ${userData.firstName + " " + userData.lastName}n\
+       Email: ${userData.email} n\
+       Phone:  ${userData.email}n\
+       Selected plan:  ${userData.plan}n\
+        
+       `
       );
       return res.status(400).json({
         success: false,
@@ -438,6 +448,7 @@ async function register(req, res) {
       password: hashedPassword,
       planKey,
       plan,
+      planId,
       planStartDate,
       planEndDate,
       cardNumber: cardNumber,
@@ -548,10 +559,9 @@ async function updateUser(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${
-        production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+      `${production
+        ? "mtmoptim01@mytelemedicine.com"
+        : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -783,10 +793,10 @@ async function updateUser(req, res) {
 // update plan
 async function updateUserPlan(req, res) {
   try {
-    const { userId, plan, planKey } = req.body;
-    const selectedPlan = await Plan.findOne({ planKey });
+    const { userId, plan, planKey, planId } = req.body;
+    const selectedPlan = await Plan.findById(planId);
 
-    if (!userId || !plan || !planKey) {
+    if (!userId || !plan || !planKey || !planId) {
       return res.status(400).json({ error: "User ID and plan are required" });
     }
 
@@ -965,10 +975,9 @@ async function updateUserPlan(req, res) {
     const loginData = new FormData();
     loginData.append(
       "email",
-      `${
-        production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+      `${production
+        ? "mtmoptim01@mytelemedicine.com"
+        : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     loginData.append(
@@ -1648,10 +1657,9 @@ async function updateUserStatus(req, res) {
       const cenSusloginData = new FormData();
       cenSusloginData.append(
         "email",
-        `${
-          production
-            ? "mtmoptim01@mytelemedicine.com"
-            : "mtmstgopt01@mytelemedicine.com"
+        `${production
+          ? "mtmoptim01@mytelemedicine.com"
+          : "mtmstgopt01@mytelemedicine.com"
         }`
       );
       cenSusloginData.append(
@@ -1880,17 +1888,14 @@ async function updateUserStatus(req, res) {
         addLog(
           "User Update Error",
           currentUserId,
-          `Failed update status to "${
-            status === "Active" ? "reactivate" : "terminate"
-          }" user on GetLyric API for user: ${user?.firstName} ${
-            user?.lastName
+          `Failed update status to "${status === "Active" ? "reactivate" : "terminate"
+          }" user on GetLyric API for user: ${user?.firstName} ${user?.lastName
           }.`
         );
         console.error("GetLyric API Error:", err);
         return res.status(500).json({
-          message: `Failed to ${
-            status === "Active" ? "reactivate" : "terminate"
-          } user on GetLyric API.`,
+          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
+            } user on GetLyric API.`,
           error: err,
         });
       }
@@ -1914,17 +1919,14 @@ async function updateUserStatus(req, res) {
         addLog(
           "User Update Error",
           currentUserId,
-          `Failed update status to "${
-            status === "Active" ? "reactivate" : "terminate"
-          }" user on RxValet API for user: ${user?.firstName} ${
-            user?.lastName
+          `Failed update status to "${status === "Active" ? "reactivate" : "terminate"
+          }" user on RxValet API for user: ${user?.firstName} ${user?.lastName
           }.`
         );
         console.error("RxValet API Error:", err.message);
         return res.status(500).json({
-          message: `Failed to ${
-            status === "Active" ? "reactivate" : "terminate"
-          } user on RxValet API.`,
+          message: `Failed to ${status === "Active" ? "reactivate" : "terminate"
+            } user on RxValet API.`,
           error: err.message,
         });
       }
