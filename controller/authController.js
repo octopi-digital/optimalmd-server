@@ -1407,7 +1407,6 @@ async function resetPassword(req, res) {
 async function updateUserStatus(req, res) {
   const { id } = req.params;
   const { status, currentUserId } = req.body;
-
   console.log("status: ", status);
   console.log("currentUserId: ", currentUserId);
 
@@ -1427,9 +1426,12 @@ async function updateUserStatus(req, res) {
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
-    const userPlan = await Plan.findOne({ planKey: user.planKey });
-    const plus = await Plan.findOne({ planKey: "ACCESS PLUS" });
-
+    const userPlan = await Plan.findById(user.planId);
+    console.log(userPlan)
+    const plus = await Plan.findOne({ 
+      planKey: "ACCESS PLUS", 
+      planType: userPlan.planType 
+    });
     const formattedDob = moment(user.dob).format("MM/DD/YYYY");
     // payment method method condition
     let paymentMethod;
@@ -1469,13 +1471,10 @@ async function updateUserStatus(req, res) {
       user.status = status;
       await user.save();
 
-      // Populate dependents and paymentHistory
-      await user.save();
-
       // sending email
       if (status === "Active") {
         try {
-          let amount = plus.price;
+          let amount = userPlan.planType === "Individual" ? plus.price : userPlan.price;
 
           console.log("Before amount: ", amount);
           let couponCode = "";
@@ -1496,7 +1495,7 @@ async function updateUserStatus(req, res) {
               if (
                 coupon.status === "Active" &&
                 (!coupon.selectedPlans.length ||
-                  coupon.selectedPlans.includes(plus.planKey)) &&
+                  coupon.selectedPlans.includes(userPlan.planType === "Individual" ? plus.planKey : userPlan.planKey)) &&
                 (coupon.numberOfRedeem === -1 ||
                   coupon.redemptionCount < coupon.numberOfRedeem) &&
                 coupon.recurringOrFuturePayments
@@ -1560,10 +1559,10 @@ async function updateUserStatus(req, res) {
           const payment = new Payment({
             userId: user._id,
             amount: amount,
-            plan: plus.name,
-            planKey: plus.planKey,
+            plan: userPlan.planType === "Individual" ?  plus.name : userPlan.name,
+            planKey: userPlan.planType === "Individual" ? plus.planKey : userPlan.planKey,
             transactionId: paymentResponse?.data?.transactionResponse?.transId,
-            paymentReason: "Account Activated And using Access Plus Plan",
+            paymentReason: `Account Activated And using ${userPlan.planType === "Individual" ?  plus.name : userPlan.name} Plan`,
           });
           await payment.save();
 
@@ -1696,7 +1695,7 @@ async function updateUserStatus(req, res) {
         getLyricUrl = `${lyricURL}/census/updateEffectiveDate`;
         // Process Payment
         let amount =
-          userPlan.planKey === "TRIAL" || plus.planKey
+          userPlan.planType === "Individual"
             ? plus.price
             : userPlan.price;
         console.log("Before amount: ", amount);
@@ -1719,7 +1718,7 @@ async function updateUserStatus(req, res) {
               coupon.status === "Active" &&
               (!coupon.selectedPlans.length ||
                 coupon.selectedPlans.includes(
-                  userPlan.planKey === "TRIAL" || plus.planKey
+                  userPlan.planType === "Individual"
                     ? plus.planKey
                     : userPlan.planKey
                 )) &&
@@ -1801,16 +1800,10 @@ async function updateUserStatus(req, res) {
           const payment = new Payment({
             userId: user._id,
             amount: amount,
-            plan:
-              userPlan.planKey === "TRIAL" || plus.planKey
-                ? plus.name
-                : userPlan.name,
-            planKey:
-              userPlan.planKey === "TRIAL" || plus.planKey
-                ? plus.planKey
-                : userPlan.planKey,
+            plan: userPlan.planType === "Individual" ?  plus.name : userPlan.name,
+            planKey: userPlan.planType === "Individual" ?  plus.planKey : userPlan.planKey,
             transactionId: result.transactionResponse.transId,
-            paymentReason: "Account Activated And using Access Plus Plan",
+            paymentReason: `Account Activated And using ${userPlan.planType === "Individual" ?  plus.name : userPlan.name} Plan,`
           });
           await payment.save();
 
@@ -1846,14 +1839,8 @@ async function updateUserStatus(req, res) {
           // Add payment to user's payment history
           user.paymentHistory.push(payment._id);
           // user.plan = userPlan.planKey === "TRIAL" ? plus.name : userPlan.name;
-          user.plan =
-            userPlan.planKey === "TRIAL" || plus.planKey
-              ? plus.name
-              : userPlan.name;
-          user.planKey =
-            userPlan.planKey === "TRIAL" || plus.planKey
-              ? plus.planKey
-              : userPlan.planKey;
+          user.plan = userPlan.planType === "Individual" ?  plus.name : userPlan.name
+          user.planKey = userPlan.planType === "Individual" ?  plus.planKey : userPlan.planKey
           await user.save();
 
           addLog(

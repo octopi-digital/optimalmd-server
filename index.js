@@ -85,10 +85,9 @@ cron.schedule("0 0 * * *", async () => {
     const cenSusloginData = new FormData();
     cenSusloginData.append(
       "email",
-      `${
-        production
-          ? "mtmoptim01@mytelemedicine.com"
-          : "mtmstgopt01@mytelemedicine.com"
+      `${production
+        ? "mtmoptim01@mytelemedicine.com"
+        : "mtmstgopt01@mytelemedicine.com"
       }`
     );
     cenSusloginData.append(
@@ -111,7 +110,7 @@ cron.schedule("0 0 * * *", async () => {
         "days"
       );
       const userPlan = await Plan.findOne({ planKey: user.planKey });
-      const plus = await Plan.findOne({ planKey: "ACCESS PLUS" });
+      const plus = await Plan.findOne({ planKey: "ACCESS PLUS", planType: user.planType });
       const plan =
         userPlan.planKey === "TRIAL" || plus.planKey
           ? plus.name
@@ -131,15 +130,14 @@ cron.schedule("0 0 * * *", async () => {
             {
               firstName: user.firstName,
               email: user.email,
-              message: `Your plan will expire in ${daysRemaining} day${
-                daysRemaining > 1 ? "s" : ""
-              }. We will automatically update your plan. If you don't want to update your plan, you can simply deactivate your account.`,
+              message: `Your plan will expire in ${daysRemaining} day${daysRemaining > 1 ? "s" : ""
+                }. We will automatically update your plan. If you don't want to update your plan, you can simply deactivate your account.`,
             }
           );
           console.log(`Follow-up email sent to ${user.email} for ${daysRemaining} day(s) remaining.`);
           addLog("Cron Info", user?._id, `Follow-up email sent to ${user?.email} for ${daysRemaining} day(s) remaining.`);
         } catch (err) {
-          addLog("Cron Error", user?._id,`Error sending follow-up email to ${user?.email}`);
+          addLog("Cron Error", user?._id, `Error sending follow-up email to ${user?.email}`);
           console.error(`Error sending follow-up email to ${user.email}:`, err);
         }
       }
@@ -199,7 +197,7 @@ cron.schedule("0 0 * * *", async () => {
               // Apply the discount to the amount
               amount -= discount;
 
-              if(amount < 0) {
+              if (amount < 0) {
                 amount = 0;
               }
               couponCode = coupon.couponCode;
@@ -334,7 +332,7 @@ cron.schedule("0 0 * * *", async () => {
             : userPlan.planKey;
         await user.save();
 
-        
+
 
         const formattedDob = moment(user.dob).format("MM/DD/YYYY");
 
