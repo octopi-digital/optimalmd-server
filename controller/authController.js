@@ -1089,6 +1089,7 @@ async function updateUserPlan(req, res) {
         $set: {
           plan,
           planKey,
+          planId,
           planStartDate,
           planEndDate,
         },
