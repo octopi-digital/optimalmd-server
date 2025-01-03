@@ -92,6 +92,10 @@ const userSchema = new mongoose.Schema(
     // getlyric user id
     lyricsUserId: { type: String, default: "" },
     ssoAccessToken: { type: String, default: "" },
+
+    // old user id
+    oldUniqueId: { type: String, default: "" },
+    oldUniqueId2: { type: String, default: "" },
   },
 
   { timestamps: true }

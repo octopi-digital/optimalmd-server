@@ -4,6 +4,7 @@ const app = express();
 const mongoose = require("mongoose");
 const cron = require("node-cron");
 const moment = require("moment");
+const bcrypt = require("bcryptjs");
 const axios = require("axios");
 const fs = require('fs');
 const https = require('https');
@@ -57,7 +58,7 @@ const salesPartnerRoutes = require("./router/salesPartnerRoutes");
 
 app.use((req, res, next) => {
   if (req.hostname === "portal.optimalmd.com") {
-    express.static(path.join(__dirname, "dist"))(req, res, next);
+    express.static(path.join(__dirname, "../optimalmd/dist"))(req, res, next);
   } else {
     next();
   }
@@ -161,7 +162,7 @@ cron.schedule("0 0 * * *", async () => {
           addLog("Error", user?._id, `Error sending follow-up email to ${user.email}`);
           console.error(`Error sending follow-up email to ${user.email}:`, err);
         }
-        return;
+        continue;
       }
       const cenSusloginResponse = await axios.post(
         `${lyricURL}/login`,
@@ -503,10 +504,35 @@ cron.schedule("0 0 * * *", async () => {
   }
 });
 
+app.post("/create-user", async (req, res) => {
+  try {
+    // Dynamically create a new user object with fields provided in the request body
+    const {password, ...userData} = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10)
+    // Create a new user instance
+    const newUser = new User({password: hashedPassword,...userData});
+
+    // Save the user to the database
+    const savedUser = await newUser.save();
+
+    res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      user: savedUser,
+    });
+  } catch (error) {
+    console.error("Error creating user:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create user",
+      error: error.message,
+    });
+  }
+});
 
 app.get("*", (req, res) => {
   if (req.hostname === "portal.optimalmd.com") {
-    res.sendFile(path.join(__dirname, "dist", "index.html"));
+    res.sendFile(path.join(__dirname, "../optimalmd/dist", "index.html"));
   } else {
     res.status(404).send("Not Found");
   }

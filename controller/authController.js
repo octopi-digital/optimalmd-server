@@ -584,7 +584,7 @@ async function updateUser(req, res) {
 
     // Prepare `createMember` API payload
     const createMemberData = new FormData();
-    createMemberData.append("primaryExternalId", user?._id);
+    createMemberData.append("primaryExternalId", user?.oldUniqueId ? user?.oldUniqueId : user?._id);
     createMemberData.append(
       "groupCode",
       `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
@@ -618,7 +618,7 @@ async function updateUser(req, res) {
       CompanyID: "12212",
       Testing: production ? "0" : "1",
       GroupID: user.planKey === "TRIAL" ? "OPT125" : "OPT800",
-      MemberID: user?._id,
+      MemberID: user?.oldUniqueId2 ? user?.oldUniqueId2 : user?._id,
       PersonCode: "1",
       CoverageType: "EF",
       StartDate: user.planStartDate,
@@ -1026,7 +1026,7 @@ async function updateUserPlan(req, res) {
 
     // Prepare `updateMember` API payload
     const updateMemberData = new FormData();
-    updateMemberData.append("primaryExternalId", user?._id);
+    updateMemberData.append("primaryExternalId", user?.oldUniqueId ? user?.oldUniqueId : user?._id);
     updateMemberData.append(
       "groupCode",
       `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
@@ -1862,7 +1862,7 @@ async function updateUserStatus(req, res) {
       // Update GetLyric API
       try {
         const getLyricFormData = new FormData();
-        getLyricFormData.append("primaryExternalId", user._id);
+        getLyricFormData.append("primaryExternalId", user?.oldUniqueId ? user?.oldUniqueId : user?._id);
         getLyricFormData.append(
           "groupCode",
           `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
@@ -1934,7 +1934,7 @@ async function updateUserStatus(req, res) {
       if (status === "Active") {
         // update getlyric to plus plan
         const updateMemberData = new FormData();
-        updateMemberData.append("primaryExternalId", user?._id);
+        updateMemberData.append("primaryExternalId", user?.oldUniqueId ? user?.oldUniqueId : user?._id);
         updateMemberData.append(
           "groupCode",
           `${production ? "MTMOPTIM01" : "MTMSTGOPT01"}`
