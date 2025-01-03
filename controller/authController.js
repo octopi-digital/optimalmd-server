@@ -1333,10 +1333,7 @@ async function forgetPassword(req, res) {
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
     await user.save();
 
-    const frontendURL =
-      process.env.NODE_ENV === "production"
-        ? "https://portal.optimalmd.com"
-        : "http://localhost:5173";
+    const frontendURL = "https://portal.optimalmd.com";
 
     const resetLink = `${frontendURL}/reset-password?token=${resetToken}`;
     await axios.post(
