@@ -161,6 +161,7 @@ cron.schedule("0 0 * * *", async () => {
           addLog("Error", user?._id, `Error sending follow-up email to ${user.email}`);
           console.error(`Error sending follow-up email to ${user.email}:`, err);
         }
+        return;
       }
       const cenSusloginResponse = await axios.post(
         `${lyricURL}/login`,
