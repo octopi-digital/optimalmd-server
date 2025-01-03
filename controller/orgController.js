@@ -99,6 +99,24 @@ const createOrg = async (req, res) => {
       }
     }
 
+    // Validate salesPartners field if provided
+    if (data.salesPartners && Array.isArray(data.salesPartners)) {
+      for (const partner of data.salesPartners) {
+        if (!partner.partnerId || !partner.rate) {
+          return res.status(400).json({
+            error: "Each sales partner must have a partnerId and rate.",
+          });
+        }
+
+        // Ensure partnerId is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(partner.partnerId)) {
+          return res.status(400).json({
+            error: `Invalid partnerId: ${partner.partnerId}`,
+          });
+        }
+      }
+    }
+
     // Create and save the organization
     const newOrg = new Org(data);
     const savedOrg = await newOrg.save();

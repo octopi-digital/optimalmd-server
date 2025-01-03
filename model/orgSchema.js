@@ -56,6 +56,19 @@ const orgSchema = new mongoose.Schema({
     ref: "User",
     default: [],
   },
+  salesPartners: [
+    {
+      partnerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "SalesPartner",
+        required: true, 
+      },
+      rate: {
+        type: Number,
+        required: true,
+      },
+    },
+  ],
   joiningDate: { type: Date, default: Date.now, required: true },
 });
 
